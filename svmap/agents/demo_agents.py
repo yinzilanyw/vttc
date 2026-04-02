@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, Dict, List, Optional
 
@@ -8,14 +9,28 @@ from svmap.models import TaskNode
 from .base import BaseAgent
 
 
-def _normalize_name(name: str) -> str:
-    return " ".join(name.strip().lower().split())
+def _load_openai_client(api_key: str, base_url: str) -> Any:
+    try:
+        from openai import OpenAI  # type: ignore
+    except ImportError as exc:  # pragma: no cover
+        raise RuntimeError(
+            "openai package is not installed. Install it with: pip install openai"
+        ) from exc
+    return OpenAI(api_key=api_key, base_url=base_url)
 
 
 def _safe_str(value: Any) -> str:
     if value is None:
         return ""
     return str(value).strip()
+
+
+def _flatten_dependency_text(dependency_outputs: Dict[str, Dict[str, Any]]) -> str:
+    chunks: List[str] = []
+    for dep_id, dep_output in dependency_outputs.items():
+        if isinstance(dep_output, dict):
+            chunks.append(f"{dep_id}={dep_output}")
+    return " | ".join(chunks)
 
 
 def _find_value_from_dependency_outputs(
@@ -30,14 +45,6 @@ def _find_value_from_dependency_outputs(
             if value is not None and (not isinstance(value, str) or value.strip()):
                 return value
     return None
-
-
-def _flatten_dependency_text(dependency_outputs: Dict[str, Dict[str, Any]]) -> str:
-    chunks: List[str] = []
-    for dep_id, dep_output in dependency_outputs.items():
-        if isinstance(dep_output, dict):
-            chunks.append(f"{dep_id}={dep_output}")
-    return " | ".join(chunks)
 
 
 def _ensure_required_fields(node: TaskNode, output: Dict[str, Any]) -> Dict[str, Any]:
@@ -70,8 +77,16 @@ def _parse_simple_expression(text: str) -> Optional[str]:
 
 
 class RetrieveAgent(BaseAgent):
-    def __init__(self, knowledge_base: Optional[Dict[str, Dict[str, str]]] = None) -> None:
-        self.knowledge_base = knowledge_base or {}
+    def __init__(
+        self,
+        use_model_api: bool = True,
+        api_key: str = "",
+        base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        model: str = "qwen-flash",
+    ) -> None:
+        self.use_model_api = use_model_api and bool(api_key.strip())
+        self.model = model
+        self.client = _load_openai_client(api_key=api_key, base_url=base_url) if self.use_model_api else None
 
     def supported_task_types(self) -> List[str]:
         return ["tool_call", "retrieval", "reasoning", "extraction", "summarization", "comparison"]
@@ -79,40 +94,107 @@ class RetrieveAgent(BaseAgent):
     def supported_output_modes(self) -> List[str]:
         return ["text", "json", "table"]
 
+    def _extract_json_from_text(self, text: str) -> Dict[str, Any]:
+        text = text.strip()
+        if not text:
+            return {}
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+
+        left = text.find("{")
+        right = text.rfind("}")
+        if left >= 0 and right > left:
+            snippet = text[left : right + 1]
+            try:
+                parsed = json.loads(snippet)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                return {}
+        return {}
+
+    def _extract_chat_text(self, response: Any) -> str:
+        choices = getattr(response, "choices", None)
+        if not isinstance(choices, list) or not choices:
+            return ""
+        message = getattr(choices[0], "message", None)
+        content = getattr(message, "content", None)
+        if isinstance(content, str):
+            return content.strip()
+        if isinstance(content, list):
+            chunks: List[str] = []
+            for part in content:
+                if isinstance(part, dict):
+                    text = part.get("text")
+                else:
+                    text = getattr(part, "text", None)
+                if isinstance(text, str):
+                    chunks.append(text)
+            return "\n".join(chunks).strip()
+        return ""
+
+    def _retrieve_with_bailian(
+        self,
+        query: str,
+        dependency_outputs: Dict[str, Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        if self.client is None:
+            raise RuntimeError("RetrieveAgent requires Bailian online mode (USE_MODEL_API=1 with DASHSCOPE_API_KEY).")
+
+        dep_text = _flatten_dependency_text(dependency_outputs)
+        prompt = (
+            "Read the user query and optional upstream evidence. "
+            "Return JSON object with keys: evidence, source, founder, company, ceo, summary. "
+            "If unknown, use empty string.\n"
+            f"query={query}\n"
+            f"upstream={dep_text}\n"
+        )
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a retrieval assistant. Return only JSON object, no markdown.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+        )
+        text = self._extract_chat_text(response)
+        parsed = self._extract_json_from_text(text)
+        if not parsed:
+            parsed = {"evidence": text, "source": "bailian_direct"}
+        return parsed
+
     def run(self, node: TaskNode, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         query = _safe_str(inputs.get("node_inputs", {}).get("query"))
         if not query:
             query = _safe_str(inputs.get("global_context", {}).get("query"))
+        dependency_outputs = inputs.get("dependency_outputs", {})
 
-        founder = "unknown"
-        match = re.search(r"founded by\s+([A-Za-z .'-]+)\??", query, re.IGNORECASE)
-        if match:
-            founder = match.group(1).strip()
-        elif inputs.get("node_inputs", {}).get("founder_hint"):
-            founder = _safe_str(inputs["node_inputs"]["founder_hint"])
-
-        facts = self.knowledge_base.get(_normalize_name(founder), {})
+        retrieved = self._retrieve_with_bailian(
+            query=query,
+            dependency_outputs=dependency_outputs,
+        )
         output = {
             "query": query,
-            "evidence": f"query={query}; founder={founder}; facts={facts}",
-            "source": "knowledge_base" if facts else "query_text",
+            "evidence": _safe_str(retrieved.get("evidence")) or query,
+            "source": _safe_str(retrieved.get("source")) or "bailian_direct",
         }
-        if founder != "unknown":
-            output["founder"] = founder
-        if facts.get("company"):
-            output["company"] = facts["company"]
-        if facts.get("ceo"):
-            output["ceo"] = facts["ceo"]
+        for key in ("founder", "company", "ceo", "summary"):
+            value = retrieved.get(key)
+            if isinstance(value, str) and value.strip():
+                output[key] = value.strip()
         return _ensure_required_fields(node=node, output=output)
 
     def estimate_success(self, node: TaskNode) -> float:
-        return 0.92
+        return 0.95 if self.use_model_api else 0.0
 
 
 class ExtractAgent(BaseAgent):
-    def __init__(self, knowledge_base: Optional[Dict[str, Dict[str, str]]] = None) -> None:
-        self.knowledge_base = knowledge_base or {}
-
     def supported_task_types(self) -> List[str]:
         return ["extraction", "reasoning", "tool_call"]
 
@@ -126,18 +208,15 @@ class ExtractAgent(BaseAgent):
         )
         combined = f"{query} {_flatten_dependency_text(dependency_outputs)}"
 
-        founder = _find_value_from_dependency_outputs(dependency_outputs, ["founder", "person", "subject"])
-        if founder is None:
-            m = re.search(r"founded by\s+([A-Za-z .'-]+)\??", combined, re.IGNORECASE)
-            founder = m.group(1).strip() if m else None
-        founder = _safe_str(founder)
+        founder = _safe_str(
+            _find_value_from_dependency_outputs(dependency_outputs, ["founder", "person", "subject"])
+        )
+        company = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["company", "organization"]))
+        ceo = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["ceo", "answer"]))
 
-        company = _find_value_from_dependency_outputs(dependency_outputs, ["company", "organization"])
-        ceo = _find_value_from_dependency_outputs(dependency_outputs, ["ceo", "answer"])
-        if founder:
-            facts = self.knowledge_base.get(_normalize_name(founder), {})
-            company = company or facts.get("company")
-            ceo = ceo or facts.get("ceo")
+        if not founder:
+            m = re.search(r"founded by\s+([A-Za-z .'-]+)\??", combined, re.IGNORECASE)
+            founder = m.group(1).strip() if m else ""
 
         extracted: Dict[str, Any] = {}
         if founder:
@@ -149,7 +228,7 @@ class ExtractAgent(BaseAgent):
 
         output = {
             "extracted": extracted,
-            "source": "pattern_extractor",
+            "source": "extract_from_retrieval",
             "evidence": combined[:280],
         }
         output.update(extracted)
@@ -260,9 +339,6 @@ class CalculateAgent(BaseAgent):
 
 
 class SynthesizeAgent(BaseAgent):
-    def __init__(self, knowledge_base: Optional[Dict[str, Dict[str, str]]] = None) -> None:
-        self.knowledge_base = knowledge_base or {}
-
     def supported_task_types(self) -> List[str]:
         return ["final_response", "synthesis", "aggregation", "reasoning"]
 
@@ -271,13 +347,12 @@ class SynthesizeAgent(BaseAgent):
 
     def run(self, node: TaskNode, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         dependency_outputs = inputs.get("dependency_outputs", {})
-        query = _safe_str(inputs.get("global_context", {}).get("query"))
 
         answer = ""
         for dep_output in dependency_outputs.values():
             if not isinstance(dep_output, dict):
                 continue
-            for key in ("answer", "summary", "comparison", "result", "ceo", "company"):
+            for key in ("answer", "summary", "comparison", "result", "ceo", "company", "evidence"):
                 value = dep_output.get(key)
                 if isinstance(value, str) and value.strip():
                     answer = value.strip()
@@ -287,14 +362,6 @@ class SynthesizeAgent(BaseAgent):
                     break
             if answer:
                 break
-
-        if not answer and query:
-            founder_match = re.search(r"founded by\s+([A-Za-z .'-]+)\??", query, re.IGNORECASE)
-            if founder_match:
-                founder = _normalize_name(founder_match.group(1))
-                facts = self.knowledge_base.get(founder, {})
-                if facts.get("ceo"):
-                    answer = facts["ceo"]
 
         if not answer:
             answer = "Unable to derive a confident answer from current evidence."
@@ -323,12 +390,10 @@ class CompanyAgent(ExtractAgent):
             _find_value_from_dependency_outputs(inputs.get("dependency_outputs", {}), ["founder"])
         )
         company = _safe_str(base.get("company"))
-        if founder and not company:
-            company = self.knowledge_base.get(_normalize_name(founder), {}).get("company", "")
         output = {
             "founder": founder or "unknown",
             "company": company or "unknown",
-            "source": "kb_lookup",
+            "source": "extract_from_retrieval",
         }
         return _ensure_required_fields(node=node, output=output)
 
@@ -336,27 +401,23 @@ class CompanyAgent(ExtractAgent):
 class CEOAgent(ExtractAgent):
     def run(self, node: TaskNode, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         base = super().run(node=node, inputs=inputs, context=context)
-        founder = _safe_str(base.get("founder"))
         company = _safe_str(base.get("company")) or _safe_str(
             _find_value_from_dependency_outputs(inputs.get("dependency_outputs", {}), ["company"])
         )
-        ceo = _safe_str(base.get("ceo"))
-        if founder and not ceo:
-            ceo = self.knowledge_base.get(_normalize_name(founder), {}).get("ceo", "")
+        ceo = _safe_str(base.get("ceo")) or "unknown"
         retry_feedback: List[str] = context.get("retry_feedback", [])
         required_fix = any("missing_required_key:ceo" in x or "schema_missing_required" in x for x in retry_feedback)
         if context.get("attempt", 1) == 1 and not required_fix:
-            output = {"chief_executive": ceo or "unknown", "company": company, "source": "kb_lookup_v1"}
+            output = {"chief_executive": ceo, "company": company, "source": "extract_from_retrieval_v1"}
         else:
-            output = {"ceo": ceo or "unknown", "company": company, "source": "kb_lookup_v2"}
+            output = {"ceo": ceo, "company": company, "source": "extract_from_retrieval_v2"}
         return _ensure_required_fields(node=node, output=output)
 
 
 class FallbackCEOAgent(CEOAgent):
     def run(self, node: TaskNode, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         dependency_outputs = inputs.get("dependency_outputs", {})
-        founder = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["founder"])) or "unknown"
         company = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["company"]))
-        ceo = self.knowledge_base.get(_normalize_name(founder), {}).get("ceo", "unknown")
-        output = {"ceo": ceo, "company": company, "source": "fallback_kb_lookup"}
+        ceo = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["ceo", "chief_executive"]))
+        output = {"ceo": ceo or "unknown", "company": company, "source": "fallback_extract_from_retrieval"}
         return _ensure_required_fields(node=node, output=output)

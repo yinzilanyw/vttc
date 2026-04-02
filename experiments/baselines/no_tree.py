@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import re
 import sys
 import time
 from pathlib import Path
@@ -12,7 +11,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from svmap.demos.run_demo import build_default_knowledge_base, load_env_file
+from svmap.demos.run_demo import load_env_file
 
 
 def _env_flag(name: str, default: bool = False) -> bool:
@@ -81,24 +80,6 @@ def _answer_with_bailian(query: str) -> Optional[str]:
     return answer or None
 
 
-def _answer_with_offline_kb(query: str) -> str:
-    kb = build_default_knowledge_base()
-    founder_match = re.search(r"founded by\s+([A-Za-z .'-]+)\??", query, re.IGNORECASE)
-    if founder_match:
-        founder = " ".join(founder_match.group(1).strip().lower().split())
-        facts = kb.get(founder, {})
-        ceo = facts.get("ceo")
-        return ceo or "Unknown"
-
-    company_match = re.search(r"ceo of\s+([A-Za-z0-9 .'-]+)\??", query, re.IGNORECASE)
-    if company_match:
-        company = " ".join(company_match.group(1).strip().lower().split())
-        for facts in kb.values():
-            if facts.get("company", "").lower() == company:
-                return facts.get("ceo", "Unknown")
-    return "Unknown"
-
-
 def run_no_tree_baseline(query: str) -> dict:
     load_env_file(".env")
     start_ts = time.time()
@@ -106,8 +87,8 @@ def run_no_tree_baseline(query: str) -> dict:
     answer = _answer_with_bailian(query)
     backend = "bailian_direct"
     if answer is None:
-        answer = _answer_with_offline_kb(query)
-        backend = "offline_kb"
+        answer = "Unknown"
+        backend = "bailian_unavailable"
 
     success = bool(answer and answer.strip() and answer.strip().lower() != "unknown")
     elapsed_sec = time.time() - start_ts

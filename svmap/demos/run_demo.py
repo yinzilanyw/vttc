@@ -84,26 +84,6 @@ def build_demo_queries() -> Dict[str, str]:
     }
 
 
-def build_default_knowledge_base() -> Dict[str, Dict[str, str]]:
-    return {
-        "elon musk": {
-            "company": "SpaceX",
-            "ceo": "Elon Musk",
-            "summary": "Elon Musk founded SpaceX and also serves as CEO.",
-        },
-        "sam altman": {
-            "company": "OpenAI",
-            "ceo": "Sam Altman",
-            "summary": "Sam Altman is the CEO of OpenAI.",
-        },
-        "mark zuckerberg": {
-            "company": "Meta",
-            "ceo": "Mark Zuckerberg",
-            "summary": "Mark Zuckerberg is founder and CEO of Meta.",
-        },
-    }
-
-
 def build_online_components_from_env() -> Dict[str, Any]:
     use_online = _env_flag("USE_MODEL_API", default=True)
     if not use_online:
@@ -130,11 +110,33 @@ def build_online_components_from_env() -> Dict[str, Any]:
     }
 
 
-def build_multitask_registry(kb: Dict[str, Dict[str, str]]) -> AgentRegistry:
+def _build_retrieve_agent_kwargs_from_env() -> Dict[str, Any]:
+    use_model_api = _env_flag("USE_MODEL_API", default=True)
+    api_key = os.getenv("DASHSCOPE_API_KEY", "")
+    base_url = os.getenv(
+        "DASHSCOPE_BASE_URL",
+        "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    )
+    model = (
+        os.getenv("RETRIEVE_MODEL")
+        or os.getenv("BAILIAN_RETRIEVE_MODEL")
+        or os.getenv("JUDGE_MODEL")
+        or "qwen-flash"
+    )
+    return {
+        "use_model_api": use_model_api,
+        "api_key": api_key,
+        "base_url": base_url,
+        "model": model,
+    }
+
+
+def build_multitask_registry() -> AgentRegistry:
+    retrieve_kwargs = _build_retrieve_agent_kwargs_from_env()
     registry = AgentRegistry()
     registry.register(
         "retrieve_agent",
-        RetrieveAgent(kb),
+        RetrieveAgent(**retrieve_kwargs),
         AgentSpec(
             name="retrieve_agent",
             capabilities=["retrieve", "reason"],
@@ -149,7 +151,7 @@ def build_multitask_registry(kb: Dict[str, Dict[str, str]]) -> AgentRegistry:
     )
     registry.register(
         "extract_agent",
-        ExtractAgent(kb),
+        ExtractAgent(),
         AgentSpec(
             name="extract_agent",
             capabilities=["extract", "reason"],
@@ -209,7 +211,7 @@ def build_multitask_registry(kb: Dict[str, Dict[str, str]]) -> AgentRegistry:
     )
     registry.register(
         "synthesize_agent",
-        SynthesizeAgent(kb),
+        SynthesizeAgent(),
         AgentSpec(
             name="synthesize_agent",
             capabilities=["synthesize", "reason"],
@@ -224,7 +226,7 @@ def build_multitask_registry(kb: Dict[str, Dict[str, str]]) -> AgentRegistry:
     )
     registry.register(
         "reason_agent",
-        SynthesizeAgent(kb),
+        SynthesizeAgent(),
         AgentSpec(
             name="reason_agent",
             capabilities=["reason", "synthesize", "extract", "summarize"],
@@ -239,7 +241,7 @@ def build_multitask_registry(kb: Dict[str, Dict[str, str]]) -> AgentRegistry:
     )
     registry.register(
         "verify_agent",
-        SynthesizeAgent(kb),
+        SynthesizeAgent(),
         AgentSpec(
             name="verify_agent",
             capabilities=["verify", "reason", "synthesize"],
@@ -259,7 +261,7 @@ def build_multitask_registry(kb: Dict[str, Dict[str, str]]) -> AgentRegistry:
     base_synthesize = registry.get_spec("synthesize_agent")
     registry.register(
         "search_agent",
-        RetrieveAgent(kb),
+        RetrieveAgent(**retrieve_kwargs),
         AgentSpec(
             name="search_agent",
             capabilities=list(base_retrieve.capabilities),
@@ -275,7 +277,7 @@ def build_multitask_registry(kb: Dict[str, Dict[str, str]]) -> AgentRegistry:
     )
     registry.register(
         "company_agent",
-        ExtractAgent(kb),
+        ExtractAgent(),
         AgentSpec(
             name="company_agent",
             capabilities=list(base_extract.capabilities),
@@ -291,7 +293,7 @@ def build_multitask_registry(kb: Dict[str, Dict[str, str]]) -> AgentRegistry:
     )
     registry.register(
         "ceo_agent",
-        ExtractAgent(kb),
+        ExtractAgent(),
         AgentSpec(
             name="ceo_agent",
             capabilities=list(base_extract.capabilities),
@@ -307,7 +309,7 @@ def build_multitask_registry(kb: Dict[str, Dict[str, str]]) -> AgentRegistry:
     )
     registry.register(
         "ceo_fallback_agent",
-        SynthesizeAgent(kb),
+        SynthesizeAgent(),
         AgentSpec(
             name="ceo_fallback_agent",
             capabilities=list(base_synthesize.capabilities),
@@ -370,8 +372,7 @@ def run_demo_collect(
     components = build_online_components_from_env()
     planner = ConstraintAwarePlanner(llm_planner=components["planner"])
 
-    kb = build_default_knowledge_base()
-    registry = build_multitask_registry(kb)
+    registry = build_multitask_registry()
 
     planning_context = PlanningContext(
         user_query=user_query,
