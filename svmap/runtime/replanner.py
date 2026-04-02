@@ -20,11 +20,15 @@ from svmap.models import (
 from svmap.planning import BasePlanner, PlanningContext
 
 from .patch_library import (
+    build_calculation_patch,
     build_clarification_patch,
+    build_compare_patch,
     build_crosscheck_patch,
     build_decomposition_patch,
     build_evidence_patch,
+    build_final_response_patch,
     build_normalization_patch,
+    build_summary_patch,
 )
 
 
@@ -94,6 +98,36 @@ class ConstraintAwareReplanner(BaseReplanner):
         self.planner = planner
         self.scorer = scorer or ReplanScorer()
 
+    def replan_for_missing_final_response(self, node: TaskNode) -> ReplanCandidate:
+        return ReplanCandidate(
+            action="patch_subgraph",
+            estimated_cost=0.5,
+            estimated_latency=0.4,
+            estimated_success_gain=0.92,
+            reason="missing final response grounding",
+            payload=build_final_response_patch(node.id),
+        )
+
+    def replan_for_incomplete_comparison(self, node: TaskNode) -> ReplanCandidate:
+        return ReplanCandidate(
+            action="patch_subgraph",
+            estimated_cost=0.6,
+            estimated_latency=0.5,
+            estimated_success_gain=0.88,
+            reason="comparison result incomplete",
+            payload=build_compare_patch(node.id),
+        )
+
+    def replan_for_missing_summary_coverage(self, node: TaskNode) -> ReplanCandidate:
+        return ReplanCandidate(
+            action="patch_subgraph",
+            estimated_cost=0.55,
+            estimated_latency=0.45,
+            estimated_success_gain=0.86,
+            reason="summary coverage is insufficient",
+            payload=build_summary_patch(node.id),
+        )
+
     def enumerate_candidates(
         self,
         node: TaskNode,
@@ -112,6 +146,23 @@ class ConstraintAwareReplanner(BaseReplanner):
                 reason="cheap retry",
             )
         )
+        if node.spec.task_type == "final_response":
+            candidates.append(self.replan_for_missing_final_response(node))
+        if node.spec.task_type == "comparison":
+            candidates.append(self.replan_for_incomplete_comparison(node))
+        if node.spec.task_type == "summarization":
+            candidates.append(self.replan_for_missing_summary_coverage(node))
+        if node.spec.task_type == "calculation":
+            candidates.append(
+                ReplanCandidate(
+                    action="patch_subgraph",
+                    estimated_cost=0.45,
+                    estimated_latency=0.35,
+                    estimated_success_gain=0.84,
+                    reason="calculation needs normalization",
+                    payload=build_calculation_patch(node.id),
+                )
+            )
         if node.fallback_agents:
             candidates.append(
                 ReplanCandidate(
@@ -210,6 +261,38 @@ class ConstraintAwareReplanner(BaseReplanner):
                 target_node_id=node.id,
                 patch=build_evidence_patch(node.id),
                 reason="factuality-related failure",
+            )
+
+        if failure.retryable and ("final_answer_missing" in reasons_text or "final_answer_not_grounded" in reasons_text):
+            return ReplanDecision(
+                action="patch_subgraph",
+                target_node_id=node.id,
+                patch=build_final_response_patch(node.id),
+                reason="missing or ungrounded final response",
+            )
+
+        if failure.retryable and ("comparison_items_missing" in reasons_text or "comparison_text_missing" in reasons_text):
+            return ReplanDecision(
+                action="patch_subgraph",
+                target_node_id=node.id,
+                patch=build_compare_patch(node.id),
+                reason="comparison quality issue",
+            )
+
+        if failure.retryable and ("summary_too_short" in reasons_text or "summary_missing" in reasons_text):
+            return ReplanDecision(
+                action="patch_subgraph",
+                target_node_id=node.id,
+                patch=build_summary_patch(node.id),
+                reason="summary coverage issue",
+            )
+
+        if failure.retryable and ("calculation_result_not_numeric" in reasons_text or "calculation_trace_missing" in reasons_text):
+            return ReplanDecision(
+                action="patch_subgraph",
+                target_node_id=node.id,
+                patch=build_calculation_patch(node.id),
+                reason="calculation validation issue",
             )
 
         if (
@@ -367,7 +450,16 @@ class ConstraintAwareReplanner(BaseReplanner):
         tree: TaskTree,
         context: ExecutionContext,
     ) -> None:
-        if template_name in {"evidence_retrieval", "crosscheck", "normalization", "clarification"}:
+        if template_name in {
+            "evidence_retrieval",
+            "crosscheck",
+            "normalization",
+            "clarification",
+            "summary_patch",
+            "compare_patch",
+            "calculation_patch",
+            "final_response_patch",
+        }:
             self._apply_patch_subgraph(target=node, tree=tree, context=context)
             tree.record_graph_delta(
                 action="patch_template_applied",
@@ -391,7 +483,9 @@ class ConstraintAwareReplanner(BaseReplanner):
 
         spec = NodeSpec(
             description=f"Retrieve evidence for node {target.id}",
-            capability_tag="search",
+            capability_tag="retrieve",
+            task_type="tool_call",
+            output_mode="json",
             io=NodeIO(
                 input_fields=[
                     FieldSpec(name="query", field_type="string", required=True),
@@ -414,7 +508,7 @@ class ConstraintAwareReplanner(BaseReplanner):
             id=evidence_id,
             spec=spec,
             dependencies=list(target.dependencies),
-            assigned_agent="search_agent",
+            assigned_agent="retrieve_agent",
             fallback_agents=[],
             status="pending",
             inputs={"query": context.global_context.get("query", "")},

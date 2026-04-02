@@ -28,8 +28,12 @@ class VerifierEngine:
         scope: str = "node",
     ) -> VerificationResult:
         details: List[ConstraintResult] = []
+        task_type = node.spec.task_type
         for verifier in self.verifiers:
             if scope not in verifier.supports_scope():
+                continue
+            supported_task_types = verifier.supports_task_types()
+            if "*" not in supported_task_types and task_type not in supported_task_types:
                 continue
             details.extend(verifier.verify(node=node, output=output, context=context))
 

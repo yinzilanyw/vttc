@@ -18,11 +18,17 @@ class PlanValidator:
         for node in tree.nodes.values():
             if not node.spec.io.output_fields:
                 errors.append(f"node:{node.id}:missing_output_schema")
+            if not node.spec.task_type:
+                errors.append(f"node:{node.id}:missing_task_type")
+            if node.spec.answer_role not in {"intermediate", "final"}:
+                errors.append(f"node:{node.id}:invalid_answer_role:{node.spec.answer_role}")
             if node.assigned_agent:
                 if not registry.has(node.assigned_agent):
                     errors.append(f"node:{node.id}:unknown_agent:{node.assigned_agent}")
             else:
-                candidates = registry.find_candidates(node.spec.capability_tag)
+                candidates = registry.find_by_capability(node.spec.capability_tag)
+                if not candidates:
+                    candidates = registry.find_by_task_type(node.spec.task_type)
                 if not candidates:
                     errors.append(
                         f"node:{node.id}:no_agent_for_capability:{node.spec.capability_tag}"
@@ -53,6 +59,7 @@ class PlanValidator:
                         )
         errors.extend(self.validate_intents(tree))
         errors.extend(self.validate_cross_node_constraints(tree))
+        errors.extend(self.validate_final_response(tree))
         return errors
 
     def validate_intents(self, tree: TaskTree) -> List[str]:
@@ -110,4 +117,17 @@ class PlanValidator:
                         errors.append(
                             f"node:{node.id}:consistency_invalid_path:{upstream_path}"
                         )
+        return errors
+
+    def validate_final_response(self, tree: TaskTree) -> List[str]:
+        errors: List[str] = []
+        final_nodes = [node for node in tree.nodes.values() if node.is_final_response()]
+        if not final_nodes:
+            errors.append("task_tree:missing_final_response_node")
+            return errors
+        if len(final_nodes) > 1:
+            errors.append(f"task_tree:multiple_final_response_nodes:{len(final_nodes)}")
+        final_node = final_nodes[0]
+        if final_node.id not in tree.get_sink_nodes():
+            errors.append(f"task_tree:final_response_not_sink:{final_node.id}")
         return errors

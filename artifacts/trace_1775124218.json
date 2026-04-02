@@ -1,0 +1,146 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_count": 8,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "retrieve_companies"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "retrieve_companies",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "extract_company_names"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "extract_company_names",
+      "status": "success",
+      "attempts": 1,
+      "agent": "extract_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "summarize_scope_impact"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "summarize_scope_impact",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "summarize_key_facts"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "summarize_key_facts",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "summarize_timeline"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "summarize_timeline",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "synthesize_overview"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "synthesize_overview",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "integrated_summary"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "integrated_summary",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124218.9982367,
+    "payload": {
+      "node_id": "final_response",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  }
+]

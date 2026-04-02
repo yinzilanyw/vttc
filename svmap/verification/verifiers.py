@@ -10,6 +10,9 @@ from .base import BaseVerifier
 
 
 class SchemaVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["*"]
+
     def supports_constraint_types(self) -> List[str]:
         return ["schema", "required_fields", "field_type"]
 
@@ -45,6 +48,9 @@ class SchemaVerifier(BaseVerifier):
 
 
 class RuleVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["*"]
+
     def supports_constraint_types(self) -> List[str]:
         return ["required_fields", "non_empty", "field_type", "factuality", "consistency"]
 
@@ -179,6 +185,9 @@ class CrossNodeVerifier(BaseVerifier):
 
 
 class IntentVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["*"]
+
     def supports_constraint_types(self) -> List[str]:
         return ["intent_alignment"]
 
@@ -243,6 +252,138 @@ class CrossNodeGraphVerifier(BaseVerifier):
                     message="Downstream company is empty while upstream company exists.",
                     violation_scope="edge",
                     repair_hint="apply_normalization_patch",
+                )
+            ]
+        return []
+
+
+class SummarizationVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["summarization"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        summary = output.get("summary")
+        if not isinstance(summary, str) or not summary.strip():
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="summary_missing",
+                    message="Summarization node must output non-empty summary.",
+                )
+            ]
+
+        dep_outputs = context.get("dependency_outputs", {})
+        if dep_outputs and len(summary.strip()) < 8:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="summary_too_short",
+                    message="Summary is too short to cover upstream evidence.",
+                    repair_hint="build_summary_patch",
+                )
+            ]
+        return []
+
+
+class ComparisonVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["comparison"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        compared_items = output.get("compared_items")
+        comparison = output.get("comparison")
+        if not isinstance(compared_items, list) or len(compared_items) < 2:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="comparison_items_missing",
+                    message="Comparison needs at least two compared items.",
+                    repair_hint="replan_for_incomplete_comparison",
+                )
+            ]
+        if not isinstance(comparison, str) or not comparison.strip():
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="comparison_text_missing",
+                    message="Comparison node must provide comparison text.",
+                )
+            ]
+        return []
+
+
+class CalculationVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["calculation"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        result = output.get("result")
+        if not isinstance(result, (int, float)):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="calculation_result_not_numeric",
+                    message="Calculation result must be numeric.",
+                    repair_hint="build_calculation_patch",
+                )
+            ]
+        trace = output.get("calculation_trace")
+        if trace is None:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="calculation_trace_missing",
+                    message="Calculation node should provide a trace.",
+                )
+            ]
+        return []
+
+
+class FinalResponseVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["final_response"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        answer = output.get("answer") or output.get("final_response")
+        if not isinstance(answer, str) or not answer.strip():
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="final_answer_missing",
+                    message="Final response node must output 'answer'.",
+                    violation_scope="global",
+                    repair_hint="replan_for_missing_final_response",
+                )
+            ]
+        dependency_outputs = context.get("dependency_outputs", {})
+        if dependency_outputs and not output.get("used_nodes"):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="final_answer_not_grounded",
+                    message="Final response should reference upstream nodes via used_nodes.",
+                    violation_scope="global",
+                    repair_hint="build_final_response_patch",
                 )
             ]
         return []

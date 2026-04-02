@@ -30,6 +30,8 @@ class IntentSpec:
     evidence_requirements: List[str] = field(default_factory=list)
     dependency_assumptions: List[str] = field(default_factory=list)
     output_semantics: Dict[str, str] = field(default_factory=dict)
+    response_style: str = "plain"
+    aggregation_requirements: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -40,6 +42,9 @@ class NodeSpec:
     constraints: List[Constraint] = field(default_factory=list)
     intent: Optional[IntentSpec] = None
     intent_tags: List[str] = field(default_factory=list)
+    task_type: str = "reasoning"
+    output_mode: str = "text"
+    answer_role: str = "intermediate"
 
 
 @dataclass
@@ -100,3 +105,9 @@ class TaskNode:
     def mark_intent_violated(self, reason: str) -> None:
         self.intent_status = "violated"
         self.repair_history.append(reason)
+
+    def is_final_response(self) -> bool:
+        return self.spec.answer_role == "final" or self.spec.task_type == "final_response"
+
+    def is_aggregation_node(self) -> bool:
+        return self.spec.task_type in {"aggregation", "synthesis", "summarization", "comparison"}

@@ -25,6 +25,10 @@ class MetricsSummary:
     parallelizable_node_ratio: float = 0.0
     avg_cost_saved_vs_full_rerun: float = 0.0
     avg_attempts_per_node: float = 0.0
+    task_family_breakdown: Dict[str, float] = field(default_factory=dict)
+    final_response_success_rate: float = 0.0
+    aggregation_success_rate: float = 0.0
+    multitask_generalization_score: float = 0.0
 
 
 class MetricsCollector:
@@ -40,6 +44,20 @@ class MetricsCollector:
         )
         patch_actions = [a for a in report.replan_actions if "patch" in a]
         patch_success = 1.0 if patch_actions and report.success else (0.0 if patch_actions else 1.0)
+        node_task_types = report.node_task_types or {}
+        final_nodes = [nid for nid, t in node_task_types.items() if t == "final_response"]
+        aggregation_nodes = [nid for nid, t in node_task_types.items() if t in {"summarization", "comparison", "aggregation"}]
+        final_ok = 0
+        for node_id in final_nodes:
+            rec = report.node_records.get(node_id)
+            if rec and rec.status == "success":
+                final_ok += 1
+        agg_ok = 0
+        for node_id in aggregation_nodes:
+            rec = report.node_records.get(node_id)
+            if rec and rec.status == "success":
+                agg_ok += 1
+        family = report.task_family or "unknown"
 
         return MetricsSummary(
             task_success=report.success,
@@ -65,6 +83,14 @@ class MetricsCollector:
                 report.structural_savings.get("avg_cost_saved_vs_full_rerun", 0.0)
             ),
             avg_attempts_per_node=total_attempts / total_nodes,
+            task_family_breakdown={family: 1.0 if report.success else 0.0},
+            final_response_success_rate=(final_ok / max(len(final_nodes), 1)),
+            aggregation_success_rate=(agg_ok / max(len(aggregation_nodes), 1)),
+            multitask_generalization_score=(
+                0.4 * (1.0 if report.success else 0.0)
+                + 0.3 * (final_ok / max(len(final_nodes), 1))
+                + 0.3 * (agg_ok / max(len(aggregation_nodes), 1))
+            ),
         )
 
     def collect_verification_quality(self, traces: List[Dict[str, Any]]) -> Dict[str, float]:
@@ -96,3 +122,22 @@ class MetricsCollector:
             "parallelizable_node_ratio": 0.0,
             "avg_cost_saved_vs_full_rerun": 0.0,
         }
+
+    def summarize_by_task_family(self, reports: List[ExecutionReport]) -> Dict[str, Any]:
+        family_to_reports: Dict[str, List[ExecutionReport]] = {}
+        for report in reports:
+            family = report.task_family or "unknown"
+            family_to_reports.setdefault(family, []).append(report)
+
+        summary: Dict[str, Any] = {}
+        for family, items in family_to_reports.items():
+            success_count = sum(1 for item in items if item.success)
+            avg_replans = sum(item.replan_count for item in items) / max(len(items), 1)
+            avg_retries = sum(item.total_retries for item in items) / max(len(items), 1)
+            summary[family] = {
+                "count": len(items),
+                "task_success_rate": success_count / max(len(items), 1),
+                "avg_replan_count": avg_replans,
+                "avg_retry_count": avg_retries,
+            }
+        return summary

@@ -57,6 +57,24 @@ class ExecutionRuntime:
             "global_context": context.global_context,
         }
 
+    def finalize_response(self, tree: TaskTree, context: ExecutionContext) -> Dict[str, Any]:
+        final_nodes = [node for node in tree.nodes.values() if node.is_final_response()]
+        if not final_nodes:
+            return {"answer": "", "reason": "missing_final_node"}
+        final_node = final_nodes[0]
+        output = context.node_outputs.get(final_node.id, {})
+        if isinstance(output, dict):
+            return output
+        return {"answer": str(output)}
+
+    def execute_final_response_node(
+        self,
+        node: TaskNode,
+        tree: TaskTree,
+        context: ExecutionContext,
+    ) -> NodeExecutionRecord:
+        return self.execute_node(node=node, tree=tree, context=context)
+
     def execute_node(
         self,
         node: TaskNode,
@@ -78,6 +96,9 @@ class ExecutionRuntime:
                 candidate_agents=candidate_agents,
                 verify_errors=["no_assigned_agent"],
                 verification_results=[],
+                task_type=node.spec.task_type,
+                output_mode=node.spec.output_mode,
+                answer_role=node.spec.answer_role,
             )
 
         record = NodeExecutionRecord(
@@ -87,6 +108,9 @@ class ExecutionRuntime:
             agent_used=active_agent,
             candidate_agents=candidate_agents,
             start_ts=time.time(),
+            task_type=node.spec.task_type,
+            output_mode=node.spec.output_mode,
+            answer_role=node.spec.answer_role,
         )
 
         while retries <= node.max_retry:
@@ -137,6 +161,9 @@ class ExecutionRuntime:
         record.end_ts = time.time()
         record.intent_status = node.intent_status
         record.graph_version = tree.version
+        record.task_type = node.spec.task_type
+        record.output_mode = node.spec.output_mode
+        record.answer_role = node.spec.answer_role
         return record
 
     def handle_failure(
@@ -189,7 +216,10 @@ class ExecutionRuntime:
             if self.trace_logger:
                 self.trace_logger.log_event("node_start", {"node_id": node.id})
             node.status = "running"
-            record = self.execute_node(node=node, tree=tree, context=context)
+            if node.is_final_response():
+                record = self.execute_final_response_node(node=node, tree=tree, context=context)
+            else:
+                record = self.execute_node(node=node, tree=tree, context=context)
             if self.trace_logger:
                 self.trace_logger.log_event(
                     "node_end",
@@ -232,6 +262,8 @@ class ExecutionRuntime:
         return count
 
     def execute(self, tree: TaskTree, context: ExecutionContext) -> ExecutionReport:
+        tree.ensure_single_final_response()
+        tree.validate()
         node_records: Dict[str, NodeExecutionRecord] = {}
         total_retries = 0
         verification_failures = 0
@@ -241,6 +273,7 @@ class ExecutionRuntime:
         budget_exhausted = False
         max_runtime_steps = self.max_runtime_steps
         runtime_steps = 0
+        final_node_id = next((n.id for n in tree.nodes.values() if n.is_final_response()), None)
 
         if self.trace_logger:
             self.trace_logger.log_event(
@@ -324,6 +357,10 @@ class ExecutionRuntime:
                                     / max(len(structural_savings["saved_downstream_nodes"]), 1)
                                 )
                             },
+                            final_node_id=final_node_id,
+                            final_output=self.finalize_response(tree=tree, context=context),
+                            node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
+                            task_family=str(tree.metadata.get("task_family", "")),
                         )
 
             # Continue loop so patched/reassigned nodes can be retried dynamically.
@@ -340,9 +377,12 @@ class ExecutionRuntime:
                 budget_exhausted = True
                 break
 
+        final_output = self.finalize_response(tree=tree, context=context)
+        final_node = tree.nodes.get(final_node_id) if final_node_id else None
+        final_node_success = final_node is not None and final_node.status == "success"
         success = all(n.status in {"success", "skipped"} for n in tree.nodes.values()) and all(
             n.status != "failed" for n in tree.nodes.values()
-        )
+        ) and final_node_success
         return ExecutionReport(
             success=success,
             node_records=node_records,
@@ -360,4 +400,8 @@ class ExecutionRuntime:
                 "parallelizable_node_ratio": 0.0,
                 "avg_cost_saved_vs_full_rerun": 0.0,
             },
+            final_node_id=final_node_id,
+            final_output=final_output,
+            node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
+            task_family=str(tree.metadata.get("task_family", "")),
         )

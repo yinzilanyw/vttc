@@ -1,0 +1,44 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775124179.5725513,
+    "payload": {
+      "node_count": 2,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124179.5725513,
+    "payload": {
+      "node_id": "ceo_agent"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124179.5725513,
+    "payload": {
+      "node_id": "ceo_agent",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124179.5725513,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124179.5725513,
+    "payload": {
+      "node_id": "final_response",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  }
+]

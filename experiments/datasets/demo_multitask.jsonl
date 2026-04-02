@@ -1,0 +1,10 @@
+﻿{"task_family": "qa", "query": "Who is the CEO of the company founded by Elon Musk?"}
+{"task_family": "qa", "query": "Who is the CEO of OpenAI?"}
+{"task_family": "summary", "query": "Summarize key facts about the company founded by Elon Musk."}
+{"task_family": "summary", "query": "Summarize what we know about Sam Altman and OpenAI."}
+{"task_family": "compare", "query": "Compare SpaceX and OpenAI in one concise answer."}
+{"task_family": "compare", "query": "Compare OpenAI and Meta in terms of leadership."}
+{"task_family": "calculate", "query": "Calculate 25 * 4 + 6."}
+{"task_family": "calculate", "query": "Compute 120 / 3 + 7."}
+{"task_family": "extract", "query": "Extract founder and company from: 'Elon Musk founded SpaceX'."}
+{"task_family": "extract", "query": "Extract company and ceo from: 'Sam Altman leads OpenAI'."}

@@ -10,7 +10,8 @@ from .run_demo import run_demo
 
 def run_case_study(query: Optional[str] = None) -> None:
     if query:
-        os.environ["DEMO_QUERY"] = query
+        run_demo(query=query)
+        return
     run_demo()
 
 

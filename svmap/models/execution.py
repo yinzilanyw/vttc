@@ -46,6 +46,9 @@ class NodeExecutionRecord:
     graph_version: int = 1
     saved_downstream_nodes: int = 0
     replan_action: str = ""
+    task_type: str = "reasoning"
+    output_mode: str = "text"
+    answer_role: str = "intermediate"
 
 
 @dataclass
@@ -68,3 +71,7 @@ class ExecutionReport:
     budget_exhausted: bool = False
     replan_actions: List[str] = field(default_factory=list)
     structural_savings: Dict[str, Any] = field(default_factory=dict)
+    final_node_id: Optional[str] = None
+    final_output: Optional[Dict[str, Any]] = None
+    node_task_types: Dict[str, str] = field(default_factory=dict)
+    task_family: str = ""

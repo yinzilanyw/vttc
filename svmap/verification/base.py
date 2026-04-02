@@ -13,6 +13,9 @@ class BaseVerifier(ABC):
     def supports_constraint_types(self) -> List[str]:
         return ["*"]
 
+    def supports_task_types(self) -> List[str]:
+        return ["*"]
+
     @abstractmethod
     def verify(
         self,

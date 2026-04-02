@@ -16,6 +16,9 @@ class AssignmentStrategy(ABC):
 class CapabilityBasedAssigner(AssignmentStrategy):
     intent_match_weight: float = 1.0
     repair_match_weight: float = 1.0
+    task_type_weight: float = 1.0
+    output_mode_weight: float = 0.8
+    final_response_weight: float = 1.2
 
     def _score(self, spec: AgentSpec) -> float:
         cost = max(spec.cost_weight, 1e-6)
@@ -30,30 +33,59 @@ class CapabilityBasedAssigner(AssignmentStrategy):
             if overlap:
                 intent_bonus += self.intent_match_weight * (len(overlap) / max(len(node.spec.intent_tags), 1))
         hist_bonus = spec.historical_success_by_capability.get(node.spec.capability_tag, 0.0)
-        return base + intent_bonus + hist_bonus
+        task_type_bonus = self.task_type_weight if (not spec.task_types or node.spec.task_type in spec.task_types) else 0.0
+        output_mode_bonus = self.output_mode_weight if (not spec.output_modes or node.spec.output_mode in spec.output_modes) else 0.0
+        final_bonus = self.final_response_weight if node.is_final_response() and ("final_response" in spec.task_types or "synthesize" in spec.capabilities) else 0.0
+        return base + intent_bonus + hist_bonus + task_type_bonus + output_mode_bonus + final_bonus
 
     def assign(self, tree: TaskTree, registry: AgentRegistry) -> TaskTree:
-        for node in tree.nodes.values():
-            candidates = registry.rank_candidates(node)
-            if not candidates:
-                continue
-            ranked = sorted(candidates, key=lambda spec: self._score_for_node(spec, node), reverse=True)
-            node.assigned_agent = ranked[0].name
-            node.fallback_agents = [spec.name for spec in ranked[1:]]
-        return tree
+        return self.assign_by_capability(tree=tree, registry=registry)
 
     def assign_with_intent(self, tree: TaskTree, registry: AgentRegistry) -> TaskTree:
+        return self.assign_by_capability(tree=tree, registry=registry)
+
+    def assign_by_capability(self, tree: TaskTree, registry: AgentRegistry) -> TaskTree:
         for node in tree.nodes.values():
             candidates = registry.find_candidates_for_intent(
                 capability_tag=node.spec.capability_tag,
                 intent=node.spec.intent,
             )
             if not candidates:
+                candidates = registry.find_by_task_type(node.spec.task_type)
+            candidates = [
+                spec
+                for spec in candidates
+                if (not spec.output_modes or node.spec.output_mode in spec.output_modes)
+            ]
+            if not candidates:
                 continue
             ranked = sorted(candidates, key=lambda spec: self._score_for_node(spec, node), reverse=True)
             node.assigned_agent = ranked[0].name
             node.fallback_agents = [spec.name for spec in ranked[1:]]
+        return self.assign_final_response_node(tree=tree, registry=registry)
+
+    def assign_final_response_node(self, tree: TaskTree, registry: AgentRegistry) -> TaskTree:
+        final_candidates = registry.find_final_response_agents()
+        if not final_candidates:
+            return tree
+        for node in tree.nodes.values():
+            if not node.is_final_response():
+                continue
+            ranked = sorted(final_candidates, key=lambda spec: self._score_for_node(spec, node), reverse=True)
+            node.assigned_agent = ranked[0].name
+            node.fallback_agents = [spec.name for spec in ranked[1:]]
         return tree
+
+    def reassign_for_node_type(self, node: TaskNode, registry: AgentRegistry) -> TaskNode:
+        candidates = registry.find_by_task_type(node.spec.task_type)
+        if not candidates:
+            candidates = registry.find_by_capability(node.spec.capability_tag)
+        if not candidates:
+            return node
+        ranked = sorted(candidates, key=lambda spec: self._score_for_node(spec, node), reverse=True)
+        node.assigned_agent = ranked[0].name
+        node.fallback_agents = [spec.name for spec in ranked[1:]]
+        return node
 
     def reassign_after_failure(
         self,
@@ -62,9 +94,9 @@ class CapabilityBasedAssigner(AssignmentStrategy):
         registry: AgentRegistry,
     ) -> TaskNode:
         capability_tag = node.spec.capability_tag
-        candidates = registry.find_candidates(capability_tag)
+        candidates = registry.find_by_capability(capability_tag)
         if not candidates:
-            return node
+            return self.reassign_for_node_type(node=node, registry=registry)
 
         repair_bonus_map = {
             "verification_failed": "verification",

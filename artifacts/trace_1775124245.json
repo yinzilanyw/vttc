@@ -1,0 +1,209 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_count": 5,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "calc_1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "calc_1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "calculate_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "calc_direct"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "calc_direct",
+      "status": "success",
+      "attempts": 1,
+      "agent": "calculate_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "calc_2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "calc_2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "calculate_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "verify_consistency"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "verify_consistency",
+      "status": "failed",
+      "attempts": 0,
+      "agent": ""
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "verify_consistency",
+      "action": "retry_same",
+      "reason": "cheap retry"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "before_version": 1,
+      "after_version": 1,
+      "node_id": "verify_consistency",
+      "action": "retry_same",
+      "saved_downstream_nodes": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "verify_consistency"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "verify_consistency",
+      "status": "failed",
+      "attempts": 0,
+      "agent": ""
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "verify_consistency",
+      "action": "retry_same",
+      "reason": "cheap retry"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "before_version": 1,
+      "after_version": 1,
+      "node_id": "verify_consistency",
+      "action": "retry_same",
+      "saved_downstream_nodes": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "verify_consistency"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "verify_consistency",
+      "status": "failed",
+      "attempts": 0,
+      "agent": ""
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "verify_consistency",
+      "action": "retry_same",
+      "reason": "cheap retry"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "before_version": 1,
+      "after_version": 1,
+      "node_id": "verify_consistency",
+      "action": "retry_same",
+      "saved_downstream_nodes": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "verify_consistency"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124245.725337,
+    "payload": {
+      "node_id": "verify_consistency",
+      "status": "failed",
+      "attempts": 0,
+      "agent": ""
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775124245.7263365,
+    "payload": {
+      "node_id": "verify_consistency",
+      "action": "abort",
+      "reason": "not retryable"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775124245.7263365,
+    "payload": {
+      "before_version": 1,
+      "after_version": 1,
+      "node_id": "verify_consistency",
+      "action": "abort",
+      "saved_downstream_nodes": 1
+    }
+  }
+]

@@ -24,9 +24,15 @@ class TaskTree:
         for node_data in data.get("nodes", []):
             raw_constraints = node_data.get("constraint") or node_data.get("constraints") or []
             constraints = parser.parse(raw_constraints)
-            capability_tag = node_data.get("capability_tag") or _infer_capability(
-                node_data.get("agent", "")
-            )
+            candidate_capabilities = node_data.get("candidate_capabilities", [])
+            capability_tag = node_data.get("capability_tag")
+            if not capability_tag and isinstance(candidate_capabilities, list) and candidate_capabilities:
+                capability_tag = str(candidate_capabilities[0])
+            if not capability_tag:
+                capability_tag = _infer_capability(node_data.get("agent", ""))
+            task_type = _infer_task_type(node_data=node_data, capability_tag=capability_tag)
+            output_mode = _next_text_mode(node_data=node_data, task_type=task_type)
+            answer_role = _next_answer_role(node_data=node_data, task_type=task_type)
 
             io = _parse_or_build_node_io(node_data, constraints)
             raw_intent = node_data.get("intent")
@@ -38,6 +44,8 @@ class TaskTree:
                     evidence_requirements=raw_intent.get("evidence_requirements", []),
                     dependency_assumptions=raw_intent.get("dependency_assumptions", []),
                     output_semantics=raw_intent.get("output_semantics", {}),
+                    response_style=raw_intent.get("response_style", "plain"),
+                    aggregation_requirements=raw_intent.get("aggregation_requirements", []),
                 )
             spec = NodeSpec(
                 description=node_data.get("description", ""),
@@ -46,6 +54,9 @@ class TaskTree:
                 constraints=constraints,
                 intent=intent,
                 intent_tags=node_data.get("intent_tags", []),
+                task_type=task_type,
+                output_mode=output_mode,
+                answer_role=answer_role,
             )
 
             fallback_agents = node_data.get("fallback_agents", [])
@@ -62,7 +73,12 @@ class TaskTree:
                 fallback_agents=fallback_agents,
                 inputs=node_data.get("inputs", {}),
                 execution_policy=policy,
-                metadata=node_data.get("metadata", {}),
+                metadata={
+                    **node_data.get("metadata", {}),
+                    "candidate_capabilities": list(candidate_capabilities)
+                    if isinstance(candidate_capabilities, list)
+                    else [],
+                },
                 parent_intent_ids=node_data.get("parent_intent_ids", []),
                 intent_status=node_data.get("intent_status", "unknown"),
                 repair_history=node_data.get("repair_history", []),
@@ -71,6 +87,8 @@ class TaskTree:
 
         tree = cls(nodes=nodes)
         tree.metadata = data.get("metadata", {})
+        tree.ensure_single_final_response()
+        tree.validate()
         return tree
 
     def validate(self) -> None:
@@ -80,6 +98,90 @@ class TaskTree:
                     raise ValueError(f"Node '{node.id}' has unknown dependency '{dep}'.")
         self.topo_sort()
         self.root_ids = [node_id for node_id, node in self.nodes.items() if not node.dependencies]
+
+    def get_sink_nodes(self) -> List[str]:
+        sinks: List[str] = []
+        for node_id in self.nodes:
+            if not self.get_downstream_nodes(node_id):
+                sinks.append(node_id)
+        return sinks
+
+    def ensure_single_final_response(self) -> None:
+        if not self.nodes:
+            return
+
+        final_nodes = [node for node in self.nodes.values() if node.is_final_response()]
+        if len(final_nodes) == 1:
+            final_node = final_nodes[0]
+            sink_ids = self.get_sink_nodes()
+            if final_node.id not in sink_ids:
+                deps = [nid for nid in sink_ids if nid != final_node.id]
+                if deps:
+                    final_node.dependencies = sorted(set(final_node.dependencies + deps))
+            return
+
+        if len(final_nodes) > 1:
+            primary = final_nodes[0]
+            for extra in final_nodes[1:]:
+                extra.spec.answer_role = "intermediate"
+            sink_ids = self.get_sink_nodes()
+            if primary.id not in sink_ids:
+                deps = [nid for nid in sink_ids if nid != primary.id]
+                primary.dependencies = sorted(set(primary.dependencies + deps))
+            return
+
+        sink_ids = self.get_sink_nodes()
+        parser = ConstraintParser()
+        final_node = TaskNode(
+            id=self._next_final_node_id(),
+            spec=NodeSpec(
+                description="Synthesize all upstream outputs into the final response.",
+                capability_tag="synthesize",
+                task_type="final_response",
+                output_mode="text",
+                answer_role="final",
+                io=NodeIO(
+                    output_fields=[
+                        FieldSpec(name="answer", field_type="string", required=True),
+                    ]
+                ),
+                constraints=parser.parse(["required_keys:answer", "non_empty_values"]),
+                intent=IntentSpec(
+                    goal="Return final answer to user query.",
+                    success_conditions=["final_response_generated"],
+                    output_semantics={"answer": "final user-facing response"},
+                    response_style="plain",
+                ),
+                intent_tags=["synthesize", "final_response"],
+            ),
+            dependencies=sink_ids,
+            assigned_agent=None,
+            inputs={},
+            metadata={"auto_generated": True},
+        )
+        self.nodes[final_node.id] = final_node
+
+    def attach_final_response_node(self, node: TaskNode) -> None:
+        node.spec.task_type = "final_response"
+        node.spec.answer_role = "final"
+        if not node.spec.capability_tag:
+            node.spec.capability_tag = "synthesize"
+        if not node.spec.io.output_fields:
+            node.spec.io.output_fields = [FieldSpec(name="answer", field_type="string", required=True)]
+
+        sink_ids = [nid for nid in self.get_sink_nodes() if nid != node.id]
+        node.dependencies = sorted(set(node.dependencies + sink_ids))
+        self.nodes[node.id] = node
+        self.ensure_single_final_response()
+        self.validate()
+
+    def _next_final_node_id(self) -> str:
+        if "final_response" not in self.nodes:
+            return "final_response"
+        idx = 1
+        while f"final_response_{idx}" in self.nodes:
+            idx += 1
+        return f"final_response_{idx}"
 
     def topo_sort(self) -> List[str]:
         indegree = {node_id: 0 for node_id in self.nodes}
@@ -211,6 +313,19 @@ class TaskTree:
 def _infer_capability(agent_name: str) -> str:
     if not agent_name:
         return "reason"
+    lowered = agent_name.lower()
+    if "retrieve" in lowered or "search" in lowered:
+        return "retrieve"
+    if "extract" in lowered:
+        return "extract"
+    if "summary" in lowered or "summarize" in lowered:
+        return "summarize"
+    if "compare" in lowered:
+        return "compare"
+    if "calculate" in lowered or "calc" in lowered:
+        return "calculate"
+    if "synth" in lowered or "final" in lowered:
+        return "synthesize"
     return agent_name.replace("_agent", "")
 
 
@@ -263,12 +378,22 @@ def _infer_output_field_names(
 
     agent = str(node_data.get("agent", "")).lower()
     capability = str(node_data.get("capability_tag", "")).lower()
+    node_type = str(node_data.get("node_type", "")).lower()
+    task_type = str(node_data.get("task_type", "")).lower()
     description = str(node_data.get("description", "")).lower()
-    text = " ".join([agent, capability, description])
+    answer_role = str(node_data.get("answer_role", "")).lower()
+    text = " ".join([agent, capability, node_type, task_type, answer_role, description])
 
     heuristic_map = [
-        ("search_agent", "founder"),
-        ("search", "founder"),
+        ("retrieve", "evidence"),
+        ("search", "evidence"),
+        ("extract", "extracted"),
+        ("summar", "summary"),
+        ("compare", "comparison"),
+        ("calcul", "result"),
+        ("synth", "answer"),
+        ("final_response", "answer"),
+        ("answer_role final", "answer"),
         ("founder", "founder"),
         ("company", "company"),
         ("ceo", "ceo"),
@@ -284,3 +409,59 @@ def _infer_output_field_names(
         names.append("result")
         used_fallback = True
     return names, used_fallback
+
+
+def _infer_task_type(node_data: Dict[str, Any], capability_tag: str) -> str:
+    if isinstance(node_data.get("node_type"), str) and node_data["node_type"].strip():
+        return node_data["node_type"].strip()
+    if isinstance(node_data.get("task_type"), str) and node_data["task_type"].strip():
+        return node_data["task_type"].strip()
+
+    text = " ".join(
+        [
+            str(node_data.get("description", "")),
+            str(node_data.get("capability_tag", "")),
+            str(node_data.get("agent", "")),
+        ]
+    ).lower()
+    if "final" in text or "answer" in text:
+        return "final_response"
+    if "summary" in text or "summarize" in text:
+        return "summarization"
+    if "compare" in text or "difference" in text:
+        return "comparison"
+    if "calculate" in text or "math" in text:
+        return "calculation"
+    if capability_tag in {"retrieve", "extract", "summarize", "compare", "calculate", "synthesize"}:
+        mapping = {
+            "retrieve": "tool_call",
+            "extract": "extraction",
+            "summarize": "summarization",
+            "compare": "comparison",
+            "calculate": "calculation",
+            "synthesize": "final_response",
+        }
+        return mapping.get(capability_tag, "reasoning")
+    return "reasoning"
+
+
+def _next_text_mode(node_data: Dict[str, Any], task_type: str) -> str:
+    if isinstance(node_data.get("output_mode"), str) and node_data["output_mode"].strip():
+        return node_data["output_mode"].strip()
+    if task_type in {"calculation"}:
+        return "number"
+    if task_type in {"comparison"}:
+        return "table"
+    if task_type in {"extraction"}:
+        return "json"
+    return "text"
+
+
+def _next_answer_role(node_data: Dict[str, Any], task_type: str) -> str:
+    role = str(node_data.get("answer_role", "")).strip().lower()
+    if role in {"intermediate", "final"}:
+        return role
+    if task_type == "final_response":
+        return "final"
+    return "intermediate"
+

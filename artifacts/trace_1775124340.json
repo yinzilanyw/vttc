@@ -1,0 +1,331 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775124340.1089683,
+    "payload": {
+      "node_count": 13,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124340.1089683,
+    "payload": {
+      "node_id": "retrieve_spacex_openai"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124340.1099694,
+    "payload": {
+      "node_id": "retrieve_spacex_openai",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124340.1099694,
+    "payload": {
+      "node_id": "extract_attributes"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124340.1099694,
+    "payload": {
+      "node_id": "extract_attributes",
+      "status": "success",
+      "attempts": 1,
+      "agent": "extract_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124340.1099694,
+    "payload": {
+      "node_id": "compare_ceo_validation"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124340.1099694,
+    "payload": {
+      "node_id": "compare_ceo_validation",
+      "status": "failed",
+      "attempts": 0,
+      "agent": ""
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775124340.1099694,
+    "payload": {
+      "node_id": "compare_ceo_validation",
+      "action": "retry_same",
+      "reason": "cheap retry"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775124340.1099694,
+    "payload": {
+      "before_version": 1,
+      "after_version": 1,
+      "node_id": "compare_ceo_validation",
+      "action": "retry_same",
+      "saved_downstream_nodes": 5
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124340.1099694,
+    "payload": {
+      "node_id": "compare_entities"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124340.1099694,
+    "payload": {
+      "node_id": "compare_entities",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "compare_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124340.1099694,
+    "payload": {
+      "node_id": "compare_ceo_validation"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124340.1099694,
+    "payload": {
+      "node_id": "compare_ceo_validation",
+      "status": "failed",
+      "attempts": 0,
+      "agent": ""
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775124340.110935,
+    "payload": {
+      "node_id": "compare_entities",
+      "action": "patch_subgraph",
+      "reason": "comparison quality issue"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775124340.110935,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "compare_entities",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 7
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775124340.110935,
+    "payload": {
+      "node_id": "compare_ceo_validation",
+      "action": "retry_same",
+      "reason": "cheap retry"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775124340.110935,
+    "payload": {
+      "before_version": 2,
+      "after_version": 2,
+      "node_id": "compare_ceo_validation",
+      "action": "retry_same",
+      "saved_downstream_nodes": 5
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124340.110935,
+    "payload": {
+      "node_id": "compare_ceo_validation"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124340.110935,
+    "payload": {
+      "node_id": "compare_ceo_validation",
+      "status": "failed",
+      "attempts": 0,
+      "agent": ""
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124340.110935,
+    "payload": {
+      "node_id": "ev_compare_entities_v2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "ev_compare_entities_v2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "compare_ceo_validation",
+      "action": "retry_same",
+      "reason": "cheap retry"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "before_version": 2,
+      "after_version": 2,
+      "node_id": "compare_ceo_validation",
+      "action": "retry_same",
+      "saved_downstream_nodes": 5
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "compare_ceo_validation"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "compare_ceo_validation",
+      "status": "failed",
+      "attempts": 0,
+      "agent": ""
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "compare_entities"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "compare_entities",
+      "status": "success",
+      "attempts": 1,
+      "agent": "compare_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "compare_ceo_validation",
+      "action": "abort",
+      "reason": "not retryable"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "before_version": 2,
+      "after_version": 2,
+      "node_id": "compare_ceo_validation",
+      "action": "abort",
+      "saved_downstream_nodes": 5
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "summarize_comparison"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "summarize_comparison",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "verify_conciseness"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "verify_conciseness",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "reason_conciseness"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "reason_conciseness",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "synthesize_final"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775124340.9872699,
+    "payload": {
+      "node_id": "synthesize_final",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  }
+]
