@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List, Optional
 
 from svmap.models import ConstraintResult, TaskNode
-from svmap.models.constraints import RequiredFieldsConstraint
+from svmap.models.constraints import ConsistencyConstraint, RequiredFieldsConstraint
 
 from .base import BaseVerifier
 
@@ -128,3 +128,19 @@ class CustomNodeVerifier(BaseVerifier):
                 )
             ]
         return []
+
+
+class CrossNodeVerifier(BaseVerifier):
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        results: List[ConstraintResult] = []
+        for constraint in node.spec.constraints:
+            if isinstance(constraint, ConsistencyConstraint):
+                result = constraint.validate(node=node, output=output, context=context)
+                if not result.passed:
+                    results.append(result)
+        return results

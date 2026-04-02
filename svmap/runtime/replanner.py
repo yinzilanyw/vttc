@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
@@ -122,19 +123,44 @@ class ConstraintAwareReplanner(BaseReplanner):
             return tree
 
         if decision.action == "patch_subgraph":
-            evidence_node = self._build_evidence_node(target=target, context=context, tree=tree)
-            if evidence_node.id not in tree.nodes:
-                tree.nodes[evidence_node.id] = evidence_node
-            if evidence_node.id not in target.dependencies:
-                target.dependencies.append(evidence_node.id)
-            target.status = "pending"
-            tree.version += 1
-            tree.validate()
+            self._apply_patch_subgraph(target=target, tree=tree, context=context)
             return tree
 
         if decision.action == "abort":
             tree.mark_skipped_subtree(decision.target_node_id)
         return tree
+
+    def _apply_patch_subgraph(
+        self,
+        target: TaskNode,
+        tree: TaskTree,
+        context: ExecutionContext,
+    ) -> None:
+        downstream_ids = tree.get_downstream_nodes(target.id)
+        removed_ids = {target.id, *downstream_ids}
+
+        evidence_node = self._build_evidence_node(target=target, context=context, tree=tree)
+        patched_target = deepcopy(target)
+        patched_target.status = "pending"
+        patched_target.outputs = {}
+        patched_target.dependencies = list(target.dependencies)
+        if evidence_node.id not in patched_target.dependencies:
+            patched_target.dependencies.append(evidence_node.id)
+
+        regenerated_nodes = [evidence_node, patched_target]
+        for node_id in downstream_ids:
+            if node_id not in tree.nodes:
+                continue
+            cloned = deepcopy(tree.nodes[node_id])
+            cloned.status = "pending"
+            cloned.outputs = {}
+            regenerated_nodes.append(cloned)
+
+        tree.replace_subgraph(failed_node_id=target.id, new_nodes=regenerated_nodes)
+
+        # Drop stale outputs for removed subtree so runtime recomputes them.
+        for node_id in removed_ids:
+            context.node_outputs.pop(node_id, None)
 
     def _build_evidence_node(
         self,

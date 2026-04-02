@@ -21,7 +21,14 @@ from svmap.planning import (
     PlanningContext,
 )
 from svmap.runtime import ConstraintAwareReplanner, ExecutionRuntime, MetricsCollector, TraceLogger
-from svmap.verification import CustomNodeVerifier, RuleVerifier, SchemaVerifier, SemanticVerifier, VerifierEngine
+from svmap.verification import (
+    CrossNodeVerifier,
+    CustomNodeVerifier,
+    RuleVerifier,
+    SchemaVerifier,
+    SemanticVerifier,
+    VerifierEngine,
+)
 
 
 def load_env_file(path: str = ".env") -> None:
@@ -165,6 +172,7 @@ def run_demo() -> None:
             SchemaVerifier(),
             RuleVerifier(),
             SemanticVerifier(semantic_judge=semantic_judge),
+            CrossNodeVerifier(),
             CustomNodeVerifier(),
         ]
     )
