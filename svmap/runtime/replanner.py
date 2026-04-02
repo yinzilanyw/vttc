@@ -2,19 +2,29 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 from svmap.models import (
     ConstraintParser,
     ExecutionContext,
     ExecutionPolicy,
     FieldSpec,
+    IntentSpec,
     NodeIO,
     NodeFailure,
     NodeSpec,
     TaskNode,
     TaskTree,
+)
+from svmap.planning import BasePlanner, PlanningContext
+
+from .patch_library import (
+    build_clarification_patch,
+    build_crosscheck_patch,
+    build_decomposition_patch,
+    build_evidence_patch,
+    build_normalization_patch,
 )
 
 
@@ -26,7 +36,35 @@ class ReplanDecision:
     reason: str = ""
 
 
+@dataclass
+class ReplanCandidate:
+    action: str
+    estimated_cost: float
+    estimated_latency: float
+    estimated_success_gain: float
+    reason: str = ""
+    payload: Dict[str, Any] = field(default_factory=dict)
+
+
+class ReplanScorer:
+    def score(self, candidate: ReplanCandidate, context: Dict[str, Any]) -> float:
+        gain = candidate.estimated_success_gain
+        cost = max(candidate.estimated_cost, 1e-6)
+        latency = max(candidate.estimated_latency, 1e-6)
+        return gain / (cost * latency)
+
+
 class BaseReplanner(ABC):
+    @abstractmethod
+    def enumerate_candidates(
+        self,
+        node: TaskNode,
+        failure: NodeFailure,
+        tree: TaskTree,
+        context: ExecutionContext,
+    ) -> List[ReplanCandidate]:
+        raise NotImplementedError
+
     @abstractmethod
     def decide(
         self,
@@ -48,6 +86,97 @@ class BaseReplanner(ABC):
 
 
 class ConstraintAwareReplanner(BaseReplanner):
+    def __init__(
+        self,
+        planner: Optional[BasePlanner] = None,
+        scorer: Optional[ReplanScorer] = None,
+    ) -> None:
+        self.planner = planner
+        self.scorer = scorer or ReplanScorer()
+
+    def enumerate_candidates(
+        self,
+        node: TaskNode,
+        failure: NodeFailure,
+        tree: TaskTree,
+        context: ExecutionContext,
+    ) -> List[ReplanCandidate]:
+        reasons_text = " ".join(failure.reasons).lower()
+        candidates: List[ReplanCandidate] = []
+        candidates.append(
+            ReplanCandidate(
+                action="retry_same",
+                estimated_cost=0.1,
+                estimated_latency=0.1,
+                estimated_success_gain=0.2,
+                reason="cheap retry",
+            )
+        )
+        if node.fallback_agents:
+            candidates.append(
+                ReplanCandidate(
+                    action="switch_agent",
+                    estimated_cost=0.2,
+                    estimated_latency=0.2,
+                    estimated_success_gain=0.4,
+                    reason="fallback available",
+                )
+            )
+        if any(x in reasons_text for x in ["semantic", "factual", "source"]):
+            candidates.append(
+                ReplanCandidate(
+                    action="patch_subgraph",
+                    estimated_cost=0.6,
+                    estimated_latency=0.5,
+                    estimated_success_gain=0.8,
+                    reason="needs more evidence",
+                    payload=build_evidence_patch(node.id),
+                )
+            )
+            candidates.append(
+                ReplanCandidate(
+                    action="replan_subtree",
+                    estimated_cost=1.0,
+                    estimated_latency=1.0,
+                    estimated_success_gain=0.9,
+                    reason="subtree likely mis-specified",
+                    payload=build_decomposition_patch(node.id),
+                )
+            )
+        if any(x in reasons_text for x in ["schema", "required", "type"]):
+            candidates.append(
+                ReplanCandidate(
+                    action="patch_subgraph",
+                    estimated_cost=0.5,
+                    estimated_latency=0.4,
+                    estimated_success_gain=0.7,
+                    reason="normalize outputs",
+                    payload=build_normalization_patch(node.id),
+                )
+            )
+        if any(x in reasons_text for x in ["consistency", "cross_node"]):
+            candidates.append(
+                ReplanCandidate(
+                    action="patch_subgraph",
+                    estimated_cost=0.7,
+                    estimated_latency=0.7,
+                    estimated_success_gain=0.75,
+                    reason="cross-check upstream consistency",
+                    payload=build_crosscheck_patch(node.id),
+                )
+            )
+        candidates.append(
+            ReplanCandidate(
+                action="abort",
+                estimated_cost=0.0,
+                estimated_latency=0.0,
+                estimated_success_gain=0.0,
+                reason="no viable recovery",
+                payload=build_clarification_patch(node.id),
+            )
+        )
+        return candidates
+
     def decide(
         self,
         node: TaskNode,
@@ -58,6 +187,13 @@ class ConstraintAwareReplanner(BaseReplanner):
         reasons_text = " ".join(failure.reasons).lower()
         replan_attempts = int(node.metadata.get("replan_attempts", 0))
         has_evidence_dep = any(dep.startswith("ev_") for dep in node.dependencies)
+
+        candidates = self.enumerate_candidates(node=node, failure=failure, tree=tree, context=context)
+        scored = sorted(
+            candidates,
+            key=lambda c: self.scorer.score(c, {"replan_attempts": replan_attempts}),
+            reverse=True,
+        )
 
         if (
             failure.retryable
@@ -72,7 +208,7 @@ class ConstraintAwareReplanner(BaseReplanner):
             return ReplanDecision(
                 action="patch_subgraph",
                 target_node_id=node.id,
-                patch={"insert": "evidence_retrieval"},
+                patch=build_evidence_patch(node.id),
                 reason="factuality-related failure",
             )
 
@@ -89,6 +225,15 @@ class ConstraintAwareReplanner(BaseReplanner):
             )
 
         if failure.retryable and replan_attempts < 3:
+            if scored:
+                top = scored[0]
+                if top.action in {"patch_subgraph", "replan_subtree", "replan_global", "retry_same", "switch_agent"}:
+                    return ReplanDecision(
+                        action=top.action,
+                        target_node_id=node.id,
+                        patch=top.payload or None,
+                        reason=top.reason,
+                    )
             return ReplanDecision(
                 action="retry_same",
                 target_node_id=node.id,
@@ -123,7 +268,27 @@ class ConstraintAwareReplanner(BaseReplanner):
             return tree
 
         if decision.action == "patch_subgraph":
-            self._apply_patch_subgraph(target=target, tree=tree, context=context)
+            template_name = ""
+            if decision.patch:
+                template_name = str(decision.patch.get("template", ""))
+            self.apply_patch_template(
+                template_name=template_name or "evidence_retrieval",
+                node=target,
+                tree=tree,
+                context=context,
+            )
+            return tree
+
+        if decision.action == "replan_subtree":
+            self.apply_subtree_replan(node=target, tree=tree, context=context)
+            return tree
+
+        if decision.action == "replan_global":
+            # Reserved interface: keep current graph and mark intent for upstream planner.
+            tree.metadata["global_replan_requested"] = {
+                "node_id": target.id,
+                "reason": decision.reason,
+            }
             return tree
 
         if decision.action == "abort":
@@ -162,6 +327,58 @@ class ConstraintAwareReplanner(BaseReplanner):
         for node_id in removed_ids:
             context.node_outputs.pop(node_id, None)
 
+    def apply_subtree_replan(
+        self,
+        node: TaskNode,
+        tree: TaskTree,
+        context: ExecutionContext,
+    ) -> None:
+        if self.planner is None:
+            self._apply_patch_subgraph(target=node, tree=tree, context=context)
+            return
+
+        planning_context = PlanningContext(
+            user_query=context.global_context.get("query", ""),
+            available_agents=[],
+            available_tools=[],
+            failure_context={"node_id": node.id, "reasons": node.repair_history},
+            replan_scope="subtree",
+        )
+        new_nodes = self.planner.replan_subtree(
+            tree=tree,
+            failed_node_id=node.id,
+            context=planning_context,
+        )
+        if not new_nodes:
+            self._apply_patch_subgraph(target=node, tree=tree, context=context)
+            return
+        tree.replace_subtree(root_node_id=node.id, new_nodes=new_nodes)
+        tree.record_graph_delta(
+            action="subtree_replaced",
+            payload={"root_node_id": node.id, "new_nodes": [n.id for n in new_nodes]},
+        )
+        for nid in [node.id, *tree.get_downstream_nodes(node.id)]:
+            context.node_outputs.pop(nid, None)
+
+    def apply_patch_template(
+        self,
+        template_name: str,
+        node: TaskNode,
+        tree: TaskTree,
+        context: ExecutionContext,
+    ) -> None:
+        if template_name in {"evidence_retrieval", "crosscheck", "normalization", "clarification"}:
+            self._apply_patch_subgraph(target=node, tree=tree, context=context)
+            tree.record_graph_delta(
+                action="patch_template_applied",
+                payload={"node_id": node.id, "template": template_name},
+            )
+            return
+        if template_name == "decomposition":
+            self.apply_subtree_replan(node=node, tree=tree, context=context)
+            return
+        self._apply_patch_subgraph(target=node, tree=tree, context=context)
+
     def _build_evidence_node(
         self,
         target: TaskNode,
@@ -185,6 +402,13 @@ class ConstraintAwareReplanner(BaseReplanner):
                 ],
             ),
             constraints=constraints,
+            intent=IntentSpec(
+                goal=f"Collect evidence for {target.id}",
+                success_conditions=["evidence_collected"],
+                evidence_requirements=["evidence"],
+                output_semantics={"evidence": "supporting evidence text"},
+            ),
+            intent_tags=["search", "evidence"],
         )
         return TaskNode(
             id=evidence_id,

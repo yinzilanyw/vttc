@@ -25,9 +25,12 @@ class VerifierEngine:
         node: TaskNode,
         output: Dict[str, Any],
         context: Dict[str, Any],
+        scope: str = "node",
     ) -> VerificationResult:
         details: List[ConstraintResult] = []
         for verifier in self.verifiers:
+            if scope not in verifier.supports_scope():
+                continue
             details.extend(verifier.verify(node=node, output=output, context=context))
 
         errors = [item for item in details if not item.passed and item.severity == "error"]
@@ -38,3 +41,35 @@ class VerifierEngine:
             details=details,
             confidence=1.0 if len(errors) == 0 else 0.0,
         )
+
+    def verify_node(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> VerificationResult:
+        return self.verify(node=node, output=output, context=context, scope="node")
+
+    def verify_edge(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> VerificationResult:
+        return self.verify(node=node, output=output, context=context, scope="edge")
+
+    def verify_subtree(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> VerificationResult:
+        return self.verify(node=node, output=output, context=context, scope="subtree")
+
+    def verify_global(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> VerificationResult:
+        return self.verify(node=node, output=output, context=context, scope="global")

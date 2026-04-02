@@ -1,0 +1,4 @@
+mode,backend,success,node_success_rate,verification_failures,retries,replans,avg_attempts,plan_versions,budget_exhausted,elapsed_sec,answer,error
+full,"bailian(planner=qwen-plus, judge=qwen-flash, base_url=https://dashscope.aliyuncs.com/compatible-mode/v1)",True,1.0,3,1,0,1.3333333333333333,1,False,6.278897047042847,Elon Musk,
+no_replan,"bailian(planner=qwen-plus, judge=qwen-flash, base_url=https://dashscope.aliyuncs.com/compatible-mode/v1)",True,1.0,3,1,0,1.3333333333333333,1,False,4.140674352645874,Elon Musk,
+no_tree,no_tree,True,1.0,0,0,0,1.0,1,False,0.8391129970550537,"Elon Musk is the CEO of Tesla, Inc., the company he co-founded.",

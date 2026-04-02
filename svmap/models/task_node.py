@@ -24,11 +24,22 @@ class NodeIO:
 
 
 @dataclass
+class IntentSpec:
+    goal: str
+    success_conditions: List[str] = field(default_factory=list)
+    evidence_requirements: List[str] = field(default_factory=list)
+    dependency_assumptions: List[str] = field(default_factory=list)
+    output_semantics: Dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class NodeSpec:
     description: str
     capability_tag: str
     io: NodeIO
     constraints: List[Constraint] = field(default_factory=list)
+    intent: Optional[IntentSpec] = None
+    intent_tags: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -52,6 +63,9 @@ class TaskNode:
 
     execution_policy: ExecutionPolicy = field(default_factory=ExecutionPolicy)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    parent_intent_ids: List[str] = field(default_factory=list)
+    intent_status: str = "unknown"
+    repair_history: List[str] = field(default_factory=list)
 
     @property
     def max_retry(self) -> int:
@@ -69,3 +83,20 @@ class TaskNode:
             if agent not in candidates:
                 candidates.append(agent)
         return candidates
+
+    def primary_goal(self) -> Optional[str]:
+        if self.spec.intent is None:
+            return None
+        return self.spec.intent.goal
+
+    def requires_evidence(self) -> bool:
+        if self.spec.intent and self.spec.intent.evidence_requirements:
+            return True
+        return any(getattr(c, "constraint_type", "") == "factuality" for c in self.spec.constraints)
+
+    def mark_intent_aligned(self) -> None:
+        self.intent_status = "aligned"
+
+    def mark_intent_violated(self, reason: str) -> None:
+        self.intent_status = "violated"
+        self.repair_history.append(reason)

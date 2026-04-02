@@ -1,6 +1,12 @@
 from .executor import ExecutionRuntime
 from .metrics import MetricsCollector, MetricsSummary
-from .replanner import BaseReplanner, ConstraintAwareReplanner, ReplanDecision
+from .replanner import (
+    BaseReplanner,
+    ConstraintAwareReplanner,
+    ReplanCandidate,
+    ReplanDecision,
+    ReplanScorer,
+)
 from .trace import TraceLogger
 
 __all__ = [
@@ -9,6 +15,8 @@ __all__ = [
     "ExecutionRuntime",
     "MetricsCollector",
     "MetricsSummary",
+    "ReplanCandidate",
     "ReplanDecision",
+    "ReplanScorer",
     "TraceLogger",
 ]

@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from svmap.models import TaskTree
+from svmap.models import IntentSpec, TaskNode, TaskTree
 
 
 def _load_openai_client(api_key: str, base_url: str) -> Any:
@@ -116,6 +116,8 @@ class BailianSemanticJudge:
         "properties": {
             "passed": {"type": "boolean"},
             "reasons": {"type": "array", "items": {"type": "string"}},
+            "confidence": {"type": "number"},
+            "repair_hint": {"type": "string"},
         },
         "required": ["passed", "reasons"],
         "additionalProperties": False,
@@ -130,9 +132,14 @@ class BailianSemanticJudge:
         output: Dict[str, Any],
         constraints: List[str],
         context: Dict[str, Any],
-    ) -> bool:
+    ) -> Dict[str, Any]:
         if not constraints:
-            return True
+            return {
+                "passed": True,
+                "reason": "",
+                "confidence": 1.0,
+                "repair_hint": "",
+            }
 
         payload = {
             "constraints": constraints,
@@ -169,7 +176,14 @@ class BailianSemanticJudge:
             },
         )
         verdict = json.loads(_extract_chat_completion_text(response))
-        return bool(verdict.get("passed", False))
+        reasons = verdict.get("reasons", [])
+        reason = "; ".join(reasons) if isinstance(reasons, list) else str(reasons)
+        return {
+            "passed": bool(verdict.get("passed", False)),
+            "reason": reason,
+            "confidence": float(verdict.get("confidence", 0.7)),
+            "repair_hint": str(verdict.get("repair_hint", "")),
+        }
 
 
 @dataclass
@@ -177,13 +191,26 @@ class PlanningContext:
     user_query: str
     available_agents: List[str]
     available_tools: List[str]
+    global_goal: str = ""
     global_constraints: List[str] = field(default_factory=list)
+    failure_context: Optional[Dict[str, Any]] = None
+    replan_scope: str = "none"
+    budget: Optional[Dict[str, Any]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class BasePlanner(ABC):
     @abstractmethod
     def plan(self, context: PlanningContext) -> TaskTree:
+        raise NotImplementedError
+
+    @abstractmethod
+    def replan_subtree(
+        self,
+        tree: TaskTree,
+        failed_node_id: str,
+        context: PlanningContext,
+    ) -> List[TaskNode]:
         raise NotImplementedError
 
 
@@ -266,7 +293,8 @@ n1 (extract founder) -> n2 (find company) -> n3 (find ceo)
 
     def plan(self, context: PlanningContext) -> TaskTree:
         if self.llm_planner is None:
-            return TaskTree.from_dict(self._default_plan(context))
+            tree = TaskTree.from_dict(self._default_plan(context))
+            return self.attach_intent_specs(tree=tree, context=context)
 
         raw = self.llm_planner(self._build_prompt(context))
         if isinstance(raw, str):
@@ -275,9 +303,81 @@ n1 (extract founder) -> n2 (find company) -> n3 (find ceo)
             data = raw
         else:
             raise TypeError("llm_planner must return a JSON string or dict.")
-        return TaskTree.from_dict(data)
+        tree = TaskTree.from_dict(data)
+        return self.attach_intent_specs(tree=tree, context=context)
 
     def refine_plan(self, tree: TaskTree, feedback: Dict[str, Any]) -> TaskTree:
         tree.metadata["refine_feedback"] = feedback
         tree.version += 1
         return tree
+
+    def attach_intent_specs(self, tree: TaskTree, context: PlanningContext) -> TaskTree:
+        for node in tree.nodes.values():
+            if node.spec.intent is None:
+                node.spec.intent = self.infer_intent_from_description(node=node)
+            if not node.spec.intent_tags:
+                node.spec.intent_tags = [node.spec.capability_tag]
+        return tree
+
+    def infer_intent_from_description(self, node: TaskNode) -> IntentSpec:
+        text = node.spec.description.lower()
+        goal = node.spec.description
+        success_conditions: List[str] = []
+        evidence_requirements: List[str] = []
+        output_semantics: Dict[str, str] = {}
+
+        if "founder" in text:
+            success_conditions.append("founder_extracted")
+            output_semantics["founder"] = "person who founded target company"
+        if "company" in text:
+            success_conditions.append("company_identified")
+            output_semantics["company"] = "target company"
+        if "ceo" in text:
+            success_conditions.append("ceo_identified")
+            output_semantics["ceo"] = "chief executive officer"
+        if "factual" in text or "source" in text:
+            evidence_requirements.append("source")
+
+        return IntentSpec(
+            goal=goal,
+            success_conditions=success_conditions,
+            evidence_requirements=evidence_requirements,
+            output_semantics=output_semantics,
+        )
+
+    def build_patch_candidates(self, node: TaskNode, failure: Dict[str, Any]) -> List[Dict[str, Any]]:
+        reasons = " ".join(failure.get("reasons", [])).lower()
+        candidates: List[Dict[str, Any]] = [{"template": "retry_same", "score": 0.2}]
+        if "semantic" in reasons or "factual" in reasons or "source" in reasons:
+            candidates.append({"template": "evidence_retrieval", "score": 0.9})
+            candidates.append({"template": "crosscheck", "score": 0.6})
+        if "schema" in reasons or "required" in reasons:
+            candidates.append({"template": "normalization", "score": 0.7})
+        return sorted(candidates, key=lambda x: x["score"], reverse=True)
+
+    def replan_subtree(
+        self,
+        tree: TaskTree,
+        failed_node_id: str,
+        context: PlanningContext,
+    ) -> List[TaskNode]:
+        if failed_node_id not in tree.nodes:
+            return []
+
+        source = tree.nodes[failed_node_id]
+        replacement = TaskNode(
+            id=source.id,
+            spec=source.spec,
+            dependencies=list(source.dependencies),
+            assigned_agent=source.assigned_agent,
+            fallback_agents=list(source.fallback_agents),
+            status="pending",
+            inputs=dict(source.inputs),
+            outputs={},
+            execution_policy=source.execution_policy,
+            metadata={**source.metadata, "replanned": True},
+            parent_intent_ids=list(source.parent_intent_ids),
+            intent_status="unknown",
+            repair_history=list(source.repair_history),
+        )
+        return [replacement]

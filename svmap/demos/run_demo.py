@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict
+import time
+import uuid
+from typing import Any, Dict, Optional
 
 from svmap.agents import (
     AgentRegistry,
@@ -12,7 +14,7 @@ from svmap.agents import (
     FallbackCEOAgent,
     SearchAgent,
 )
-from svmap.models import ConstraintResult, ExecutionContext, TaskNode
+from svmap.models import ConstraintResult, ExecutionContext, RuntimeBudget, TaskNode
 from svmap.planning import (
     BailianSemanticJudge,
     BailianTaskPlanner,
@@ -23,12 +25,17 @@ from svmap.planning import (
 from svmap.runtime import ConstraintAwareReplanner, ExecutionRuntime, MetricsCollector, TraceLogger
 from svmap.verification import (
     CrossNodeVerifier,
+    CrossNodeGraphVerifier,
     CustomNodeVerifier,
+    IntentVerifier,
     RuleVerifier,
     SchemaVerifier,
     SemanticVerifier,
     VerifierEngine,
 )
+
+
+DEFAULT_QUERY = "Who is the CEO of the company founded by Elon Musk?"
 
 
 def load_env_file(path: str = ".env") -> None:
@@ -51,6 +58,13 @@ def load_env_file(path: str = ".env") -> None:
             ):
                 value = value[1:-1]
             os.environ.setdefault(key, value)
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def build_default_knowledge_base() -> Dict[str, Dict[str, str]]:
@@ -80,7 +94,7 @@ def ceo_node_custom_verifier(
 
 
 def build_online_components_from_env() -> Dict[str, Any]:
-    use_online = os.getenv("USE_MODEL_API", "1").strip().lower() in {"1", "true", "yes", "on"}
+    use_online = _env_flag("USE_MODEL_API", default=True)
     if not use_online:
         return {"planner": None, "semantic_judge": None, "mode": "offline"}
 
@@ -110,17 +124,41 @@ def build_registry(kb: Dict[str, Dict[str, str]]) -> AgentRegistry:
     registry.register(
         "search_agent",
         SearchAgent(kb),
-        AgentSpec(name="search_agent", capabilities=["search"], reliability=0.95, cost_weight=1.0),
+        AgentSpec(
+            name="search_agent",
+            capabilities=["search"],
+            supported_intent_tags=["search", "evidence"],
+            repair_specialties=["verification", "planning"],
+            historical_success_by_capability={"search": 0.95},
+            reliability=0.95,
+            cost_weight=1.0,
+        ),
     )
     registry.register(
         "company_agent",
         CompanyAgent(kb),
-        AgentSpec(name="company_agent", capabilities=["lookup"], reliability=0.95, cost_weight=1.0),
+        AgentSpec(
+            name="company_agent",
+            capabilities=["lookup"],
+            supported_intent_tags=["lookup"],
+            repair_specialties=["verification"],
+            historical_success_by_capability={"lookup": 0.95},
+            reliability=0.95,
+            cost_weight=1.0,
+        ),
     )
     registry.register(
         "ceo_agent",
         CEOAgent(kb),
-        AgentSpec(name="ceo_agent", capabilities=["reason"], reliability=0.9, cost_weight=1.0),
+        AgentSpec(
+            name="ceo_agent",
+            capabilities=["reason"],
+            supported_intent_tags=["reason"],
+            repair_specialties=["runtime", "verification"],
+            historical_success_by_capability={"reason": 0.9},
+            reliability=0.9,
+            cost_weight=1.0,
+        ),
     )
     registry.register(
         "ceo_fallback_agent",
@@ -128,6 +166,9 @@ def build_registry(kb: Dict[str, Dict[str, str]]) -> AgentRegistry:
         AgentSpec(
             name="ceo_fallback_agent",
             capabilities=["reason", "lookup"],
+            supported_intent_tags=["reason", "lookup"],
+            repair_specialties=["verification", "runtime", "planning"],
+            historical_success_by_capability={"reason": 0.99, "lookup": 0.97},
             reliability=0.99,
             cost_weight=1.2,
         ),
@@ -135,12 +176,27 @@ def build_registry(kb: Dict[str, Dict[str, str]]) -> AgentRegistry:
     return registry
 
 
-def run_demo() -> None:
+def _extract_final_answer(report: Any, dag_order: list[str]) -> str:
+    for node_id in reversed(dag_order):
+        record = report.node_records.get(node_id)
+        if not record or not isinstance(record.output, dict):
+            continue
+        output = record.output
+        for key in ("answer", "ceo", "result", "output", "company", "founder"):
+            value = output.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return ""
+
+
+def run_demo_collect(
+    query: Optional[str] = None,
+    stop_on_failure: Optional[bool] = None,
+    export_trace: bool = True,
+) -> Dict[str, Any]:
+    start_ts = time.time()
     load_env_file(".env")
-    user_query = os.getenv(
-        "DEMO_QUERY",
-        "Who is the CEO of the company founded by Elon Musk?",
-    )
+    user_query = (query or os.getenv("DEMO_QUERY", DEFAULT_QUERY)).strip() or DEFAULT_QUERY
     components = build_online_components_from_env()
 
     planner = ConstraintAwarePlanner(llm_planner=components["planner"])
@@ -148,6 +204,8 @@ def run_demo() -> None:
         user_query=user_query,
         available_agents=["search_agent", "company_agent", "ceo_agent", "ceo_fallback_agent"],
         available_tools=[],
+        global_goal="Answer the user query with structurally verifiable multi-hop reasoning.",
+        replan_scope="none",
     )
     task_tree = planner.plan(planning_context)
 
@@ -155,7 +213,7 @@ def run_demo() -> None:
     registry = build_registry(kb)
 
     assigner = CapabilityBasedAssigner()
-    task_tree = assigner.assign(task_tree, registry)
+    task_tree = assigner.assign_with_intent(task_tree, registry)
 
     # Keep current MVP behavior: n3 has a custom executable verifier.
     if "n3" in task_tree.nodes:
@@ -173,38 +231,92 @@ def run_demo() -> None:
             RuleVerifier(),
             SemanticVerifier(semantic_judge=semantic_judge),
             CrossNodeVerifier(),
+            CrossNodeGraphVerifier(),
+            IntentVerifier(),
             CustomNodeVerifier(),
         ]
     )
 
     trace_logger = TraceLogger()
-    stop_on_failure = os.getenv("STOP_ON_FAILURE", "0").strip().lower() in {"1", "true", "yes", "on"}
+    stop_on_failure_flag = _env_flag("STOP_ON_FAILURE", default=False)
+    if stop_on_failure is not None:
+        stop_on_failure_flag = stop_on_failure
     runtime = ExecutionRuntime(
         registry=registry,
         verifier_engine=verifier_engine,
-        replanner=ConstraintAwareReplanner(),
+        replanner=ConstraintAwareReplanner(planner=planner),
         trace_logger=trace_logger,
-        stop_on_failure=stop_on_failure,
+        stop_on_failure=stop_on_failure_flag,
+        parallel=False,
+        max_runtime_steps=200,
+        budget=RuntimeBudget(max_runtime_steps=200, max_total_attempts=40, max_total_replans=10),
     )
     report = runtime.execute(
         tree=task_tree,
-        context=ExecutionContext(global_context={"query": user_query}),
+        context=ExecutionContext(
+            global_context={"query": user_query},
+            trace_id=str(uuid.uuid4()),
+        ),
     )
+    trace_path: Optional[str] = None
+    if export_trace:
+        os.makedirs("artifacts", exist_ok=True)
+        trace_path = os.path.join("artifacts", f"trace_{int(time.time())}.json")
+        trace_logger.export_json(trace_path)
+        report.trace_path = trace_path
 
     metrics = MetricsCollector().summarize(report)
+    dag_order = task_tree.topo_sort()
+    elapsed_sec = time.time() - start_ts
 
+    return {
+        "mode": components["mode"],
+        "query": user_query,
+        "dag_order": dag_order,
+        "success": report.success,
+        "total_retries": report.total_retries,
+        "verification_failures": report.verification_failures,
+        "replan_count": report.replan_count,
+        "plan_versions": report.plan_versions,
+        "trace_path": report.trace_path,
+        "budget_exhausted": report.budget_exhausted,
+        "final_answer": _extract_final_answer(report=report, dag_order=dag_order),
+        "elapsed_sec": elapsed_sec,
+        "metrics": {
+            "task_success": metrics.task_success,
+            "task_success_rate": metrics.task_success_rate,
+            "node_success_rate": metrics.node_success_rate,
+            "verification_failure_count": metrics.verification_failure_count,
+            "retry_count": metrics.retry_count,
+            "replan_count": metrics.replan_count,
+            "avg_attempts_per_node": metrics.avg_attempts_per_node,
+            "avg_saved_downstream_nodes": metrics.avg_saved_downstream_nodes,
+            "parallelizable_node_ratio": metrics.parallelizable_node_ratio,
+            "avg_cost_saved_vs_full_rerun": metrics.avg_cost_saved_vs_full_rerun,
+        },
+        "report": report,
+        "task_tree": task_tree,
+    }
+
+
+def run_demo() -> None:
+    result = run_demo_collect()
+    report = result["report"]
+    task_tree = result["task_tree"]
+    metrics = result["metrics"]
     print("=== Structured Verifiable Multi-Agent Planning (Modular MVP) ===")
-    print("Mode:", components["mode"])
-    print("Query:", user_query)
-    print("DAG order:", " -> ".join(task_tree.topo_sort()))
+    print("Mode:", result["mode"])
+    print("Query:", result["query"])
+    print("DAG order:", " -> ".join(result["dag_order"]))
     print("Success:", report.success)
     print("Total retries:", report.total_retries)
     print("Verification failures detected:", report.verification_failures)
     print("Replan count:", report.replan_count)
     print("Plan versions:", report.plan_versions)
+    print("Trace path:", report.trace_path)
     print()
 
-    for node_id in task_tree.topo_sort():
+    for node_id in result["dag_order"]:
         rec = report.node_records.get(node_id)
         if rec is None:
             print(f"[{node_id}] status=not_executed")
@@ -217,9 +329,9 @@ def run_demo() -> None:
         print()
 
     print("Metrics:")
-    print(f" task_success={metrics.task_success}")
-    print(f" node_success_rate={metrics.node_success_rate:.2f}")
-    print(f" verification_failure_count={metrics.verification_failure_count}")
-    print(f" retry_count={metrics.retry_count}")
-    print(f" replan_count={metrics.replan_count}")
-    print(f" avg_attempts_per_node={metrics.avg_attempts_per_node:.2f}")
+    print(f" task_success={metrics['task_success']}")
+    print(f" node_success_rate={metrics['node_success_rate']:.2f}")
+    print(f" verification_failure_count={metrics['verification_failure_count']}")
+    print(f" retry_count={metrics['retry_count']}")
+    print(f" replan_count={metrics['replan_count']}")
+    print(f" avg_attempts_per_node={metrics['avg_attempts_per_node']:.2f}")

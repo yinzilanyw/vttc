@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 from svmap.models import ConstraintResult, TaskNode
@@ -9,6 +10,9 @@ from .base import BaseVerifier
 
 
 class SchemaVerifier(BaseVerifier):
+    def supports_constraint_types(self) -> List[str]:
+        return ["schema", "required_fields", "field_type"]
+
     def verify(
         self,
         node: TaskNode,
@@ -41,6 +45,9 @@ class SchemaVerifier(BaseVerifier):
 
 
 class RuleVerifier(BaseVerifier):
+    def supports_constraint_types(self) -> List[str]:
+        return ["required_fields", "non_empty", "field_type", "factuality", "consistency"]
+
     def verify(
         self,
         node: TaskNode,
@@ -55,14 +62,25 @@ class RuleVerifier(BaseVerifier):
         return results
 
 
+@dataclass
+class SemanticVerdict:
+    passed: bool
+    reason: str = ""
+    confidence: float = 0.5
+    repair_hint: str = ""
+
+
 class SemanticVerifier(BaseVerifier):
     def __init__(
         self,
         semantic_judge: Optional[
-            Callable[[Dict[str, Any], List[str], Dict[str, Any]], bool]
+            Callable[[Dict[str, Any], List[str], Dict[str, Any]], SemanticVerdict | bool]
         ] = None,
     ) -> None:
         self.semantic_judge = semantic_judge
+
+    def supports_constraint_types(self) -> List[str]:
+        return ["semantic", "factuality", "intent_alignment"]
 
     def verify(
         self,
@@ -92,14 +110,25 @@ class SemanticVerifier(BaseVerifier):
                         )
                     ]
             return []
-        passed = self.semantic_judge(output, raw_constraints, context)
-        if passed:
+        verdict = self.semantic_judge(output, raw_constraints, context)
+        if isinstance(verdict, bool):
+            verdict = SemanticVerdict(passed=verdict)
+        elif isinstance(verdict, dict):
+            verdict = SemanticVerdict(
+                passed=bool(verdict.get("passed", False)),
+                reason=str(verdict.get("reason", "")),
+                confidence=float(verdict.get("confidence", 0.5)),
+                repair_hint=str(verdict.get("repair_hint", "")),
+            )
+        if verdict.passed:
             return []
         return [
             ConstraintResult(
                 passed=False,
                 code="semantic_check_failed",
-                message="Semantic verifier judged the node output as insufficient.",
+                message=verdict.reason or "Semantic verifier judged the node output as insufficient.",
+                confidence=verdict.confidence,
+                repair_hint=verdict.repair_hint,
             )
         ]
 
@@ -131,6 +160,9 @@ class CustomNodeVerifier(BaseVerifier):
 
 
 class CrossNodeVerifier(BaseVerifier):
+    def supports_scope(self) -> List[str]:
+        return ["node", "edge"]
+
     def verify(
         self,
         node: TaskNode,
@@ -144,3 +176,73 @@ class CrossNodeVerifier(BaseVerifier):
                 if not result.passed:
                     results.append(result)
         return results
+
+
+class IntentVerifier(BaseVerifier):
+    def supports_constraint_types(self) -> List[str]:
+        return ["intent_alignment"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        intent = node.spec.intent
+        if intent is None:
+            return []
+
+        missing: List[str] = []
+        for field_name in intent.output_semantics.keys():
+            if field_name not in output:
+                missing.append(field_name)
+        if missing:
+            node.mark_intent_violated(
+                f"intent outputs missing fields: {missing}"
+            )
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="intent_mismatch",
+                    message=f"Intent semantics not satisfied, missing fields: {missing}",
+                    repair_hint="replan_subtree",
+                    violation_scope="subtree",
+                )
+            ]
+
+        node.mark_intent_aligned()
+        return []
+
+
+class CrossNodeGraphVerifier(BaseVerifier):
+    def supports_scope(self) -> List[str]:
+        return ["node", "edge", "subtree"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        dep_outputs = context.get("dependency_outputs", {})
+        if not dep_outputs:
+            return []
+
+        # Lightweight graph-level sanity: if upstream has "company", downstream output should
+        # not contradict with an empty/None "company" when field exists.
+        upstream_company = None
+        for dep_output in dep_outputs.values():
+            if isinstance(dep_output, dict) and dep_output.get("company"):
+                upstream_company = dep_output.get("company")
+                break
+        if upstream_company and "company" in output and not output.get("company"):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="cross_node_graph_inconsistency",
+                    message="Downstream company is empty while upstream company exists.",
+                    violation_scope="edge",
+                    repair_hint="apply_normalization_patch",
+                )
+            ]
+        return []

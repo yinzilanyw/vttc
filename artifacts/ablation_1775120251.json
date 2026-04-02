@@ -1,0 +1,50 @@
+{
+  "query": "Who is the CEO of the company founded by Elon Musk?",
+  "rows": [
+    {
+      "mode": "full",
+      "backend": "bailian(planner=qwen-plus, judge=qwen-flash, base_url=https://dashscope.aliyuncs.com/compatible-mode/v1)",
+      "success": true,
+      "node_success_rate": 1.0,
+      "verification_failures": 3,
+      "retries": 1,
+      "replans": 0,
+      "avg_attempts": 1.3333333333333333,
+      "plan_versions": 1,
+      "budget_exhausted": false,
+      "elapsed_sec": 6.278897047042847,
+      "answer": "Elon Musk",
+      "error": ""
+    },
+    {
+      "mode": "no_replan",
+      "backend": "bailian(planner=qwen-plus, judge=qwen-flash, base_url=https://dashscope.aliyuncs.com/compatible-mode/v1)",
+      "success": true,
+      "node_success_rate": 1.0,
+      "verification_failures": 3,
+      "retries": 1,
+      "replans": 0,
+      "avg_attempts": 1.3333333333333333,
+      "plan_versions": 1,
+      "budget_exhausted": false,
+      "elapsed_sec": 4.140674352645874,
+      "answer": "Elon Musk",
+      "error": ""
+    },
+    {
+      "mode": "no_tree",
+      "backend": "no_tree",
+      "success": true,
+      "node_success_rate": 1.0,
+      "verification_failures": 0,
+      "retries": 0,
+      "replans": 0,
+      "avg_attempts": 1.0,
+      "plan_versions": 1,
+      "budget_exhausted": false,
+      "elapsed_sec": 0.8391129970550537,
+      "answer": "Elon Musk is the CEO of Tesla, Inc., the company he co-founded.",
+      "error": ""
+    }
+  ]
+}

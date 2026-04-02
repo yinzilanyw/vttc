@@ -4,7 +4,7 @@ from typing import List
 
 from svmap.agents.registry import AgentRegistry
 from svmap.models.constraints import ConsistencyConstraint
-from svmap.models import TaskTree
+from svmap.models import TaskNode, TaskTree
 
 
 class PlanValidator:
@@ -50,5 +50,64 @@ class PlanValidator:
                     if upstream_field not in upstream_schema_fields:
                         errors.append(
                             f"node:{node.id}:missing_upstream_field:{upstream_path}"
+                        )
+        errors.extend(self.validate_intents(tree))
+        errors.extend(self.validate_cross_node_constraints(tree))
+        return errors
+
+    def validate_intents(self, tree: TaskTree) -> List[str]:
+        errors: List[str] = []
+        for node in tree.nodes.values():
+            if node.spec.intent is None:
+                errors.append(f"node:{node.id}:missing_intent")
+                continue
+            if not node.spec.intent.goal.strip():
+                errors.append(f"node:{node.id}:empty_intent_goal")
+        return errors
+
+    def validate_patch(
+        self,
+        tree: TaskTree,
+        patch_nodes: List[TaskNode],
+        attach_to: str,
+    ) -> List[str]:
+        errors: List[str] = []
+        if attach_to not in tree.nodes:
+            errors.append(f"patch:attach_node_missing:{attach_to}")
+        seen_ids = set()
+        for node in patch_nodes:
+            node_id = getattr(node, "id", "")
+            if not node_id:
+                errors.append("patch:node_missing_id")
+                continue
+            if node_id in seen_ids:
+                errors.append(f"patch:duplicate_node_id:{node_id}")
+            seen_ids.add(node_id)
+        return errors
+
+    def validate_subtree_replacement(
+        self,
+        tree: TaskTree,
+        root_node_id: str,
+        new_nodes: List[TaskNode],
+    ) -> List[str]:
+        errors: List[str] = []
+        if root_node_id not in tree.nodes:
+            errors.append(f"replace_subtree:root_missing:{root_node_id}")
+        new_ids = {getattr(node, "id", "") for node in new_nodes}
+        if root_node_id and root_node_id not in new_ids:
+            errors.append(f"replace_subtree:root_not_in_new_nodes:{root_node_id}")
+        return errors
+
+    def validate_cross_node_constraints(self, tree: TaskTree) -> List[str]:
+        errors: List[str] = []
+        for node in tree.nodes.values():
+            for constraint in node.spec.constraints:
+                if not isinstance(constraint, ConsistencyConstraint):
+                    continue
+                for _, upstream_path in constraint.upstream_fields.items():
+                    if "." not in upstream_path:
+                        errors.append(
+                            f"node:{node.id}:consistency_invalid_path:{upstream_path}"
                         )
         return errors

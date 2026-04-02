@@ -21,6 +21,9 @@ class NodeFailure:
     reasons: List[str]
     output_snapshot: Optional[Dict[str, Any]] = None
     retryable: bool = True
+    constraint_failures: List[ConstraintResult] = field(default_factory=list)
+    repair_hints: List[str] = field(default_factory=list)
+    violation_scopes: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -39,6 +42,17 @@ class NodeExecutionRecord:
 
     start_ts: Optional[float] = None
     end_ts: Optional[float] = None
+    intent_status: str = "unknown"
+    graph_version: int = 1
+    saved_downstream_nodes: int = 0
+    replan_action: str = ""
+
+
+@dataclass
+class RuntimeBudget:
+    max_runtime_steps: int = 200
+    max_total_attempts: int = 30
+    max_total_replans: int = 10
 
 
 @dataclass
@@ -51,3 +65,6 @@ class ExecutionReport:
     replan_count: int = 0
     plan_versions: int = 1
     trace_path: Optional[str] = None
+    budget_exhausted: bool = False
+    replan_actions: List[str] = field(default_factory=list)
+    structural_savings: Dict[str, Any] = field(default_factory=dict)

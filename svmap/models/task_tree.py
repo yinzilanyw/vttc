@@ -4,7 +4,7 @@ from collections import deque
 from typing import Any, Dict, List, Set
 
 from .constraints import ConstraintParser, RequiredFieldsConstraint
-from .task_node import ExecutionPolicy, FieldSpec, NodeIO, NodeSpec, TaskNode
+from .task_node import ExecutionPolicy, FieldSpec, IntentSpec, NodeIO, NodeSpec, TaskNode
 
 
 class TaskTree:
@@ -13,6 +13,8 @@ class TaskTree:
         self.version = 1
         self.root_ids: List[str] = []
         self.metadata: Dict[str, Any] = {}
+        self.replan_history: List[Dict[str, Any]] = []
+        self.graph_deltas: List[Dict[str, Any]] = []
         self.validate()
 
     @classmethod
@@ -27,11 +29,23 @@ class TaskTree:
             )
 
             io = _parse_or_build_node_io(node_data, constraints)
+            raw_intent = node_data.get("intent")
+            intent = None
+            if isinstance(raw_intent, dict):
+                intent = IntentSpec(
+                    goal=raw_intent.get("goal", ""),
+                    success_conditions=raw_intent.get("success_conditions", []),
+                    evidence_requirements=raw_intent.get("evidence_requirements", []),
+                    dependency_assumptions=raw_intent.get("dependency_assumptions", []),
+                    output_semantics=raw_intent.get("output_semantics", {}),
+                )
             spec = NodeSpec(
                 description=node_data.get("description", ""),
                 capability_tag=capability_tag,
                 io=io,
                 constraints=constraints,
+                intent=intent,
+                intent_tags=node_data.get("intent_tags", []),
             )
 
             fallback_agents = node_data.get("fallback_agents", [])
@@ -49,6 +63,9 @@ class TaskTree:
                 inputs=node_data.get("inputs", {}),
                 execution_policy=policy,
                 metadata=node_data.get("metadata", {}),
+                parent_intent_ids=node_data.get("parent_intent_ids", []),
+                intent_status=node_data.get("intent_status", "unknown"),
+                repair_history=node_data.get("repair_history", []),
             )
             nodes[node.id] = node
 
@@ -116,6 +133,7 @@ class TaskTree:
 
     def replace_subgraph(self, failed_node_id: str, new_nodes: List[TaskNode]) -> None:
         remove_ids = {failed_node_id, *self.get_downstream_nodes(failed_node_id)}
+        before_version = self.version
         for node_id in remove_ids:
             self.nodes.pop(node_id, None)
 
@@ -124,12 +142,70 @@ class TaskTree:
 
         self.version += 1
         self.validate()
+        self.record_graph_delta(
+            action="replace_subgraph",
+            payload={
+                "failed_node_id": failed_node_id,
+                "removed_ids": sorted(remove_ids),
+                "inserted_ids": [node.id for node in new_nodes],
+                "before_version": before_version,
+                "after_version": self.version,
+            },
+        )
 
     def mark_skipped_subtree(self, node_id: str) -> None:
         ids = [node_id, *self.get_downstream_nodes(node_id)]
         for nid in ids:
             if nid in self.nodes and self.nodes[nid].status == "pending":
                 self.nodes[nid].status = "skipped"
+
+    def get_subtree(self, node_id: str) -> List[str]:
+        return [node_id, *self.get_downstream_nodes(node_id)]
+
+    def remove_subtree(self, node_id: str) -> None:
+        subtree = self.get_subtree(node_id)
+        before_version = self.version
+        for nid in subtree:
+            self.nodes.pop(nid, None)
+        self.version += 1
+        self.validate()
+        self.record_graph_delta(
+            action="remove_subtree",
+            payload={
+                "root_node_id": node_id,
+                "removed_ids": subtree,
+                "before_version": before_version,
+                "after_version": self.version,
+            },
+        )
+
+    def replace_subtree(self, root_node_id: str, new_nodes: List[TaskNode]) -> None:
+        subtree = self.get_subtree(root_node_id)
+        before_version = self.version
+        for nid in subtree:
+            self.nodes.pop(nid, None)
+        for node in new_nodes:
+            self.nodes[node.id] = node
+        self.version += 1
+        self.validate()
+        self.record_graph_delta(
+            action="replace_subtree",
+            payload={
+                "root_node_id": root_node_id,
+                "removed_ids": subtree,
+                "inserted_ids": [node.id for node in new_nodes],
+                "before_version": before_version,
+                "after_version": self.version,
+            },
+        )
+
+    def record_graph_delta(self, action: str, payload: Dict[str, Any]) -> None:
+        delta = {"action": action, "payload": payload, "version": self.version}
+        self.graph_deltas.append(delta)
+        self.replan_history.append(delta)
+
+    def affected_downstream(self, node_id: str) -> List[str]:
+        return self.get_downstream_nodes(node_id)
 
 
 def _infer_capability(agent_name: str) -> str:

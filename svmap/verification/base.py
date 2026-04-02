@@ -7,6 +7,12 @@ from svmap.models import ConstraintResult, TaskNode
 
 
 class BaseVerifier(ABC):
+    def supports_scope(self) -> List[str]:
+        return ["node"]
+
+    def supports_constraint_types(self) -> List[str]:
+        return ["*"]
+
     @abstractmethod
     def verify(
         self,

@@ -1,0 +1,192 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775121630.078829,
+    "payload": {
+      "node_count": 3,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775121630.078829,
+    "payload": {
+      "node_id": "n1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "search_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "company_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n3",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n3",
+      "action": "retry_same",
+      "reason": "cheap retry"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "before_version": 1,
+      "after_version": 1,
+      "node_id": "n3",
+      "action": "retry_same",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n3",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n3",
+      "action": "retry_same",
+      "reason": "cheap retry"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "before_version": 1,
+      "after_version": 1,
+      "node_id": "n3",
+      "action": "retry_same",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n3",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n3",
+      "action": "retry_same",
+      "reason": "cheap retry"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "before_version": 1,
+      "after_version": 1,
+      "node_id": "n3",
+      "action": "retry_same",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n3",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "node_id": "n3",
+      "action": "abort",
+      "reason": "not retryable"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775121630.0798295,
+    "payload": {
+      "before_version": 1,
+      "after_version": 1,
+      "node_id": "n3",
+      "action": "abort",
+      "saved_downstream_nodes": 0
+    }
+  }
+]

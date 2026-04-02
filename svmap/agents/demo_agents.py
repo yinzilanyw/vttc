@@ -53,6 +53,9 @@ class SearchAgent(BaseAgent):
             "source": "query_parser",
         }
 
+    def estimate_success(self, node: TaskNode) -> float:
+        return 0.9 if node.spec.capability_tag == "search" else 0.6
+
 
 class CompanyAgent(BaseAgent):
     def __init__(self, knowledge_base: Dict[str, Dict[str, str]]) -> None:
@@ -69,6 +72,9 @@ class CompanyAgent(BaseAgent):
             "company": facts.get("company"),
             "source": "kb_lookup",
         }
+
+    def estimate_success(self, node: TaskNode) -> float:
+        return 0.9 if node.spec.capability_tag in {"lookup", "search"} else 0.5
 
 
 class CEOAgent(BaseAgent):
@@ -92,6 +98,9 @@ class CEOAgent(BaseAgent):
             return {"chief_executive": ceo, "company": company, "source": "kb_lookup_v1"}
         return {"ceo": ceo, "company": company, "source": "kb_lookup_v2"}
 
+    def estimate_success(self, node: TaskNode) -> float:
+        return 0.8
+
 
 class FallbackCEOAgent(BaseAgent):
     def __init__(self, knowledge_base: Dict[str, Dict[str, str]]) -> None:
@@ -107,3 +116,6 @@ class FallbackCEOAgent(BaseAgent):
         )
         facts = self.knowledge_base.get(_normalize_name(founder), {})
         return {"ceo": facts.get("ceo"), "company": company, "source": "fallback_kb_lookup"}
+
+    def estimate_success(self, node: TaskNode) -> float:
+        return 0.95
