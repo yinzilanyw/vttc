@@ -179,6 +179,55 @@ def _has_meaningful_progression(answer: str) -> bool:
     return diversity >= 0.6
 
 
+def _looks_like_generic_plan(answer: str) -> bool:
+    lowered = _normalize_text(answer)
+    generic_patterns = [
+        r"\bconcrete artifact\b",
+        r"\bpasses coverage verification\b",
+        r"\bimprove understanding\b",
+        r"\bgeneral overview\b",
+    ]
+    if re.search(r"\bconcrete artifact\b", lowered) and _deliverables_are_specific(answer):
+        return False
+    if re.search(r"\bpasses coverage verification\b", lowered) and _metrics_are_measurable(answer):
+        return False
+    return any(re.search(pattern, lowered) for pattern in generic_patterns)
+
+
+def _deliverables_are_specific(answer: str) -> bool:
+    lowered = _normalize_text(answer)
+    artifact_tokens = [
+        "module",
+        "script",
+        "unit test",
+        "integration test",
+        "trace",
+        "table",
+        "metric table",
+        "report",
+        "document",
+        "design doc",
+        "spec",
+        "specification",
+        "test case",
+        "test cases",
+        "validator",
+        "checklist",
+        "experiment",
+        "dataset",
+        "benchmark",
+    ]
+    return any(token in lowered for token in artifact_tokens)
+
+
+def _metrics_are_measurable(answer: str) -> bool:
+    lowered = _normalize_text(answer)
+    if re.search(r"\d", lowered):
+        return True
+    measurable_tokens = ["%", "<=", ">=", "at least", "within", "pass rate", "accuracy", "latency", "count"]
+    return any(token in lowered for token in measurable_tokens)
+
+
 def _is_grounded_in_all_days(output: Dict[str, Any]) -> bool:
     used_nodes = output.get("used_nodes")
     if not isinstance(used_nodes, list):
@@ -914,7 +963,9 @@ class RequirementsAnalysisVerifier(BaseVerifier):
         duration_days = output.get("duration_days")
         task_form = _as_text(output.get("task_form"))
         primary_domain = _as_text(output.get("primary_domain"))
+        secondary_focus = _as_text(output.get("secondary_focus"))
         must_cover_topics = output.get("must_cover_topics")
+        forbidden_topic_drift = output.get("forbidden_topic_drift")
 
         if not isinstance(topics, list) or len(topics) < 3:
             results.append(
@@ -982,6 +1033,17 @@ class RequirementsAnalysisVerifier(BaseVerifier):
                     violation_scope="node",
                 )
             )
+        if not secondary_focus:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_secondary_focus_missing",
+                    message="secondary_focus is required for requirements analysis.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            )
         if not isinstance(must_cover_topics, list) or not must_cover_topics:
             results.append(
                 ConstraintResult(
@@ -993,13 +1055,38 @@ class RequirementsAnalysisVerifier(BaseVerifier):
                     violation_scope="node",
                 )
             )
+        if not isinstance(forbidden_topic_drift, list) or not forbidden_topic_drift:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_forbidden_topic_drift_missing",
+                    message="forbidden_topic_drift must be a non-empty list.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            )
+        noise_words = {"including", "include", "one", "two", "three"}
+        if isinstance(topics, list):
+            noisy = [x for x in topics if _normalize_text(_as_text(x)) in noise_words]
+            if noisy:
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="requirements_topics_noisy",
+                        message=f"Requirements topics contain noisy tokens: {noisy}",
+                        failure_type="requirements_analysis_failed",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                )
 
         query = _as_text(context.get("global_context", {}).get("query"))
         query_topics = _extract_required_topics_from_query(query)
         joined = " ".join(
             [
                 primary_domain,
-                _as_text(output.get("secondary_focus")),
+                secondary_focus,
                 " ".join([_as_text(x) for x in (topics if isinstance(topics, list) else [])]),
                 " ".join([_as_text(x) for x in (must_cover_topics if isinstance(must_cover_topics, list) else [])]),
             ]
@@ -1037,6 +1124,7 @@ class PlanSchemaVerifier(BaseVerifier):
         progression = output.get("progression")
         topic_allocation = output.get("topic_allocation")
         required_fields = output.get("required_fields")
+        quality_criteria = output.get("quality_criteria")
         if not isinstance(day_template, dict):
             results.append(
                 ConstraintResult(
@@ -1094,6 +1182,53 @@ class PlanSchemaVerifier(BaseVerifier):
                     violation_scope="node",
                 )
             )
+        if not isinstance(quality_criteria, dict):
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="schema_quality_criteria_missing",
+                    message="Plan schema must include quality_criteria.",
+                    failure_type="schema_design_failed",
+                    repair_hint="build_schema_patch",
+                    violation_scope="node",
+                )
+            )
+        else:
+            required_quality = {
+                "deliverable_must_be_specific",
+                "metric_must_be_measurable",
+                "avoid_generic_templates",
+                "must_reference_repo_changes",
+            }
+            missing_quality = [x for x in required_quality if x not in quality_criteria]
+            if missing_quality:
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="schema_quality_criteria_incomplete",
+                        message=f"quality_criteria missing fields: {missing_quality}",
+                        failure_type="schema_design_failed",
+                        repair_hint="build_schema_patch",
+                        violation_scope="node",
+                    )
+                )
+        if isinstance(progression, list):
+            generic_terms = {"foundation", "core", "general", "overview", "patterns", "principles"}
+            generic_hits = sum(
+                1 for item in progression
+                if isinstance(item, str) and any(term in item.lower() for term in generic_terms)
+            )
+            if generic_hits >= max(4, len(progression) - 1):
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="schema_progression_too_generic",
+                        message="Plan schema progression is too generic.",
+                        failure_type="schema_design_failed",
+                        repair_hint="build_schema_patch",
+                        violation_scope="node",
+                    )
+                )
 
         query = _as_text(context.get("global_context", {}).get("query"))
         query_topics = _extract_required_topics_from_query(query)
@@ -1195,6 +1330,30 @@ class PlanCoverageVerifier(BaseVerifier):
                 continue
             if not dep_id.startswith("generate_day"):
                 continue
+            deliverable = _as_text(dep_output.get("deliverable"))
+            metric = _as_text(dep_output.get("metric"))
+            if deliverable and not _deliverables_are_specific(deliverable):
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="generic_deliverable",
+                        message=f"{dep_id} deliverable is too generic.",
+                        failure_type="generic_deliverable",
+                        repair_hint="build_schema_patch",
+                        violation_scope="node",
+                    )
+                ]
+            if metric and not _metrics_are_measurable(metric):
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="non_actionable_metric",
+                        message=f"{dep_id} metric is not measurable.",
+                        failure_type="non_actionable_metric",
+                        repair_hint="build_metric_patch",
+                        violation_scope="node",
+                    )
+                ]
             merged = " ".join(
                 [
                     _as_text(dep_output.get("goal")),
@@ -1285,6 +1444,81 @@ class NoPlaceholderVerifier(BaseVerifier):
                     code="template_placeholder_detected",
                     message="Placeholder pattern detected in plan content.",
                     failure_type="low_information_output",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        return []
+
+
+class LowInformationOutputVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["aggregation", "summarization", "final_response", "reasoning"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        text_candidates: List[str] = []
+        for key in ["answer", "final_response", "summary", "goal", "deliverable", "metric"]:
+            value = output.get(key)
+            if isinstance(value, str) and value.strip():
+                text_candidates.append(value.strip())
+        merged = " ".join(text_candidates)
+        if not merged:
+            return []
+        if _looks_like_placeholder_plan(merged):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="low_information_output",
+                    message="Output appears to be placeholder/template content.",
+                    failure_type="low_information_output",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        if len(_normalize_text(merged)) < 48 and node.spec.task_type in {"aggregation", "summarization", "final_response"}:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="low_information_output",
+                    message="Output is too short for the requested task.",
+                    failure_type="low_information_output",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        return []
+
+
+class GenericOutputVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["aggregation", "final_response", "verification", "reasoning"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        text_candidates: List[str] = []
+        for key in ["answer", "final_response", "goal", "deliverable", "metric"]:
+            value = output.get(key)
+            if isinstance(value, str) and value.strip():
+                text_candidates.append(value.strip())
+        merged = " ".join(text_candidates)
+        if not merged:
+            return []
+        if _looks_like_generic_plan(merged):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="generic_plan_output",
+                    message="Output contains generic template plan language.",
+                    failure_type="generic_plan_output",
                     repair_hint="replan_subtree",
                     violation_scope="node",
                 )
@@ -1527,6 +1761,39 @@ class FinalResponseVerifier(BaseVerifier):
                         failure_type="low_information_output",
                         violation_scope="node",
                         repair_hint="replan_subtree",
+                    )
+                )
+            if _looks_like_generic_plan(answer):
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="generic_plan_output",
+                        message="Final plan output is overly generic and template-like.",
+                        failure_type="generic_plan_output",
+                        violation_scope="node",
+                        repair_hint="replan_subtree",
+                    )
+                )
+            if not _deliverables_are_specific(answer):
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="generic_deliverable",
+                        message="Final plan deliverables are not specific enough.",
+                        failure_type="generic_deliverable",
+                        violation_scope="node",
+                        repair_hint="build_schema_patch",
+                    )
+                )
+            if not _metrics_are_measurable(answer):
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="non_actionable_metric",
+                        message="Final plan metrics are not measurable.",
+                        failure_type="non_actionable_metric",
+                        violation_scope="node",
+                        repair_hint="build_metric_patch",
                     )
                 )
             required_topics = _extract_required_topics_from_query(query)

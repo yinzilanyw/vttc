@@ -13,11 +13,15 @@ from svmap.models import (
     FinalStructureConstraint,
     IntentAlignmentConstraint,
     IntentSpec,
+    MeasurableMetricConstraint,
+    NoGenericPlanConstraint,
     NoInternalErrorConstraint,
     NoTemplatePlaceholderConstraint,
     NonEmptyExtractionConstraint,
     NonTrivialTransformationConstraint,
     PlanTopicCoverageConstraint,
+    SchemaSpecificityConstraint,
+    SpecificDeliverableConstraint,
     TaskNode,
     TaskTree,
 )
@@ -380,11 +384,88 @@ class ConstraintAwarePlanner(BasePlanner):
         text = user_query.lower().strip()
         planning_signals = ["learning plan", "7-day", "daily goals", "deliverables", "metric"]
         svmap_signals = ["multi-agent", "workflow", "verifiable task tree", "verifiable task trees"]
+        experiment_signals = ["ablation", "benchmark", "experiment", "evaluation", "metrics comparison"]
+        implementation_signals = ["implement", "build", "coding", "refactor", "module", "repository"]
         if any(x in text for x in planning_signals) and any(x in text for x in svmap_signals):
-            return "svmap_learning"
+            return "learning_plan_svmap"
+        if any(x in text for x in planning_signals) and any(x in text for x in experiment_signals):
+            return "experiment_plan"
+        if any(x in text for x in planning_signals) and any(x in text for x in implementation_signals):
+            return "implementation_plan"
         if self.infer_task_family(user_query) == "plan":
             return "general_plan"
         return ""
+
+    def normalize_requirements_output(self, output: Dict[str, Any]) -> Dict[str, Any]:
+        normalized = dict(output)
+        raw_topics = normalized.get("topics", [])
+        topics = [str(x).strip().lower() for x in raw_topics if str(x).strip()] if isinstance(raw_topics, list) else []
+        stopwords = {
+            "including",
+            "include",
+            "one",
+            "two",
+            "three",
+            "day",
+            "days",
+            "plan",
+            "learning",
+            "daily",
+            "goal",
+            "goals",
+            "deliverable",
+            "deliverables",
+            "metric",
+            "metrics",
+        }
+        merged: List[str] = []
+        idx = 0
+        while idx < len(topics):
+            token = topics[idx]
+            if token in stopwords:
+                idx += 1
+                continue
+            if token == "task" and idx + 1 < len(topics) and topics[idx + 1] in {"tree", "trees"}:
+                merged.append("task trees")
+                idx += 2
+                continue
+            if token not in merged:
+                merged.append(token)
+            idx += 1
+        normalized["topics"] = merged[:8]
+
+        raw_must_cover = normalized.get("must_cover_topics", [])
+        if isinstance(raw_must_cover, list):
+            must_cover: List[str] = []
+            for topic in raw_must_cover:
+                topic_text = str(topic).strip().lower()
+                if not topic_text or topic_text in stopwords:
+                    continue
+                if topic_text == "task tree":
+                    topic_text = "task trees"
+                if topic_text not in must_cover:
+                    must_cover.append(topic_text)
+            normalized["must_cover_topics"] = must_cover[:5]
+        return normalized
+
+    def enrich_plan_schema(
+        self,
+        schema_output: Dict[str, Any],
+        requirements_output: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        enriched = dict(schema_output)
+        quality = enriched.get("quality_criteria")
+        if not isinstance(quality, dict):
+            quality = {}
+        quality.setdefault("deliverable_must_be_specific", True)
+        quality.setdefault("metric_must_be_measurable", True)
+        quality.setdefault("avoid_generic_templates", True)
+        quality.setdefault("must_reference_repo_changes", True)
+        enriched["quality_criteria"] = quality
+        required_fields = requirements_output.get("required_fields")
+        if isinstance(required_fields, list) and required_fields:
+            enriched["required_fields"] = required_fields
+        return enriched
 
     def build_multitask_schema(self) -> Dict[str, Any]:
         return _multitask_schema()
@@ -519,6 +600,9 @@ class ConstraintAwarePlanner(BasePlanner):
                         "constraint": [
                             "required_keys:day,goal,deliverable,metric",
                             "non_empty_values",
+                            "specific_deliverable",
+                            "measurable_metric",
+                            "no_generic_plan",
                         ],
                         "io": {
                             "output_fields": [
@@ -576,8 +660,10 @@ class ConstraintAwarePlanner(BasePlanner):
                         "output_mode": "json",
                         "answer_role": "intermediate",
                         "constraint": [
-                            "required_keys:day_template,progression,topic_allocation,required_fields",
+                            "required_keys:day_template,progression,topic_allocation,required_fields,quality_criteria",
                             "non_empty_values",
+                            "schema_specificity",
+                            "no_generic_plan",
                         ],
                         "io": {
                             "output_fields": [
@@ -585,6 +671,7 @@ class ConstraintAwarePlanner(BasePlanner):
                                 {"name": "progression", "field_type": "list[string]", "required": True},
                                 {"name": "topic_allocation", "field_type": "json", "required": True},
                                 {"name": "required_fields", "field_type": "list[string]", "required": True},
+                                {"name": "quality_criteria", "field_type": "json", "required": True},
                             ]
                         },
                     },
@@ -604,6 +691,7 @@ class ConstraintAwarePlanner(BasePlanner):
                             "coverage_constraint",
                             "all_days_present",
                             "plan_topic_coverage",
+                            "no_generic_plan",
                             "no_template_placeholder",
                         ],
                         "io": {
@@ -630,6 +718,7 @@ class ConstraintAwarePlanner(BasePlanner):
                             "required_keys:answer,used_nodes",
                             "non_empty_values",
                             "final_structure:min_items=7,required_sections=goal|deliverable|metric,forbid_query_echo=true",
+                            "no_generic_plan",
                         ],
                         "io": {
                             "output_fields": [
@@ -1022,6 +1111,8 @@ class ConstraintAwarePlanner(BasePlanner):
                     node.spec.constraints.append(AllDaysPresentConstraint())
                 if "plan_topic_coverage" not in existing_types:
                     node.spec.constraints.append(PlanTopicCoverageConstraint())
+                if "no_generic_plan" not in existing_types:
+                    node.spec.constraints.append(NoGenericPlanConstraint())
                 if "no_template_placeholder" not in existing_types:
                     node.spec.constraints.append(NoTemplatePlaceholderConstraint())
 
@@ -1036,17 +1127,31 @@ class ConstraintAwarePlanner(BasePlanner):
                             similarity_threshold=0.9,
                         )
                     )
-                if node.id == "design_plan_schema" and "no_template_placeholder" not in existing_types:
-                    node.spec.constraints.append(NoTemplatePlaceholderConstraint())
+                if node.id == "design_plan_schema":
+                    if "schema_specificity" not in existing_types:
+                        node.spec.constraints.append(SchemaSpecificityConstraint())
+                    if "no_template_placeholder" not in existing_types:
+                        node.spec.constraints.append(NoTemplatePlaceholderConstraint())
+                    if "no_generic_plan" not in existing_types:
+                        node.spec.constraints.append(NoGenericPlanConstraint())
 
             if plan_mode and node.id.startswith("generate_day"):
                 if "intent_alignment" not in existing_types:
                     node.spec.constraints.append(IntentAlignmentConstraint(target_goal=node.spec.description))
                 if "no_template_placeholder" not in existing_types:
                     node.spec.constraints.append(NoTemplatePlaceholderConstraint())
+                if "specific_deliverable" not in existing_types:
+                    node.spec.constraints.append(SpecificDeliverableConstraint())
+                if "measurable_metric" not in existing_types:
+                    node.spec.constraints.append(MeasurableMetricConstraint())
+                if "no_generic_plan" not in existing_types:
+                    node.spec.constraints.append(NoGenericPlanConstraint())
 
-            if plan_mode and node.is_final_response() and "no_template_placeholder" not in existing_types:
-                node.spec.constraints.append(NoTemplatePlaceholderConstraint())
+            if plan_mode and node.is_final_response():
+                if "no_template_placeholder" not in existing_types:
+                    node.spec.constraints.append(NoTemplatePlaceholderConstraint())
+                if "no_generic_plan" not in existing_types:
+                    node.spec.constraints.append(NoGenericPlanConstraint())
 
     def propagate_intents(self, tree: TaskTree) -> None:
         task_family = str(tree.metadata.get("task_family", "")).strip().lower()

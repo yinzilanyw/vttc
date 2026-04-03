@@ -314,6 +314,14 @@ class ConstraintParser:
                 parsed.append(AllDaysPresentConstraint())
             elif text == "plan_topic_coverage":
                 parsed.append(PlanTopicCoverageConstraint())
+            elif text == "schema_specificity":
+                parsed.append(SchemaSpecificityConstraint())
+            elif text == "specific_deliverable":
+                parsed.append(SpecificDeliverableConstraint())
+            elif text == "measurable_metric":
+                parsed.append(MeasurableMetricConstraint())
+            elif text == "no_generic_plan":
+                parsed.append(NoGenericPlanConstraint())
             elif text == "no_template_placeholder":
                 parsed.append(NoTemplatePlaceholderConstraint())
             else:
@@ -834,6 +842,217 @@ class PlanTopicCoverageConstraint(Constraint):
             passed=True,
             code="plan_topic_coverage_ok",
             message="Plan topic coverage passed.",
+        )
+
+
+@dataclass
+class SchemaSpecificityConstraint(Constraint):
+    constraint_type: str = "schema_specificity"
+
+    def validate(
+        self, node: "TaskNode", output: Dict[str, Any], context: Dict[str, Any]
+    ) -> ConstraintResult:
+        if node.id != "design_plan_schema":
+            return ConstraintResult(
+                passed=True,
+                code="schema_specificity_skip",
+                message="Schema specificity not applicable.",
+                severity="warning",
+            )
+
+        quality = output.get("quality_criteria")
+        if not isinstance(quality, dict):
+            return ConstraintResult(
+                passed=False,
+                code="schema_quality_criteria_missing",
+                message="Plan schema must include quality_criteria.",
+                failure_type="schema_design_failed",
+                repair_hint="build_schema_patch",
+                violation_scope="node",
+            )
+        required_keys = {
+            "deliverable_must_be_specific",
+            "metric_must_be_measurable",
+            "avoid_generic_templates",
+        }
+        missing = [k for k in required_keys if k not in quality]
+        if missing:
+            return ConstraintResult(
+                passed=False,
+                code="schema_quality_criteria_incomplete",
+                message=f"Missing quality criteria fields: {missing}",
+                failure_type="schema_design_failed",
+                repair_hint="build_schema_patch",
+                violation_scope="node",
+            )
+        progression = output.get("progression")
+        if isinstance(progression, list):
+            generic_terms = {"foundation", "core", "general", "overview", "patterns", "principles"}
+            generic_hits = sum(
+                1 for item in progression
+                if isinstance(item, str) and any(term in item.lower() for term in generic_terms)
+            )
+            if generic_hits >= max(4, len(progression) - 1):
+                return ConstraintResult(
+                    passed=False,
+                    code="schema_progression_too_generic",
+                    message="Plan schema progression is too generic.",
+                    failure_type="schema_design_failed",
+                    repair_hint="build_schema_patch",
+                    violation_scope="node",
+                )
+        return ConstraintResult(
+            passed=True,
+            code="schema_specificity_ok",
+            message="Schema specificity constraint passed.",
+        )
+
+
+@dataclass
+class SpecificDeliverableConstraint(Constraint):
+    constraint_type: str = "specific_deliverable"
+
+    def validate(
+        self, node: "TaskNode", output: Dict[str, Any], context: Dict[str, Any]
+    ) -> ConstraintResult:
+        deliverable = str(output.get("deliverable") or "").strip().lower()
+        if not deliverable:
+            return ConstraintResult(
+                passed=False,
+                code="generic_deliverable_missing",
+                message="Deliverable field is empty.",
+                failure_type="generic_deliverable",
+                repair_hint="replan_subtree",
+                violation_scope="node",
+            )
+        artifact_tokens = [
+            "code",
+            "module",
+            "unit test",
+            "integration test",
+            "test case",
+            "test cases",
+            "trace",
+            "table",
+            "metric table",
+            "script",
+            "document",
+            "design doc",
+            "report",
+            "benchmark",
+            "dataset",
+        ]
+        generic_tokens = ["concrete artifact", "some artifact", "output", "deliverable"]
+        if not any(tok in deliverable for tok in artifact_tokens):
+            return ConstraintResult(
+                passed=False,
+                code="generic_deliverable",
+                message="Deliverable lacks concrete artifact type.",
+                failure_type="generic_deliverable",
+                repair_hint="build_schema_patch",
+                violation_scope="node",
+            )
+        if any(tok in deliverable for tok in generic_tokens) and len(deliverable) < 90:
+            return ConstraintResult(
+                passed=False,
+                code="generic_deliverable_template",
+                message="Deliverable still looks template-like.",
+                failure_type="generic_deliverable",
+                repair_hint="build_schema_patch",
+                violation_scope="node",
+            )
+        return ConstraintResult(
+            passed=True,
+            code="specific_deliverable_ok",
+            message="Deliverable specificity constraint passed.",
+        )
+
+
+@dataclass
+class MeasurableMetricConstraint(Constraint):
+    constraint_type: str = "measurable_metric"
+
+    def validate(
+        self, node: "TaskNode", output: Dict[str, Any], context: Dict[str, Any]
+    ) -> ConstraintResult:
+        metric = str(output.get("metric") or "").strip().lower()
+        if not metric:
+            return ConstraintResult(
+                passed=False,
+                code="non_actionable_metric_missing",
+                message="Metric field is empty.",
+                failure_type="non_actionable_metric",
+                repair_hint="build_metric_patch",
+                violation_scope="node",
+            )
+        measurable_tokens = [
+            "%",
+            "at least",
+            "<=",
+            ">=",
+            "within",
+            "less than",
+            "more than",
+            "pass rate",
+            "accuracy",
+            "coverage",
+            "latency",
+            "time",
+            "count",
+            "number of",
+            "minutes",
+            "hours",
+        ]
+        has_digit = bool(re.search(r"\d", metric))
+        if not has_digit and not any(tok in metric for tok in measurable_tokens):
+            return ConstraintResult(
+                passed=False,
+                code="non_actionable_metric",
+                message="Metric is not measurable/actionable.",
+                failure_type="non_actionable_metric",
+                repair_hint="build_metric_patch",
+                violation_scope="node",
+            )
+        return ConstraintResult(
+            passed=True,
+            code="measurable_metric_ok",
+            message="Measurable metric constraint passed.",
+        )
+
+
+@dataclass
+class NoGenericPlanConstraint(Constraint):
+    constraint_type: str = "no_generic_plan"
+
+    def validate(
+        self, node: "TaskNode", output: Dict[str, Any], context: Dict[str, Any]
+    ) -> ConstraintResult:
+        text_parts: List[str] = []
+        for key in ["answer", "final_response", "goal", "deliverable", "metric"]:
+            value = output.get(key)
+            if isinstance(value, str) and value.strip():
+                text_parts.append(value.strip().lower())
+        merged = " ".join(text_parts)
+        generic_patterns = [
+            r"\bimprove understanding\b",
+            r"\bcomplete tasks\b",
+            r"\bgeneral overview\b",
+            r"\bconcrete artifact\b",
+            r"\bpasses coverage verification\b",
+        ]
+        if any(re.search(p, merged) for p in generic_patterns):
+            return ConstraintResult(
+                passed=False,
+                code="generic_plan_output",
+                message="Plan output contains overly generic template phrasing.",
+                failure_type="generic_plan_output",
+                repair_hint="replan_subtree",
+                violation_scope="node",
+            )
+        return ConstraintResult(
+            passed=True,
+            code="no_generic_plan_ok",
+            message="No generic plan pattern detected.",
         )
 
 

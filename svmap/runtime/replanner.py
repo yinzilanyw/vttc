@@ -27,6 +27,7 @@ from .patch_library import (
     build_decomposition_patch,
     build_evidence_patch,
     build_final_response_patch,
+    build_metric_patch as build_metric_patch_template,
     build_normalization_patch,
     build_schema_patch,
     build_summary_patch,
@@ -142,6 +143,9 @@ class ConstraintAwareReplanner(BaseReplanner):
     def build_schema_patch(self, node_id: str) -> Dict[str, Any]:
         return build_schema_patch(node_id)
 
+    def build_metric_patch(self, node_id: str) -> Dict[str, Any]:
+        return build_metric_patch_template(node_id)
+
     def should_escalate_to_subtree(
         self,
         failure: NodeFailure,
@@ -172,6 +176,12 @@ class ConstraintAwareReplanner(BaseReplanner):
             return self.build_schema_patch(node.id)
         if failure_type in {"plan_topic_drift"}:
             return self.build_schema_patch(node.id)
+        if failure_type in {"generic_deliverable"}:
+            return self.build_schema_patch(node.id)
+        if failure_type in {"non_actionable_metric"}:
+            return self.build_metric_patch(node.id)
+        if failure_type in {"generic_plan_output"}:
+            return build_decomposition_patch(node.id)
         if failure_type in {"low_information_output"}:
             return build_decomposition_patch(node.id)
         if failure_type in {"requirements_analysis_failed", "plan_coverage_incomplete", "final_placeholder_output"}:
@@ -310,6 +320,30 @@ class ConstraintAwareReplanner(BaseReplanner):
                 target_node_id=node.id,
                 patch=build_schema_patch(node.id),
                 reason="schema_design_failed",
+                failure_type=failure.failure_type,
+            )
+        if failure_type in {"generic_deliverable"}:
+            return ReplanDecision(
+                action="patch_subgraph",
+                target_node_id=node.id,
+                patch=build_schema_patch(node.id),
+                reason="generic_deliverable",
+                failure_type=failure.failure_type,
+            )
+        if failure_type in {"non_actionable_metric"}:
+            return ReplanDecision(
+                action="patch_subgraph",
+                target_node_id=node.id,
+                patch=build_metric_patch_template(node.id),
+                reason="non_actionable_metric",
+                failure_type=failure.failure_type,
+            )
+        if failure_type in {"generic_plan_output"}:
+            return ReplanDecision(
+                action="replan_subtree",
+                target_node_id=node.id,
+                patch=build_decomposition_patch(node.id),
+                reason="generic_plan_output",
                 failure_type=failure.failure_type,
             )
         if failure_type in {"plan_coverage_incomplete", "final_placeholder_output", "plan_topic_drift"}:
@@ -608,6 +642,49 @@ class ConstraintAwareReplanner(BaseReplanner):
         context: ExecutionContext,
         failure_type: str = "",
     ) -> None:
+        family = str(tree.metadata.get("task_family", "")).strip().lower()
+        if family == "plan":
+            lowered = (failure_type or "").strip().lower()
+            if node.id in {"analyze_requirements", "design_plan_schema"} or lowered in {
+                "requirements_analysis_failed",
+                "schema_design_failed",
+            }:
+                self._reset_plan_range(
+                    tree=tree,
+                    context=context,
+                    node_ids=[
+                        "analyze_requirements",
+                        "design_plan_schema",
+                        *[f"generate_day{i}" for i in range(1, 8)],
+                        "verify_coverage",
+                        "final_response",
+                    ],
+                )
+                return
+            if (
+                node.id.startswith("generate_day")
+                or node.id in {"verify_coverage", "final_response"}
+                or lowered in {
+                    "plan_topic_drift",
+                    "generic_deliverable",
+                    "non_actionable_metric",
+                    "generic_plan_output",
+                    "low_information_output",
+                    "final_topic_drift",
+                    "plan_coverage_incomplete",
+                }
+            ):
+                self._reset_plan_range(
+                    tree=tree,
+                    context=context,
+                    node_ids=[
+                        *[f"generate_day{i}" for i in range(1, 8)],
+                        "verify_coverage",
+                        "final_response",
+                    ],
+                )
+                return
+
         if self.planner is None:
             self._apply_patch_subgraph(target=node, tree=tree, context=context)
             return
@@ -645,6 +722,34 @@ class ConstraintAwareReplanner(BaseReplanner):
         )
         for nid in affected_before:
             context.node_outputs.pop(nid, None)
+
+    def _reset_plan_range(
+        self,
+        tree: TaskTree,
+        context: ExecutionContext,
+        node_ids: List[str],
+    ) -> None:
+        before_version = tree.version
+        touched: List[str] = []
+        for node_id in node_ids:
+            node = tree.nodes.get(node_id)
+            if node is None:
+                continue
+            node.status = "pending"
+            node.outputs = {}
+            touched.append(node_id)
+            context.node_outputs.pop(node_id, None)
+        if touched:
+            tree.version += 1
+            tree.record_graph_delta(
+                action="plan_range_reset",
+                payload={
+                    "action": "subtree_replan",
+                    "affected_nodes": touched,
+                    "before_version": before_version,
+                    "after_version": tree.version,
+                },
+            )
 
     def apply_global_replan(
         self,
@@ -751,6 +856,18 @@ class ConstraintAwareReplanner(BaseReplanner):
         context: ExecutionContext,
         failure_type: str = "",
     ) -> None:
+        family = str(tree.metadata.get("task_family", "")).strip().lower()
+        if family == "plan" and template_name in {"schema_patch", "metric_patch"}:
+            remap = failure_type.strip().lower()
+            if not remap:
+                remap = "plan_topic_drift" if template_name == "schema_patch" else "non_actionable_metric"
+            self.apply_subtree_replan(
+                node=node,
+                tree=tree,
+                context=context,
+                failure_type=remap,
+            )
+            return
         if template_name in {
             "evidence_retrieval",
             "crosscheck",
@@ -761,6 +878,7 @@ class ConstraintAwareReplanner(BaseReplanner):
             "calculation_patch",
             "final_response_patch",
             "schema_patch",
+            "metric_patch",
         }:
             affected_before = [node.id, *tree.get_downstream_nodes(node.id)]
             before_version = tree.version

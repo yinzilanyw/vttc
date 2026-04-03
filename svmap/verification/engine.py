@@ -58,11 +58,32 @@ class VerifierEngine:
         elif node_id == "design_plan_schema":
             route_names = ["PlanSchemaVerifier", "IntentVerifier", "SchemaVerifier", "RuleVerifier"]
         elif node_id.startswith("generate_day"):
-            route_names = ["NoPlaceholderVerifier", "IntentVerifier", "SchemaVerifier", "RuleVerifier"]
+            route_names = [
+                "NoPlaceholderVerifier",
+                "LowInformationOutputVerifier",
+                "GenericOutputVerifier",
+                "IntentVerifier",
+                "SchemaVerifier",
+                "RuleVerifier",
+            ]
         elif node_id == "verify_coverage":
-            route_names = ["PlanCoverageVerifier", "IntentVerifier", "SchemaVerifier", "RuleVerifier"]
+            route_names = [
+                "PlanCoverageVerifier",
+                "LowInformationOutputVerifier",
+                "GenericOutputVerifier",
+                "IntentVerifier",
+                "SchemaVerifier",
+                "RuleVerifier",
+            ]
         elif node.is_final_response():
-            route_names = ["FinalResponseVerifier", "IntentVerifier", "SchemaVerifier", "RuleVerifier"]
+            route_names = [
+                "FinalResponseVerifier",
+                "LowInformationOutputVerifier",
+                "GenericOutputVerifier",
+                "IntentVerifier",
+                "SchemaVerifier",
+                "RuleVerifier",
+            ]
         if not route_names:
             return selected
         routed = [v for v in selected if v.__class__.__name__ in route_names]
@@ -78,6 +99,12 @@ class VerifierEngine:
             return "internal_execution_error"
         if "final_answer_missing_structure" in code:
             return "final_answer_missing_structure"
+        if "generic_plan_output" in code:
+            return "generic_plan_output"
+        if "generic_deliverable" in code:
+            return "generic_deliverable"
+        if "non_actionable_metric" in code:
+            return "non_actionable_metric"
         if "final_topic_drift" in code:
             return "final_topic_drift"
         if "final_placeholder_output" in code:
@@ -113,13 +140,16 @@ class VerifierEngine:
             return ""
         priority = [
             "internal_execution_error",
+            "requirements_analysis_failed",
+            "schema_design_failed",
+            "plan_topic_drift",
+            "generic_deliverable",
+            "non_actionable_metric",
+            "generic_plan_output",
             "final_answer_missing_structure",
             "final_topic_drift",
             "final_placeholder_output",
-            "plan_topic_drift",
             "plan_coverage_incomplete",
-            "requirements_analysis_failed",
-            "schema_design_failed",
             "low_information_output",
             "intent_misalignment",
             "echo_retrieval",
@@ -134,12 +164,34 @@ class VerifierEngine:
                 return target
         return typed[0]
 
-    def _aggregate(self, details: List[ConstraintResult]) -> VerificationResult:
-        errors = [item for item in details if not item.passed and item.severity == "error"]
-        reasons = [f"{item.code}:{item.message}" for item in errors]
+    def collapse_failures(self, results: List[ConstraintResult]) -> Dict[str, Any]:
+        errors = [item for item in results if not item.passed and item.severity == "error"]
+        if not errors:
+            return {
+                "passed": True,
+                "failure_type": "",
+                "repair_hints": [],
+                "violation_scope": [],
+                "details": results,
+            }
         failure_type = self._select_primary_failure_type(errors)
         repair_hints = sorted({x.repair_hint for x in errors if x.repair_hint})
         violation_scopes = sorted({x.violation_scope for x in errors if x.violation_scope})
+        return {
+            "passed": False,
+            "failure_type": failure_type,
+            "repair_hints": repair_hints,
+            "violation_scope": violation_scopes,
+            "details": results,
+        }
+
+    def _aggregate(self, details: List[ConstraintResult]) -> VerificationResult:
+        collapsed = self.collapse_failures(details)
+        errors = [item for item in details if not item.passed and item.severity == "error"]
+        reasons = [f"{item.code}:{item.message}" for item in errors]
+        failure_type = str(collapsed.get("failure_type", ""))
+        repair_hints = list(collapsed.get("repair_hints", []))
+        violation_scopes = list(collapsed.get("violation_scope", []))
         fatal_types = {
             "internal_execution_error",
             "final_answer_missing_structure",
@@ -147,6 +199,9 @@ class VerifierEngine:
             "final_query_echo",
             "intent_misalignment",
             "plan_topic_drift",
+            "generic_deliverable",
+            "non_actionable_metric",
+            "generic_plan_output",
             "echo_retrieval",
             "empty_extraction",
             "grounding_error",

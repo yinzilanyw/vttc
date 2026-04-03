@@ -37,9 +37,41 @@ class MetricsSummary:
     coverage_verification_pass_rate: float = 0.0
     topic_drift_rate: float = 0.0
     plan_quality_pass_rate: float = 0.0
+    structure_success_rate: float = 0.0
+    semantic_success_rate: float = 0.0
+    generic_output_rate: float = 0.0
+    repair_trigger_rate: float = 0.0
+    repair_success_rate_by_failure_type: Dict[str, float] = field(default_factory=dict)
+    deliverable_specificity_rate: float = 0.0
+    metric_measurability_rate: float = 0.0
 
 
 class MetricsCollector:
+    def _is_specific_deliverable(self, text: str) -> bool:
+        lowered = str(text or "").lower()
+        tokens = [
+            "module",
+            "script",
+            "unit test",
+            "integration test",
+            "trace",
+            "table",
+            "report",
+            "document",
+            "spec",
+            "test case",
+            "validator",
+            "experiment",
+        ]
+        return any(token in lowered for token in tokens)
+
+    def _is_measurable_metric(self, text: str) -> bool:
+        lowered = str(text or "").lower()
+        if any(ch.isdigit() for ch in lowered):
+            return True
+        tokens = ["%", "<=", ">=", "at least", "within", "pass rate", "accuracy", "latency", "count"]
+        return any(token in lowered for token in tokens)
+
     def summarize(self, report: ExecutionReport) -> MetricsSummary:
         total_nodes = max(len(report.node_records), 1)
         success_nodes = sum(1 for r in report.node_records.values() if r.status == "success")
@@ -84,6 +116,11 @@ class MetricsCollector:
             for rec in report.node_records.values()
             if rec.failure_type in {"plan_topic_drift", "final_topic_drift"}
         )
+        generic_failures = sum(
+            1
+            for rec in report.node_records.values()
+            if rec.failure_type in {"generic_plan_output", "generic_deliverable", "non_actionable_metric", "low_information_output"}
+        )
         verify_coverage_nodes = [nid for nid in node_task_types if nid == "verify_coverage"]
         verify_coverage_ok = sum(
             1
@@ -94,6 +131,39 @@ class MetricsCollector:
             "plan_coverage_incomplete",
             0,
         )
+        semantic_failure_count = sum(
+            report.failure_summary.get(k, 0)
+            for k in [
+                "plan_topic_drift",
+                "final_topic_drift",
+                "generic_plan_output",
+                "generic_deliverable",
+                "non_actionable_metric",
+                "low_information_output",
+                "intent_misalignment",
+            ]
+        )
+        structure_success_rate = 1.0 if plan_structure_fail == 0 else 0.0
+        semantic_success_rate = 1.0 if semantic_failure_count == 0 else 0.0
+        repair_trigger_rate = report.replan_count / max(total_nodes, 1)
+        repair_success_by_failure: Dict[str, float] = {}
+        for failure_type, count in report.failure_summary.items():
+            if count <= 0:
+                continue
+            repair_success_by_failure[failure_type] = 1.0 if report.success else 0.0
+
+        day_records = [
+            rec for rec in report.node_records.values()
+            if rec.node_id.startswith("generate_day") and isinstance(rec.output, dict)
+        ]
+        specific_deliverable_hits = sum(
+            1 for rec in day_records if self._is_specific_deliverable(str(rec.output.get("deliverable", "")))
+        )
+        measurable_metric_hits = sum(
+            1 for rec in day_records if self._is_measurable_metric(str(rec.output.get("metric", "")))
+        )
+        deliverable_specificity_rate = specific_deliverable_hits / max(len(day_records), 1) if day_records else 0.0
+        metric_measurability_rate = measurable_metric_hits / max(len(day_records), 1) if day_records else 0.0
 
         return MetricsSummary(
             task_success=report.success,
@@ -154,6 +224,13 @@ class MetricsCollector:
                 )
                 else 0.0
             ),
+            structure_success_rate=structure_success_rate,
+            semantic_success_rate=semantic_success_rate,
+            generic_output_rate=generic_failures / total_nodes,
+            repair_trigger_rate=repair_trigger_rate,
+            repair_success_rate_by_failure_type=repair_success_by_failure,
+            deliverable_specificity_rate=deliverable_specificity_rate,
+            metric_measurability_rate=metric_measurability_rate,
         )
 
     def collect_verification_quality(self, traces: List[Dict[str, Any]]) -> Dict[str, float]:

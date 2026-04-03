@@ -38,7 +38,9 @@ from svmap.verification import (
     EdgeConsistencyVerifier,
     ExtractionVerifier,
     FinalResponseVerifier,
+    GenericOutputVerifier,
     IntentVerifier,
+    LowInformationOutputVerifier,
     NoPlaceholderVerifier,
     PlanCoverageVerifier,
     PlanSchemaVerifier,
@@ -67,6 +69,7 @@ class RunConfig:
     stop_on_failure: Optional[bool] = None
     enable_replan: bool = True
     enable_intent_verifier: bool = True
+    enable_plan_coverage_verifier: bool = True
     assignment_mode: Optional[str] = None
     max_runtime_steps: int = 200
     max_total_attempts: int = 40
@@ -363,7 +366,9 @@ def build_runtime(config: RunConfig) -> Dict[str, Any]:
         SemanticVerifier(semantic_judge=components["semantic_judge"]),
         RequirementsAnalysisVerifier(),
         PlanSchemaVerifier(),
-        PlanCoverageVerifier(),
+        *( [PlanCoverageVerifier()] if config.enable_plan_coverage_verifier else [] ),
+        LowInformationOutputVerifier(),
+        GenericOutputVerifier(),
         NoPlaceholderVerifier(),
         RetrievalVerifier(),
         ExtractionVerifier(),

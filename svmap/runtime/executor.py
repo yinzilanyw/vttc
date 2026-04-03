@@ -252,6 +252,9 @@ class ExecutionRuntime:
                 "intent_misalignment",
                 "grounding_error",
                 "final_output_not_valid",
+                "generic_deliverable",
+                "non_actionable_metric",
+                "generic_plan_output",
             }
         return record
 
@@ -281,18 +284,36 @@ class ExecutionRuntime:
             },
             "saved_downstream_nodes": saved,
             "failure_type": decision.failure_type or failure.failure_type,
+            "repair_hint": failure.repair_hints[0] if failure.repair_hints else "",
             "patch_template": patch_template,
             "affected_nodes": [node.id, *tree.get_downstream_nodes(node.id)],
+            "graph_delta_summary": f"v{before_version}->v{after_version}",
         }
         if self.trace_logger:
             self.trace_logger.log_event(
                 "replan_decision",
-                {"node_id": node.id, "action": decision.action, "reason": decision.reason},
+                {
+                    "node_id": node.id,
+                    "action": decision.action,
+                    "reason": decision.reason,
+                    "failure_type": decision.failure_type or failure.failure_type,
+                    "repair_hint": failure.repair_hints[0] if failure.repair_hints else "",
+                    "patch_template": patch_template,
+                },
             )
             self.trace_logger.log_graph_delta(
                 before_version=before_version,
                 after_version=after_version,
-                payload={"node_id": node.id, "action": decision.action, "saved_downstream_nodes": saved},
+                payload={
+                    "node_id": node.id,
+                    "action": decision.action,
+                    "saved_downstream_nodes": saved,
+                    "failure_type": decision.failure_type or failure.failure_type,
+                    "repair_hint": failure.repair_hints[0] if failure.repair_hints else "",
+                    "replan_action": decision.action,
+                    "patch_template": patch_template,
+                    "graph_delta_summary": f"v{before_version}->v{after_version}",
+                },
             )
         recovered = decision.action in {"retry_same", "switch_agent", "patch_subgraph"}
         if decision.action in {"replan_subtree", "replan_global"}:
@@ -339,6 +360,12 @@ class ExecutionRuntime:
                 code = str(getattr(item, "code", ""))
                 if "final_placeholder_output" in code:
                     failure_type = "final_placeholder_output"
+                elif "generic_deliverable" in code:
+                    failure_type = "generic_deliverable"
+                elif "non_actionable_metric" in code:
+                    failure_type = "non_actionable_metric"
+                elif "generic_plan_output" in code:
+                    failure_type = "generic_plan_output"
                 elif "final_topic_drift" in code:
                     failure_type = "final_topic_drift"
                 elif "plan_topic_drift" in code:
@@ -573,6 +600,9 @@ class ExecutionRuntime:
                             "plan_coverage_incomplete",
                             "plan_topic_drift",
                             "final_topic_drift",
+                            "generic_deliverable",
+                            "non_actionable_metric",
+                            "generic_plan_output",
                             "requirements_analysis_failed",
                             "schema_design_failed",
                             "low_information_output",
@@ -703,6 +733,28 @@ class ExecutionRuntime:
                 stalled_node_ids=stalled_node_ids,
                 failure_summary=failure_summary,
             )
+        if str(tree.metadata.get("task_family", "")).strip().lower() == "plan":
+            coverage = final_output.get("coverage_verification")
+            coverage_ok = isinstance(coverage, dict) and bool(coverage.get("coverage_ok", False))
+            semantic_gaps = coverage.get("semantic_gaps", []) if isinstance(coverage, dict) else []
+            if not coverage_ok or (isinstance(semantic_gaps, list) and len(semantic_gaps) > 0):
+                failure_summary["plan_semantic_not_valid"] = failure_summary.get("plan_semantic_not_valid", 0) + 1
+                return self._build_report(
+                    success=False,
+                    node_records=node_records,
+                    total_retries=total_retries,
+                    verification_failures=verification_failures,
+                    replan_count=replan_count,
+                    tree=tree,
+                    final_node_id=final_node_id,
+                    final_output=final_output,
+                    replan_actions=replan_actions,
+                    structural_savings=structural_savings,
+                    budget_exhausted=budget_exhausted,
+                    error="plan_semantic_not_valid",
+                    stalled_node_ids=stalled_node_ids,
+                    failure_summary=failure_summary,
+                )
 
         success = all(n.status in {"success", "skipped"} for n in tree.nodes.values()) and all(
             n.status != "failed" for n in tree.nodes.values()

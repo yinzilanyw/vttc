@@ -1,0 +1,906 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775234976.7028759,
+    "payload": {
+      "node_count": 11,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775234976.7028759,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775234980.1255565,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775234980.1255565,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775234982.8704436,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775234982.8704436,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775234984.901231,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775234984.901231,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775234987.3462822,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775234987.3462822,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775234989.185393,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775234989.185393,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775234992.1690981,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775234992.1690981,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775234994.3525207,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775234994.3525207,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775234997.157859,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775234997.157859,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775234999.7111874,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775234999.7111874,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235006.141713,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775235006.141713,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775235006.141713,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775235006.1427119,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "reason": "generic_deliverable"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775235006.1427119,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235006.1427119,
+    "payload": {
+      "node_id": "ev_verify_coverage_v2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235011.2918053,
+    "payload": {
+      "node_id": "ev_verify_coverage_v2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235011.2918053,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235016.3942616,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775235016.3942616,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775235016.3942616,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775235016.3952606,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "reason": "generic_deliverable"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775235016.3952606,
+    "payload": {
+      "before_version": 2,
+      "after_version": 3,
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235016.3952606,
+    "payload": {
+      "node_id": "ev_verify_coverage_v3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235022.7847023,
+    "payload": {
+      "node_id": "ev_verify_coverage_v3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235022.7847023,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235026.837967,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775235026.837967,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775235026.837967,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775235026.8389735,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "reason": "generic_deliverable"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775235026.8389735,
+    "payload": {
+      "before_version": 3,
+      "after_version": 4,
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235026.8389735,
+    "payload": {
+      "node_id": "ev_verify_coverage_v4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235031.089436,
+    "payload": {
+      "node_id": "ev_verify_coverage_v4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235031.0904436,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235037.4147341,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775235037.4147341,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775235037.4147341,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775235037.4147341,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "reason": "generic_deliverable"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775235037.4147341,
+    "payload": {
+      "before_version": 4,
+      "after_version": 5,
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235037.4147341,
+    "payload": {
+      "node_id": "ev_verify_coverage_v5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235042.6764364,
+    "payload": {
+      "node_id": "ev_verify_coverage_v5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235042.6764364,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235045.143001,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775235045.143001,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775235045.143001,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775235045.1440444,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "reason": "generic_deliverable"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775235045.1440444,
+    "payload": {
+      "before_version": 5,
+      "after_version": 6,
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235045.1440444,
+    "payload": {
+      "node_id": "ev_verify_coverage_v6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235049.3126087,
+    "payload": {
+      "node_id": "ev_verify_coverage_v6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235049.3126087,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235051.7751255,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775235051.7751255,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775235051.7751255,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775235051.7751255,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "reason": "generic_deliverable"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775235051.7751255,
+    "payload": {
+      "before_version": 6,
+      "after_version": 7,
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235051.7751255,
+    "payload": {
+      "node_id": "ev_verify_coverage_v7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235056.686717,
+    "payload": {
+      "node_id": "ev_verify_coverage_v7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235056.686717,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235061.8248243,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775235061.8248243,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775235061.8248243,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775235061.8258646,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "reason": "generic_deliverable"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775235061.8258646,
+    "payload": {
+      "before_version": 7,
+      "after_version": 8,
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235061.8258646,
+    "payload": {
+      "node_id": "ev_verify_coverage_v8"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235067.5187995,
+    "payload": {
+      "node_id": "ev_verify_coverage_v8",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235067.5187995,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235071.3205502,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775235071.3205502,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775235071.3205502,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775235071.3205502,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "reason": "generic_deliverable"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775235071.3205502,
+    "payload": {
+      "before_version": 8,
+      "after_version": 9,
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235071.3215482,
+    "payload": {
+      "node_id": "ev_verify_coverage_v9"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235075.4846582,
+    "payload": {
+      "node_id": "ev_verify_coverage_v9",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235075.4846582,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235080.274243,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775235080.274243,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775235080.274243,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775235080.2752497,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "reason": "generic_deliverable"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775235080.2752497,
+    "payload": {
+      "before_version": 9,
+      "after_version": 10,
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235080.2752497,
+    "payload": {
+      "node_id": "ev_verify_coverage_v10"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235084.9954543,
+    "payload": {
+      "node_id": "ev_verify_coverage_v10",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775235084.9954543,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775235088.8875084,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775235088.8875084,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775235088.8875084,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "generic_deliverable",
+      "reasons": [
+        "generic_deliverable:generate_day5 deliverable is too generic."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775235088.8875084,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "reason": "generic_deliverable"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775235088.8875084,
+    "payload": {
+      "before_version": 10,
+      "after_version": 11,
+      "node_id": "verify_coverage",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 1
+    }
+  }
+]

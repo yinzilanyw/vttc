@@ -126,6 +126,96 @@ def _extract_query_topics(query: str) -> List[str]:
     return topics[:8]
 
 
+def _normalize_topics_for_plan(topics: List[str]) -> List[str]:
+    stop = {
+        "including",
+        "include",
+        "one",
+        "two",
+        "three",
+        "learning",
+        "plan",
+        "daily",
+        "goal",
+        "goals",
+        "deliverable",
+        "deliverables",
+        "metric",
+        "metrics",
+    }
+    merged: List[str] = []
+    idx = 0
+    while idx < len(topics):
+        token = str(topics[idx]).strip().lower()
+        if not token or token in stop:
+            idx += 1
+            continue
+        if token == "task" and idx + 1 < len(topics):
+            nxt = str(topics[idx + 1]).strip().lower()
+            if nxt in {"tree", "trees"}:
+                token = "task trees"
+                idx += 1
+        if token not in merged:
+            merged.append(token)
+        idx += 1
+    return merged[:8]
+
+
+def _build_specific_deliverable(day_idx: int, assigned_topic: str) -> str:
+    artifacts = {
+        1: "a requirement spec document and task-tree draft",
+        2: "an orchestration module plus runnable workflow script",
+        3: "a typed task-node schema file and DAG validator unit tests",
+        4: "a verifier module covering node/edge/subtree/global checks",
+        5: "a constraint mapping table and intent-alignment test cases",
+        6: "a replanner patch implementation with graph-delta trace output",
+        7: "an experiment report with ablation table and case-study notes",
+    }
+    artifact = artifacts.get(day_idx, "a concrete code artifact with tests")
+    return (
+        f"Implement {artifact} for {assigned_topic}; commit code/doc changes and "
+        "attach a short validation log."
+    )
+
+
+def _build_measurable_metric(day_idx: int) -> str:
+    metrics = {
+        1: "All required fields parsed; schema validation pass rate >= 95%.",
+        2: "Workflow executes end-to-end with <= 1 manual fix in 3 runs.",
+        3: "Task-node schema tests: at least 10 cases and 100% pass.",
+        4: "Verification catches injected errors in >= 3/3 scenarios.",
+        5: "Intent/constraint checks reduce topic drift to 0 in eval sample.",
+        6: "At least one subtree replan and one graph delta are logged.",
+        7: "Ablation script outputs full/no_replan/no_tree rows automatically.",
+    }
+    return metrics.get(day_idx, "Define a numeric threshold and pass/fail target.")
+
+
+def _is_specific_deliverable(text: str) -> bool:
+    lowered = _safe_str(text).lower()
+    artifact_tokens = [
+        "module",
+        "script",
+        "unit test",
+        "integration test",
+        "trace",
+        "table",
+        "report",
+        "document",
+        "spec",
+        "validator",
+    ]
+    return any(token in lowered for token in artifact_tokens)
+
+
+def _is_measurable_metric(text: str) -> bool:
+    lowered = _safe_str(text).lower()
+    if re.search(r"\d", lowered):
+        return True
+    measurable_tokens = ["%", "<=", ">=", "at least", "within", "pass rate", "accuracy", "latency", "count"]
+    return any(token in lowered for token in measurable_tokens)
+
+
 def _parse_day_index(node_id: str) -> Optional[int]:
     m = re.search(r"generate_day(\d+)", node_id.lower())
     if not m:
@@ -440,6 +530,9 @@ class SynthesizeAgent(BaseAgent):
             must_cover_topics = requirements_output.get("must_cover_topics", [])
             if not isinstance(must_cover_topics, list):
                 must_cover_topics = []
+            quality_criteria = schema_output.get("quality_criteria", {})
+            if not isinstance(quality_criteria, dict):
+                quality_criteria = {}
 
             day_key = f"day{day_idx}"
             assigned_topic = _safe_str(topic_allocation.get(day_key))
@@ -452,14 +545,14 @@ class SynthesizeAgent(BaseAgent):
             goal = (
                 f"Focus on {assigned_topic} while keeping alignment with {topic_text}."
             )
-            deliverable = (
-                f"Produce one concrete artifact for {day_key}: implementation notes, "
-                "verification checks, and evidence of integration in the task tree."
-            )
-            metric = (
-                f"{day_key} includes explicit goal/deliverable/metric fields, "
-                "references assigned topic, and passes coverage verification."
-            )
+            deliverable = _build_specific_deliverable(day_idx=day_idx, assigned_topic=assigned_topic)
+            metric = _build_measurable_metric(day_idx=day_idx)
+            if quality_criteria.get("must_reference_repo_changes", False):
+                deliverable += " Include modified file paths in the daily artifact note."
+            if quality_criteria.get("deliverable_must_be_specific", False) and not _is_specific_deliverable(deliverable):
+                deliverable = f"Create a code module and unit test bundle for {assigned_topic}."
+            if quality_criteria.get("metric_must_be_measurable", False) and not _is_measurable_metric(metric):
+                metric = "Define a numeric threshold (>=90% pass) and verify it in execution logs."
             output = {
                 "day": day_idx,
                 "goal": goal,
@@ -549,7 +642,7 @@ class ReasonAgent(BaseAgent):
 
     def run(self, node: TaskNode, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         query = _safe_str(inputs.get("global_context", {}).get("query"))
-        topics = _extract_query_topics(query)
+        topics = _normalize_topics_for_plan(_extract_query_topics(query))
         dependency_outputs = inputs.get("dependency_outputs", {})
 
         if node.id == "analyze_requirements":
@@ -572,6 +665,7 @@ class ReasonAgent(BaseAgent):
             for topic in topics:
                 if topic not in must_cover_topics:
                     must_cover_topics.append(topic)
+            must_cover_topics = must_cover_topics[:5]
             constraints = []
             if "7-day" in query.lower() or "7 day" in query.lower():
                 constraints.append("duration_days=7")
@@ -592,6 +686,7 @@ class ReasonAgent(BaseAgent):
                 "forbidden_topic_drift": [
                     "pure async/event-loop curriculum without task-tree verification",
                     "generic runtime-only optimization track",
+                    "high-level generic software plan with no concrete artifacts",
                 ],
                 "constraints": constraints or ["respond_to_user_query"],
                 "required_fields": ["goal", "deliverable", "metric"],
@@ -671,6 +766,12 @@ class ReasonAgent(BaseAgent):
                 "progression": progression,
                 "topic_allocation": topic_allocation,
                 "required_fields": required_fields,
+                "quality_criteria": {
+                    "deliverable_must_be_specific": True,
+                    "metric_must_be_measurable": True,
+                    "avoid_generic_templates": True,
+                    "must_reference_repo_changes": True,
+                },
                 "source": "reason_agent",
             }
             return _ensure_required_fields(node=node, output=output)
@@ -722,6 +823,12 @@ class VerifyAgent(BaseAgent):
                     value = _safe_str(item.get(field))
                     if not value:
                         missing_fields.append(f"day{day}.{field}")
+                deliverable_text = _safe_str(item.get("deliverable"))
+                metric_text = _safe_str(item.get("metric"))
+                if deliverable_text and not _is_specific_deliverable(deliverable_text):
+                    semantic_gaps.append(f"day{day}:generic_deliverable")
+                if metric_text and not _is_measurable_metric(metric_text):
+                    semantic_gaps.append(f"day{day}:non_actionable_metric")
                 merged = " ".join(
                     [_safe_str(item.get("goal")), _safe_str(item.get("deliverable")), _safe_str(item.get("metric"))]
                 ).lower()
@@ -734,6 +841,8 @@ class VerifyAgent(BaseAgent):
                 if "async" in merged or "event loop" in merged or "concurrency" in merged:
                     if "async" not in query.lower() and "concurrency" not in query.lower():
                         semantic_gaps.append(f"day{day}:topic_drift_to_runtime")
+                if "concrete artifact" in merged and not _is_specific_deliverable(merged):
+                    semantic_gaps.append(f"day{day}:generic_plan_template")
 
             normalized_templates: List[str] = []
             for day in sorted(day_objects):
