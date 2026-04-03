@@ -8,10 +8,13 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from svmap.models import (
+    AllDaysPresentConstraint,
+    CoverageConstraint,
     FinalStructureConstraint,
     IntentAlignmentConstraint,
     IntentSpec,
     NoInternalErrorConstraint,
+    NoTemplatePlaceholderConstraint,
     NonEmptyExtractionConstraint,
     NonTrivialTransformationConstraint,
     TaskNode,
@@ -488,21 +491,30 @@ class ConstraintAwarePlanner(BasePlanner):
                 day_nodes.append(
                     {
                         "id": f"generate_day{day}",
-                        "description": f"Generate day {day} plan entry with goal, deliverable and metric.",
+                        "description": f"Generate structured day {day} plan object.",
                         "inputs": {
-                            "text": (
-                                f"Day {day}: goal=Complete step {day}; "
-                                f"deliverable=Artifact {day}; metric=Measure {day}."
-                            )
+                            "day": day,
+                            "query": query,
                         },
-                        "dependencies": [],
-                        "capability_tag": "summarize",
-                        "candidate_capabilities": ["summarize", "reason"],
-                        "node_type": "summarization",
-                        "task_type": "summarization",
-                        "output_mode": "text",
+                        "dependencies": ["design_plan_schema"],
+                        "capability_tag": "synthesize",
+                        "candidate_capabilities": ["synthesize", "reason"],
+                        "node_type": "aggregation",
+                        "task_type": "aggregation",
+                        "output_mode": "json",
                         "answer_role": "intermediate",
-                        "constraint": ["required_keys:summary"],
+                        "constraint": [
+                            "required_keys:day,goal,deliverable,metric",
+                            "non_empty_values",
+                        ],
+                        "io": {
+                            "output_fields": [
+                                {"name": "day", "field_type": "number", "required": True},
+                                {"name": "goal", "field_type": "string", "required": True},
+                                {"name": "deliverable", "field_type": "string", "required": True},
+                                {"name": "metric", "field_type": "string", "required": True},
+                            ]
+                        },
                     }
                 )
             verify_dependencies = ["design_plan_schema"] + [f"generate_day{day}" for day in range(1, 8)]
@@ -510,46 +522,81 @@ class ConstraintAwarePlanner(BasePlanner):
                 "nodes": [
                     {
                         "id": "analyze_requirements",
-                        "description": "Analyze requirements and constraints from the user query.",
-                        "inputs": {"text": query},
+                        "description": "Analyze requirements from query into structured constraints.",
+                        "inputs": {"query": query},
                         "dependencies": [],
-                        "capability_tag": "summarize",
-                        "candidate_capabilities": ["summarize", "reason"],
-                        "node_type": "summarization",
-                        "task_type": "summarization",
-                        "output_mode": "text",
+                        "capability_tag": "reason",
+                        "candidate_capabilities": ["reason", "synthesize"],
+                        "node_type": "reasoning",
+                        "task_type": "reasoning",
+                        "output_mode": "json",
                         "answer_role": "intermediate",
-                        "constraint": ["required_keys:summary"],
+                        "constraint": [
+                            "required_keys:topics,constraints,required_fields,duration_days",
+                            "non_empty_values",
+                        ],
+                        "io": {
+                            "output_fields": [
+                                {"name": "topics", "field_type": "list[string]", "required": True},
+                                {"name": "constraints", "field_type": "list[string]", "required": True},
+                                {"name": "required_fields", "field_type": "list[string]", "required": True},
+                                {"name": "duration_days", "field_type": "number", "required": True},
+                            ]
+                        },
                     },
                     {
                         "id": "design_plan_schema",
-                        "description": "Design canonical schema for 7-day plan entries.",
+                        "description": "Design canonical day-level schema and progression for the 7-day plan.",
                         "dependencies": ["analyze_requirements"],
-                        "capability_tag": "summarize",
-                        "candidate_capabilities": ["summarize", "reason"],
-                        "node_type": "summarization",
-                        "task_type": "summarization",
-                        "output_mode": "text",
+                        "capability_tag": "reason",
+                        "candidate_capabilities": ["reason", "synthesize"],
+                        "node_type": "reasoning",
+                        "task_type": "reasoning",
+                        "output_mode": "json",
                         "answer_role": "intermediate",
-                        "constraint": ["required_keys:summary", "non_empty_values"],
+                        "constraint": [
+                            "required_keys:day_template,progression,required_fields",
+                            "non_empty_values",
+                        ],
+                        "io": {
+                            "output_fields": [
+                                {"name": "day_template", "field_type": "json", "required": True},
+                                {"name": "progression", "field_type": "list[string]", "required": True},
+                                {"name": "required_fields", "field_type": "list[string]", "required": True},
+                            ]
+                        },
                     },
                     *day_nodes,
                     {
                         "id": "verify_coverage",
-                        "description": "Verify all 7 days include goal, deliverable, and metric.",
+                        "description": "Verify day coverage, field completeness and semantic alignment.",
                         "dependencies": verify_dependencies,
-                        "capability_tag": "summarize",
-                        "candidate_capabilities": ["summarize", "verify", "reason"],
-                        "node_type": "summarization",
-                        "task_type": "summarization",
-                        "output_mode": "text",
+                        "capability_tag": "verify",
+                        "candidate_capabilities": ["verify", "reason"],
+                        "node_type": "verification",
+                        "task_type": "verification",
+                        "output_mode": "json",
                         "answer_role": "intermediate",
-                        "constraint": ["required_keys:summary", "non_empty_values"],
+                        "constraint": [
+                            "required_keys:coverage_ok,missing_days,missing_fields,semantic_gaps,grounded_nodes",
+                            "coverage_constraint",
+                            "all_days_present",
+                            "no_template_placeholder",
+                        ],
+                        "io": {
+                            "output_fields": [
+                                {"name": "coverage_ok", "field_type": "bool", "required": True},
+                                {"name": "missing_days", "field_type": "json", "required": True},
+                                {"name": "missing_fields", "field_type": "json", "required": True},
+                                {"name": "semantic_gaps", "field_type": "json", "required": True},
+                                {"name": "grounded_nodes", "field_type": "json", "required": True},
+                            ]
+                        },
                     },
                     {
                         "id": "final_response",
-                        "description": "Return final 7-day learning plan.",
-                        "dependencies": ["verify_coverage"],
+                        "description": "Return final 7-day learning plan using verified day objects.",
+                        "dependencies": ["verify_coverage"] + [f"generate_day{day}" for day in range(1, 8)],
                         "capability_tag": "synthesize",
                         "candidate_capabilities": ["synthesize", "reason"],
                         "node_type": "final_response",
@@ -557,10 +604,16 @@ class ConstraintAwarePlanner(BasePlanner):
                         "output_mode": "text",
                         "answer_role": "final",
                         "constraint": [
-                            "required_keys:answer",
+                            "required_keys:answer,used_nodes",
                             "non_empty_values",
                             "final_structure:min_items=7,required_sections=goal|deliverable|metric,forbid_query_echo=true",
                         ],
+                        "io": {
+                            "output_fields": [
+                                {"name": "answer", "field_type": "string", "required": True},
+                                {"name": "used_nodes", "field_type": "json", "required": True},
+                            ]
+                        },
                     },
                 ]
             }
@@ -905,6 +958,14 @@ class ConstraintAwarePlanner(BasePlanner):
                     node.spec.constraints.append(
                         IntentAlignmentConstraint(target_goal=node.spec.description)
                     )
+                if plan_mode and "non_trivial_transform" not in existing_types:
+                    node.spec.constraints.append(
+                        NonTrivialTransformationConstraint(
+                            input_field="query",
+                            output_field="answer",
+                            similarity_threshold=0.9,
+                        )
+                    )
 
             if node.spec.task_type == "extraction" and "non_empty_extraction" not in existing_types:
                 node.spec.constraints.append(NonEmptyExtractionConstraint())
@@ -920,6 +981,14 @@ class ConstraintAwarePlanner(BasePlanner):
                         similarity_threshold=0.9,
                     )
                 )
+
+            if node.id == "verify_coverage":
+                if "coverage_constraint" not in existing_types:
+                    node.spec.constraints.append(CoverageConstraint())
+                if "all_days_present" not in existing_types:
+                    node.spec.constraints.append(AllDaysPresentConstraint())
+                if "no_template_placeholder" not in existing_types:
+                    node.spec.constraints.append(NoTemplatePlaceholderConstraint())
 
     def propagate_intents(self, tree: TaskTree) -> None:
         task_family = str(tree.metadata.get("task_family", "")).strip().lower()
@@ -1016,6 +1085,19 @@ class ConstraintAwarePlanner(BasePlanner):
         if task_type == "calculation":
             success_conditions.extend(["calculation_completed"])
             output_semantics["result"] = "numeric calculation result"
+        if task_type == "verification":
+            success_conditions.extend(["coverage_verified"])
+            output_semantics["coverage_ok"] = "whether all day entries satisfy constraints"
+            output_semantics["missing_days"] = "list of missing day indexes"
+            output_semantics["missing_fields"] = "list of missing required fields"
+            output_semantics["semantic_gaps"] = "semantic quality gaps"
+            output_semantics["grounded_nodes"] = "nodes used for verification"
+        if task_type == "aggregation" and "day" in text:
+            success_conditions.extend(["day_plan_generated"])
+            output_semantics["day"] = "day index"
+            output_semantics["goal"] = "day objective"
+            output_semantics["deliverable"] = "day deliverable"
+            output_semantics["metric"] = "day metric"
         if task_type == "final_response":
             success_conditions.extend(["final_response_generated"])
             output_semantics["answer"] = "final user-facing answer"

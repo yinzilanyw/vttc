@@ -37,6 +37,26 @@ class TraceLogger:
             },
         )
 
+    def log_constraint_violation(self, node_id: str, failure_type: str, reasons: List[str]) -> None:
+        self.log_event(
+            "constraint_violation",
+            {
+                "node_id": node_id,
+                "failure_type": failure_type,
+                "reasons": reasons,
+            },
+        )
+
+    def log_plan_quality_failure(self, node_id: str, failure_type: str, reasons: List[str]) -> None:
+        self.log_event(
+            "plan_quality_failure",
+            {
+                "node_id": node_id,
+                "failure_type": failure_type,
+                "reasons": reasons,
+            },
+        )
+
     def export_case_study(self, path: str) -> None:
         case_payload = {
             "summary": {
@@ -52,7 +72,14 @@ class TraceLogger:
         graph_events = [
             e
             for e in self.events
-            if e.get("event_type") in {"subtree_replaced", "graph_delta_recorded", "replan_decision"}
+            if e.get("event_type")
+            in {
+                "subtree_replaced",
+                "graph_delta_recorded",
+                "replan_decision",
+                "constraint_violation",
+                "plan_quality_failure",
+            }
         ]
         with open(path, "w", encoding="utf-8") as f:
             json.dump(graph_events, f, ensure_ascii=False, indent=2)

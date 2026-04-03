@@ -28,6 +28,7 @@ from .patch_library import (
     build_evidence_patch,
     build_final_response_patch,
     build_normalization_patch,
+    build_schema_patch,
     build_summary_patch,
 )
 
@@ -138,6 +139,9 @@ class ConstraintAwareReplanner(BaseReplanner):
     def build_normalization_patch(self, node_id: str) -> Dict[str, Any]:
         return build_normalization_patch(node_id)
 
+    def build_schema_patch(self, node_id: str) -> Dict[str, Any]:
+        return build_schema_patch(node_id)
+
     def should_escalate_to_subtree(
         self,
         failure: NodeFailure,
@@ -164,6 +168,12 @@ class ConstraintAwareReplanner(BaseReplanner):
             return self.build_crosscheck_patch(node.id)
         if failure_type in {"schema", "schema_error", "empty_extraction"}:
             return self.build_normalization_patch(node.id)
+        if failure_type == "schema_design_failed":
+            return self.build_schema_patch(node.id)
+        if failure_type in {"low_information_output"}:
+            return self.build_crosscheck_patch(node.id)
+        if failure_type in {"requirements_analysis_failed", "plan_coverage_incomplete", "final_placeholder_output"}:
+            return build_decomposition_patch(node.id)
         if failure_type in {"final_answer_missing_structure", "final_answer_not_grounded", "final_query_echo"}:
             return build_final_response_patch(node.id)
         return None
@@ -281,6 +291,39 @@ class ConstraintAwareReplanner(BaseReplanner):
         patch_attempts = int(node.metadata.get("patch_attempts", 0))
         subtree_fail_count = int(node.metadata.get("subtree_replan_count", 0))
         has_evidence_dep = any(dep.startswith("ev_") for dep in node.dependencies)
+
+        if failure_type in {"requirements_analysis_failed"}:
+            return ReplanDecision(
+                action="replan_subtree",
+                target_node_id=node.id,
+                patch=build_decomposition_patch(node.id),
+                reason="requirements_analysis_failed",
+                failure_type=failure.failure_type,
+            )
+        if failure_type in {"schema_design_failed"}:
+            return ReplanDecision(
+                action="patch_subgraph",
+                target_node_id=node.id,
+                patch=build_schema_patch(node.id),
+                reason="schema_design_failed",
+                failure_type=failure.failure_type,
+            )
+        if failure_type in {"plan_coverage_incomplete", "final_placeholder_output"}:
+            return ReplanDecision(
+                action="replan_subtree",
+                target_node_id=node.id,
+                patch=build_decomposition_patch(node.id),
+                reason=f"plan_quality_failure:{failure_type}",
+                failure_type=failure.failure_type,
+            )
+        if failure_type in {"low_information_output"}:
+            return ReplanDecision(
+                action="patch_subgraph",
+                target_node_id=node.id,
+                patch=build_crosscheck_patch(node.id),
+                reason="low_information_output",
+                failure_type=failure.failure_type,
+            )
 
         if node.spec.task_type in {"final_response", "aggregation", "summarization", "comparison"} and failure_type in {
             "semantic",
@@ -705,6 +748,7 @@ class ConstraintAwareReplanner(BaseReplanner):
             "compare_patch",
             "calculation_patch",
             "final_response_patch",
+            "schema_patch",
         }:
             affected_before = [node.id, *tree.get_downstream_nodes(node.id)]
             before_version = tree.version

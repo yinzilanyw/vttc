@@ -13,9 +13,11 @@ from svmap.agents import (
     CapabilityBasedAssigner,
     CompareAgent,
     ExtractAgent,
+    ReasonAgent,
     RetrieveAgent,
     SummarizeAgent,
     SynthesizeAgent,
+    VerifyAgent,
 )
 from svmap.config import AppConfig, load_app_config_from_env
 from svmap.models import ExecutionContext, RuntimeBudget, TaskTree
@@ -37,6 +39,10 @@ from svmap.verification import (
     ExtractionVerifier,
     FinalResponseVerifier,
     IntentVerifier,
+    NoPlaceholderVerifier,
+    PlanCoverageVerifier,
+    PlanSchemaVerifier,
+    RequirementsAnalysisVerifier,
     RetrievalVerifier,
     RuleVerifier,
     SchemaVerifier,
@@ -245,11 +251,11 @@ def build_multitask_registry(app_config: AppConfig) -> AgentRegistry:
     )
     registry.register(
         "reason_agent",
-        SynthesizeAgent(),
+        ReasonAgent(),
         AgentSpec(
             name="reason_agent",
-            capabilities=["reason", "synthesize", "extract", "summarize"],
-            task_types=["reasoning", "aggregation", "comparison", "calculation", "verification"],
+            capabilities=["reason", "analysis"],
+            task_types=["reasoning", "aggregation", "summarization"],
             output_modes=["text", "json", "table", "number", "boolean"],
             supported_intent_tags=["reason"],
             repair_specialties=["runtime", "planning", "verification"],
@@ -260,11 +266,11 @@ def build_multitask_registry(app_config: AppConfig) -> AgentRegistry:
     )
     registry.register(
         "verify_agent",
-        SynthesizeAgent(),
+        VerifyAgent(),
         AgentSpec(
             name="verify_agent",
-            capabilities=["verify", "reason", "synthesize"],
-            task_types=["verification", "reasoning", "comparison", "calculation", "final_response"],
+            capabilities=["verify", "reason"],
+            task_types=["verification", "reasoning", "comparison", "calculation"],
             output_modes=["text", "json", "boolean", "table", "number"],
             supported_intent_tags=["verify"],
             repair_specialties=["verification", "planning"],
@@ -355,6 +361,10 @@ def build_runtime(config: RunConfig) -> Dict[str, Any]:
         SchemaVerifier(),
         RuleVerifier(),
         SemanticVerifier(semantic_judge=components["semantic_judge"]),
+        RequirementsAnalysisVerifier(),
+        PlanSchemaVerifier(),
+        PlanCoverageVerifier(),
+        NoPlaceholderVerifier(),
         RetrievalVerifier(),
         ExtractionVerifier(),
         CrossNodeVerifier(),

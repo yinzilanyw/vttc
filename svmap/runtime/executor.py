@@ -337,7 +337,17 @@ class ExecutionRuntime:
             failure_type = str(getattr(item, "failure_type", "") or "")
             if not failure_type:
                 code = str(getattr(item, "code", ""))
-                if "schema" in code or "type" in code or "required" in code:
+                if "final_placeholder_output" in code:
+                    failure_type = "final_placeholder_output"
+                elif "plan_coverage" in code or "coverage_" in code:
+                    failure_type = "plan_coverage_incomplete"
+                elif "requirements_" in code:
+                    failure_type = "requirements_analysis_failed"
+                elif "schema_day_template" in code or "schema_progression" in code:
+                    failure_type = "schema_design_failed"
+                elif "low_information_output" in code or "placeholder" in code:
+                    failure_type = "low_information_output"
+                elif "schema" in code or "type" in code or "required" in code:
                     failure_type = "schema_error"
                 elif "intent" in code:
                     failure_type = "intent_misalignment"
@@ -548,6 +558,24 @@ class ExecutionRuntime:
                 if record.status != "success":
                     failure_type = record.failure_type or self.infer_failure_type(record.verification_results)
                     failure_summary[failure_type] = failure_summary.get(failure_type, 0) + 1
+                    if self.trace_logger:
+                        self.trace_logger.log_constraint_violation(
+                            node_id=node.id,
+                            failure_type=failure_type,
+                            reasons=record.verify_errors,
+                        )
+                        if failure_type in {
+                            "final_placeholder_output",
+                            "plan_coverage_incomplete",
+                            "requirements_analysis_failed",
+                            "schema_design_failed",
+                            "low_information_output",
+                        }:
+                            self.trace_logger.log_plan_quality_failure(
+                                node_id=node.id,
+                                failure_type=failure_type,
+                                reasons=record.verify_errors,
+                            )
                     failure = NodeFailure(
                         node_id=node.id,
                         failure_type=failure_type,

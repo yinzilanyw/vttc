@@ -308,6 +308,12 @@ class ConstraintParser:
                         similarity_threshold=similarity_threshold,
                     )
                 )
+            elif text == "coverage_constraint":
+                parsed.append(CoverageConstraint())
+            elif text == "all_days_present":
+                parsed.append(AllDaysPresentConstraint())
+            elif text == "no_template_placeholder":
+                parsed.append(NoTemplatePlaceholderConstraint())
             else:
                 parsed.append(LegacyStringConstraint(raw=text))
         return parsed
@@ -668,4 +674,120 @@ class NonTrivialTransformationConstraint(Constraint):
             passed=True,
             code="non_trivial_transform_ok",
             message="Transformation is non-trivial.",
+        )
+
+
+@dataclass
+class CoverageConstraint(Constraint):
+    constraint_type: str = "coverage_constraint"
+
+    def validate(
+        self, node: "TaskNode", output: Dict[str, Any], context: Dict[str, Any]
+    ) -> ConstraintResult:
+        if "coverage_ok" not in output:
+            return ConstraintResult(
+                passed=False,
+                code="coverage_missing_flag",
+                message="Coverage verification output must include coverage_ok.",
+                failure_type="plan_coverage_incomplete",
+                repair_hint="replan_subtree",
+                violation_scope="node",
+            )
+        if bool(output.get("coverage_ok")) is False:
+            return ConstraintResult(
+                passed=False,
+                code="coverage_not_ok",
+                message="Coverage verification reported coverage_ok=False.",
+                failure_type="plan_coverage_incomplete",
+                repair_hint="replan_subtree",
+                violation_scope="node",
+            )
+        return ConstraintResult(
+            passed=True,
+            code="coverage_ok",
+            message="Coverage constraint passed.",
+        )
+
+
+@dataclass
+class AllDaysPresentConstraint(Constraint):
+    min_days: int = 7
+    constraint_type: str = "all_days_present"
+
+    def validate(
+        self, node: "TaskNode", output: Dict[str, Any], context: Dict[str, Any]
+    ) -> ConstraintResult:
+        missing_days = output.get("missing_days")
+        if not isinstance(missing_days, list):
+            return ConstraintResult(
+                passed=False,
+                code="coverage_missing_days_field_invalid",
+                message="missing_days must be a list.",
+                failure_type="plan_coverage_incomplete",
+                repair_hint="replan_subtree",
+                violation_scope="node",
+            )
+        if len(missing_days) > 0:
+            return ConstraintResult(
+                passed=False,
+                code="coverage_missing_days",
+                message=f"Missing days in plan coverage: {missing_days}",
+                failure_type="plan_coverage_incomplete",
+                repair_hint="replan_subtree",
+                violation_scope="node",
+                evidence={"missing_days": missing_days},
+            )
+        grounded_nodes = output.get("grounded_nodes")
+        if isinstance(grounded_nodes, list):
+            day_like = [x for x in grounded_nodes if isinstance(x, str) and "generate_day" in x.lower()]
+            if len(day_like) < self.min_days:
+                return ConstraintResult(
+                    passed=False,
+                    code="coverage_grounded_nodes_insufficient",
+                    message=f"Expected at least {self.min_days} grounded day nodes, got {len(day_like)}.",
+                    failure_type="plan_coverage_incomplete",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+        return ConstraintResult(
+            passed=True,
+            code="all_days_present_ok",
+            message="All day coverage constraints passed.",
+        )
+
+
+@dataclass
+class NoTemplatePlaceholderConstraint(Constraint):
+    constraint_type: str = "no_template_placeholder"
+
+    def validate(
+        self, node: "TaskNode", output: Dict[str, Any], context: Dict[str, Any]
+    ) -> ConstraintResult:
+        text_parts: List[str] = []
+        for key in ["summary", "answer", "goal", "deliverable", "metric"]:
+            value = output.get(key)
+            if isinstance(value, str) and value.strip():
+                text_parts.append(value.strip())
+        if isinstance(output.get("semantic_gaps"), list):
+            text_parts.extend([str(x) for x in output["semantic_gaps"]])
+        text = " ".join(text_parts).lower()
+        placeholder_patterns = [
+            r"complete step\s*\d+",
+            r"artifact\s*\d+",
+            r"measure\s*\d+",
+            r"placeholder",
+        ]
+        if any(re.search(pattern, text) for pattern in placeholder_patterns):
+            return ConstraintResult(
+                passed=False,
+                code="template_placeholder_detected",
+                message="Template placeholder pattern detected.",
+                failure_type="low_information_output",
+                repair_hint="replan_subtree",
+                violation_scope="node",
+            )
+        return ConstraintResult(
+            passed=True,
+            code="no_template_placeholder_ok",
+            message="No template placeholder detected.",
         )

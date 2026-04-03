@@ -1,487 +1,493 @@
-下面给你一份**按文件和函数级别的 TODO 清单**，目标是把你现在这套代码从“主体框架已具备”推进到“能更扎实支撑论文四个创新点”的状态。当前仓库已经有 `planner / task_tree / verifier / runtime / replanner / pipeline / demos` 这些模块，说明大框架不需要重构；真正需要的是把**family 判定、图级验证、intent 传播、global replan、final-only 输出**这几件事做深。([GitHub][1])
+当前系统已经能正确识别 `plan` 任务并生成显式 DAG，但输出仍然是**模板化、低信息量内容**；同时 verifier 没把这种“形式正确、语义空泛”的结果判成失败，所以没有触发任何 replan。
 
 ---
 
-# P0：先修最影响实验稳定性的逻辑
+# 一、最高优先级：先把“假成功”拦住
 
-## 文件：`svmap/pipeline.py`
+## 文件：`svmap/verification/verifiers.py`
 
-### TODO 1：修正任务族选择逻辑
+### 1. 修改 `FinalResponseVerifier.verify(...)`
 
-**问题**：自定义 query 仍容易被错误归到 `qa`，会把 planning/summary/compare 类问题推到错误模板。
-**改动**：
+**问题来源**
+这次 `final_response` 输出虽然满足“7天 + goal/deliverable/metric”的外壳，但内容基本是：
 
-* 找到当前决定 `task_family` 的函数或逻辑段。
-* 修改规则为：**只有用户显式传入 `task_family` 时才使用显式值；否则必须调用 planner 的 `infer_task_family(query)`**。
+* `Complete step 1`
+* `Artifact 1`
+* `Measure 1`
 
-### 建议新增/修改函数
+这说明 final verifier 目前更像是在检查**结构壳子**，没有检查**内容语义**。
+
+**TODO**
+在 `FinalResponseVerifier.verify(...)` 中新增 4 类检查：
+
+#### A. 模板占位符检查
+
+新增一个辅助函数：
 
 ```python
-def resolve_task_family(query: str, explicit_family: str | None, planner) -> str: ...
+def _looks_like_placeholder_plan(text: str) -> bool: ...
 ```
 
-### 目标
+建议规则：
 
-避免像 “Design a 7-day learning plan ...” 这种问题被误判成 `qa`。这类误判会直接导致错误 DAG。([GitHub][2])
+* 命中 `Complete step \d+`
+* 命中 `Artifact \d+`
+* 命中 `Measure \d+`
+* 或 day1~day7 只是数字替换，没有主题差异
 
----
-
-## 文件：`svmap/demos/run_demo.py`
-
-### TODO 2：demo 入口统一走 pipeline 的 family 解析
-
-**问题**：demo 层不要再自己做默认 `qa` 兜底。
-**改动**：
-
-* 把当前 demo 中与 `task_family` 默认值相关的逻辑删掉或下沉到 `pipeline.resolve_task_family(...)`。
-* 保证 `run_demo(...)` 只是展示层，不自行改写 family。
-
-### 建议函数
+一旦命中，返回：
 
 ```python
-def run_demo(query: str | None = None, task_family: str | None = None) -> None: ...
+ConstraintResult(
+    passed=False,
+    code="final_placeholder_output",
+    failure_type="intent_misalignment",
+    repair_hint="replan_subtree",
+    violation_scope="node",
+)
 ```
 
-### 目标
+#### B. query 语义对齐检查
 
-让 demo、case study、eval 用同一条 family 判定逻辑，避免实验与展示行为不一致。([GitHub][3])
+新增：
+
+```python
+def _contains_query_topics(answer: str, query: str) -> bool: ...
+```
+
+至少检查 answer 是否真正覆盖 query 中的核心主题词，例如：
+
+* multi-agent
+* workflow
+* verifiable
+* task tree / task trees
+
+如果 7 天计划完全没围绕这些主题展开，也应判失败。
+
+#### C. 学习路径渐进性检查
+
+新增：
+
+```python
+def _has_progressive_day_structure(answer: str) -> bool: ...
+```
+
+检查 day1~day7 是否存在明显 progression，而不是 7 个同模版句子。
+
+#### D. 上游 grounding 检查
+
+你这次 `final_response.used_nodes = ['verify_coverage']`，太弱了。
+应要求：
+
+* 至少间接或直接覆盖全部 `generate_day1...generate_day7`
+* 或 verify_coverage 必须结构化地声明它已经检查并整合了全部 day 节点
+
+新增：
+
+```python
+def _is_grounded_in_all_days(output: dict) -> bool: ...
+```
 
 ---
+
+### 2. 修改 / 新增 `PlanCoverageVerifier`
+
+这次 `verify_coverage` 节点虽然名字叫 verify，但实际输出还是一段 summary。
+
+**TODO**
+新增一个 plan 专用 verifier：
+
+```python
+class PlanCoverageVerifier(BaseVerifier):
+    def verify(self, node, output, context) -> list[ConstraintResult]:
+        ...
+```
+
+检查：
+
+* 是否覆盖 day1~day7
+* 每天是否都有 `goal / deliverable / metric`
+* 是否存在明显重复模板
+* 是否真正围绕 query 要求展开
+
+如果失败，返回：
+
+* `failure_type="plan_coverage_incomplete"` 或 `intent_misalignment`
+* `repair_hint="replan_subtree"`
+
+---
+
+### 3. 修改 `SummarizationVerifier.verify(...)`
+
+你现在很多计划节点都落到了 `summarize_agent` 上，导致行为同质化。
+
+**TODO**
+在 `SummarizationVerifier` 中增加“非 trivial summary”检查：
+
+```python
+def _is_trivial_summary(summary: str, upstream_text: str) -> bool: ...
+```
+
+判错场景：
+
+* summary 只是原 query 复述
+* summary 没有新增结构信息
+* summary 没有覆盖本节点应该承担的主题
+
+特别是：
+
+* `analyze_requirements`
+* `design_plan_schema`
+* `verify_coverage`
+
+这三个节点不能只是“再说一遍原问题”。
+
+---
+
+# 二、让节点名字和节点职责一致
 
 ## 文件：`svmap/planning/planner.py`
 
-### TODO 3：增强 `infer_task_family(...)`
+### 4. 修改 `plan(...)` 或 plan-family 模板生成逻辑
 
-**问题**：现有 family 识别还不够覆盖 plan/structured_generation。
-**改动**：
+**问题来源**
+你现在的 DAG 名字已经更合理，但节点职责和 agent 选择仍然不匹配：
 
-* 在 `infer_task_family(...)` 中明确加入：
+* `analyze_requirements` → `summarize_agent`
+* `design_plan_schema` → `summarize_agent`
+* `verify_coverage` → `summarize_agent`
 
-  * `plan`
-  * `structured_generation`
-  * `summary`
-  * `compare`
-  * `calculate`
-  * `extract`
+这说明 planner 只是换了节点名，**没有真正换任务契约**。
 
-### 建议规则
+**TODO**
+把 `plan` family 模板里的节点定义改成真正分工明确的结构。
 
-* 包含 `plan`, `learning plan`, `7-day`, `daily goals`, `deliverables`, `metric`
-  → `plan`
-* 包含 `summarize`, `summary`, `总结`
-  → `summary`
-* 包含 `compare`, `比较`
-  → `compare`
-* 包含 `precision`, `recall`, `rate`, `比例`, `计算`
-  → `calculate`
+### 推荐的 plan DAG
 
-### 目标
+```text
+analyze_requirements
+-> design_plan_schema
+-> generate_day1 ... generate_day7
+-> verify_coverage
+-> final_response
+```
 
-让 planner 生成的 DAG 更符合任务本质，而不是把一切都当 QA。([GitHub][1])
+### 每个节点的期望输出要显式化
+
+#### `analyze_requirements`
+
+输出应是结构化 requirements，而不是 summary：
+
+```python
+{
+  "topics": [...],
+  "constraints": [...],
+  "required_fields": ["goal", "deliverable", "metric"],
+  "duration_days": 7
+}
+```
+
+#### `design_plan_schema`
+
+输出应是 schema / blueprint：
+
+```python
+{
+  "day_template": {
+    "goal": "...",
+    "deliverable": "...",
+    "metric": "..."
+  },
+  "progression": ["foundation", "design", ...]
+}
+```
+
+#### `generate_dayN`
+
+输出应是结构化 day object，而不是一行 summary：
+
+```python
+{
+  "day": 1,
+  "goal": "...",
+  "deliverable": "...",
+  "metric": "..."
+}
+```
+
+#### `verify_coverage`
+
+输出应是 verification result，而不是 summary：
+
+```python
+{
+  "coverage_ok": True,
+  "missing_days": [],
+  "missing_fields": [],
+  "semantic_gaps": [],
+  "grounded_nodes": [...]
+}
+```
+
+#### `final_response`
+
+才负责把上述结构化内容转成最终回答或 JSON。
 
 ---
 
-# P1：把“验证进入任务结构”做强
+### 5. 在 `normalize_planner_output(...)` 中自动补 plan 专用约束
+
+对 `task_family == "plan"` 或 `task_type == "final_response"` 的节点，自动挂：
+
+* `FinalStructureConstraint`
+* `IntentAlignmentConstraint`
+* `NonTrivialTransformationConstraint`
+
+对 `verify_coverage` 节点挂：
+
+* `CoverageConstraint`
+* `AllDaysPresentConstraint`
+* `NoTemplatePlaceholderConstraint`
+
+这样 verifier 才不是“事后猜”，而是 planner 产物的一部分。
+
+---
+
+# 三、把 agent 分配做得更合理
+
+## 文件：`svmap/agents/assigner.py`
+
+### 6. 修改 `assign(...)` / `assign_by_capability(...)`
+
+**问题来源**
+现在几乎所有 plan 节点都被分给了 `summarize_agent`，这削弱了多智能体结构的意义。
+
+**TODO**
+对 `plan` family 增加 task_type 到 agent 的显式偏好映射。
+
+### 推荐映射
+
+* `analyze_requirements` → `reason_agent`
+* `design_plan_schema` → `synthesize_agent` 或 `reason_agent`
+* `generate_day*` → `synthesize_agent`
+* `verify_coverage` → `verify_agent`
+* `final_response` → `synthesize_agent`
+
+### 实现方式
+
+在 assigner 里新增：
+
+```python
+def preferred_agents_for_task_type(task_type: str) -> list[str]:
+    ...
+```
+
+并在评分时加入一个 bonus：
+
+```python
+task_type_preference_bonus
+```
+
+这样即使 capability 相同，也能让更合适的 agent 获得更高分。
+
+---
+
+## 文件：`svmap/agents/demo_agents.py`
+
+### 7. 强化 `reason_agent` / `verify_agent` / `synthesize_agent`
+
+如果现在这些 agent 只是薄包装，那至少要对 prompt 做区分。
+
+**TODO**
+让不同 agent 的系统提示明确不同：
+
+* `reason_agent`：负责分析需求、拆分主题、识别 progression
+* `verify_agent`：负责检查覆盖、字段完整性、主题一致性
+* `synthesize_agent`：负责根据结构化输入生成最终自然语言输出
+
+这样即使底层模型相同，行为也会明显分化。
+
+---
+
+# 四、把“验证节点”真正做成验证，而不是聚合
+
+## 文件：`svmap/verification/verifiers.py`
+
+### 8. 新增 `RequirementsAnalysisVerifier`
+
+针对 `analyze_requirements` 节点，检查：
+
+* 是否提取出 query 的核心主题
+* 是否识别了 7 天、goal、deliverable、metric 等要求
+* 是否不是简单复述 query
+
+函数：
+
+```python
+class RequirementsAnalysisVerifier(BaseVerifier):
+    def verify(self, node, output, context) -> list[ConstraintResult]:
+        ...
+```
+
+失败时：
+
+* `failure_type="requirements_analysis_failed"`
+* `repair_hint="replan_subtree"`
+
+---
+
+### 9. 新增 `PlanSchemaVerifier`
+
+针对 `design_plan_schema` 节点，检查：
+
+* 是否真的形成 schema
+* 是否定义了 day-level 结构
+* 是否建立 progression / topic ordering
+
+函数：
+
+```python
+class PlanSchemaVerifier(BaseVerifier):
+    def verify(self, node, output, context) -> list[ConstraintResult]:
+        ...
+```
+
+---
+
+### 10. 强化 `verify_coverage` 节点的输出契约
+
+如果你不想新建 agent，也至少要在 verifier 层要求 `verify_coverage` 的 output 包含：
+
+* `coverage_ok`
+* `missing_days`
+* `missing_fields`
+* `semantic_gaps`
+
+否则直接失败。
+
+---
 
 ## 文件：`svmap/verification/engine.py`
 
-### TODO 4：把验证作用域显式化
+### 11. 在 `select_verifiers_for_node(...)` 中加入 plan-family 路由
 
-**问题**：当前验证主体已存在，但更偏 node-level，图级验证表达不够清楚。
-**改动**：
-新增 4 个接口：
+针对 plan 任务：
 
-```python
-def verify_node(self, node, output, context): ...
-def verify_edge(self, src_node, dst_node, context): ...
-def verify_subtree(self, tree, root_node_id, context): ...
-def verify_global(self, tree, context): ...
-```
+* `analyze_requirements` → `RequirementsAnalysisVerifier`
+* `design_plan_schema` → `PlanSchemaVerifier`
+* `generate_day*` → `IntentVerifier + NoPlaceholderVerifier`
+* `verify_coverage` → `PlanCoverageVerifier`
+* `final_response` → `FinalResponseVerifier`
 
-并把现有总入口改成 dispatcher：
-
-```python
-def verify(self, scope: str = "node", **kwargs): ...
-```
-
-### 目标
-
-把“验证是任务结构的一部分”从理念变成 API，支撑你第二个创新点。([GitHub][4])
+这样 verifier 才真正和节点职责绑定。
 
 ---
 
-## 文件：`svmap/verification/verifiers.py`
-
-### TODO 5：给各 verifier 增加 scope 声明
-
-新增统一接口：
-
-```python
-def supports_scope(self) -> list[str]:
-    return ["node"]
-```
-
-不同 verifier 可返回：
-
-* `["node"]`
-* `["edge"]`
-* `["subtree"]`
-* `["global"]`
-
-### 目标
-
-让 `VerifierEngine` 能按 scope 组织验证，而不是把所有 verifier 都当节点检查器。([GitHub][4])
-
----
-
-## 文件：`svmap/verification/verifiers.py`
-
-### TODO 6：新增/强化 `EdgeConsistencyVerifier`
-
-**问题**：你现在有 intent 和 final verifier，但上下游字段绑定、一致性约束还不够显式。
-**改动**：
-新增：
-
-```python
-class EdgeConsistencyVerifier(BaseVerifier):
-    def verify(self, src_node, dst_node, context) -> list[ConstraintResult]: ...
-```
-
-检查：
-
-* 上游要求的字段是否真正传给下游
-* 下游引用实体是否与上游一致
-* `used_nodes` 是否覆盖必要依赖
-
-### 目标
-
-把“图关系”真正纳入验证。([GitHub][4])
-
----
-
-## 文件：`svmap/verification/verifiers.py`
-
-### TODO 7：新增/强化 `SubtreeIntentVerifier`
-
-**问题**：intent 现在已进入节点，但还缺子树级对齐检查。
-**改动**：
-新增：
-
-```python
-class SubtreeIntentVerifier(BaseVerifier):
-    def verify(self, tree, root_node_id, context) -> list[ConstraintResult]: ...
-```
-
-检查：
-
-* 子树整体是否服务于父节点 goal
-* patch 后新子图是否仍满足原 intent
-* 对于 `plan` 类任务，day1~dayN 是否完整覆盖
-
-### 目标
-
-让第三个创新点从“节点 intent”升级到“子树 intent”。([GitHub][4])
-
----
-
-# P2：把 intent 传播做出来
-
-## 文件：`svmap/models/task_node.py`
-
-### TODO 8：增强 `IntentSpec`
-
-在现有 `IntentSpec` 上新增：
-
-```python
-propagates_to_children: bool = True
-required_upstream_intents: list[str] = field(default_factory=list)
-child_completion_criteria: list[str] = field(default_factory=list)
-```
-
-### 目标
-
-让 intent 不再只是当前节点目标，而能描述父子关系和完成条件。([GitHub][5])
-
----
-
-## 文件：`svmap/planning/planner.py`
-
-### TODO 9：新增 `propagate_intents(...)`
-
-```python
-def propagate_intents(self, tree: TaskTree) -> TaskTree: ...
-```
-
-### 最小规则
-
-* `final_response` 的 goal 反向约束上游 aggregation/synthesis 节点
-* `compare` 节点要求上游至少两路对象
-* `plan` 节点要求下游覆盖所有 day/section
-* `summary` 节点要求上游提供 evidence-bearing outputs
-
-### 接入点
-
-在 `plan(...)` 完成并生成 `TaskTree` 后调用：
-
-```python
-tree = self.propagate_intents(tree)
-```
-
-### 目标
-
-把 intent 变成结构传播链，而不是孤立字段。([GitHub][1])
-
----
-
-## 文件：`svmap/planning/planner.py`
-
-### TODO 10：为 planner 产出的节点自动补 intent/constraint
-
-在 normalize/postprocess 阶段加入：
-
-* `final_response` 节点自动挂：
-
-  * `FinalStructureConstraint`
-  * `IntentAlignmentConstraint`
-* `extraction` 节点自动挂：
-
-  * `NonEmptyExtractionConstraint`
-* `retrieve/tool_call` 节点自动挂：
-
-  * `NonTrivialTransformationConstraint`
-* `calculation` 节点自动挂：
-
-  * `NoInternalErrorConstraint`
-
-### 目标
-
-让约束和 intent 成为 planner 输出的内生部分，而不是运行时临时补丁。([GitHub][1])
-
----
-
-# P3：把“修复 = 结构变换”从局部 patch 推到可发表强度
+# 五、让“低质量输出”触发 replan，而不是直接 success
 
 ## 文件：`svmap/runtime/replanner.py`
 
-### TODO 11：实现真正的 `apply_global_replan(...)`
+### 12. 扩充 failure_type → action 映射
 
-**问题**：当前 global replan 还停留在请求标记层，不足以支撑“完整结构修复”表述。
-**改动**：
-新增：
+你现在的问题不是没有 replan，而是**verifier 没把这种模板化空内容定义成 failure**，所以 replan 永远不触发。
 
-```python
-def apply_global_replan(self, tree: TaskTree, context) -> TaskTree: ...
-```
+**TODO**
+增加以下 failure type 的处理：
 
-### 最小可用策略
+* `final_placeholder_output`
+* `plan_coverage_incomplete`
+* `requirements_analysis_failed`
+* `schema_design_failed`
+* `low_information_output`
 
-1. 找到第一个 fatal failure 节点
-2. 保留 failure 之前、且未污染的成功前缀
-3. 调 planner 重建后续子图
-4. 用 `replace_subtree(...)` 或整段替换完成图更新
+### 推荐映射
 
-### 目标
-
-让 global replan 不再只是 metadata 标记，而是实际 graph rewrite。([GitHub][6])
-
----
-
-## 文件：`svmap/runtime/replanner.py`
-
-### TODO 12：明确升级到 subtree/global replan 的条件
-
-新增：
-
-```python
-def should_escalate_to_subtree(self, failure, retry_count, patch_count) -> bool: ...
-def should_escalate_to_global(self, failure, subtree_fail_count) -> bool: ...
-```
-
-### 建议规则
-
-* `intent_misalignment` on aggregation/final → 直接 subtree replan
-* 同一节点 patch 2 次仍失败 → subtree replan
-* subtree replan 1~2 次仍失败，或出现 global violation → global replan
-
-### 目标
-
-让修复策略不是“拍脑袋”，而是 failure-type 驱动。([GitHub][6])
+* `requirements_analysis_failed` → `replan_subtree(analyze_requirements -> final_response)`
+* `schema_design_failed` → `patch_subgraph(schema_patch)` 或 `replan_subtree(design_plan_schema...)`
+* `plan_coverage_incomplete` → `replan_subtree(generate_day*...)`
+* `final_placeholder_output` → `replan_subtree(final_response upstream)`
+* `low_information_output` → `patch_subgraph(crosscheck_patch)` 或 `replan_subtree`
 
 ---
 
-## 文件：`svmap/runtime/replanner.py`
+### 13. 新增 `build_schema_patch(...)`
 
-### TODO 13：扩展 patch 模板库
+如果 `design_plan_schema` 失败，可以插一个中间 schema refinement 节点。
 
-至少新增 3 个模板构造器：
-
-```python
-def build_evidence_patch(...): ...
-def build_normalization_patch(...): ...
-def build_crosscheck_patch(...): ...
-```
-
-可选再加：
+函数：
 
 ```python
-def build_final_response_patch(...): ...
+def build_schema_patch(...): ...
 ```
 
-### failure → patch 映射
+用途：
 
-* `echo_retrieval` → evidence patch
-* `schema_error / empty_extraction` → normalization patch
-* `consistency_error / grounding_error` → crosscheck patch
-* `final_answer_missing_structure` → final_response patch or subtree replan
-
-### 目标
-
-让“结构变换修复”不只是一个 evidence patch。([GitHub][6])
+* 让系统在 plan family 里不仅会插 evidence patch，也会插 schema refinement patch
 
 ---
 
-## 文件：`svmap/models/task_tree.py`
-
-### TODO 14：增强图变换记录
-
-确保并增强：
-
-```python
-def record_graph_delta(self, action: str, payload: dict): ...
-```
-
-每次 patch / subtree / global replan 时记录：
-
-* `failure_type`
-* `action`
-* `affected_nodes`
-* `before_version`
-* `after_version`
-
-### 目标
-
-后续实验里能分析哪类错误触发了哪类结构修复。([GitHub][7])
-
----
-
-# P4：统一 final-only 输出，避免实验口径漂移
-
-## 文件：`svmap/runtime/executor.py`
-
-### TODO 15：final output 只在 final node 成功且验证通过时写入
-
-现在 executor 已经围绕 final 节点组织执行，下一步是更严格：
-
-```python
-if final_node.status == "success" and final_node_verified:
-    report.final_output = final_node.output
-else:
-    report.final_output = None
-    report.success = False
-```
-
-### 目标
-
-最终答案必须来自 final node，且 final node 必须验证通过。([GitHub][8])
-
----
-
-## 文件：`svmap/demos/run_demo.py`
-
-### TODO 16：删除任何中间节点兜底抽答案逻辑
-
-检查并删除：
-
-* reverse scan DAG node outputs
-* 从 `summary/result/company/...` 中兜底取答案
-
-统一成：
-
-```python
-final_answer = report.final_output or ""
-```
-
-如果没有：
-
-* 明确打印失败
-* 不再伪装有答案
-
-### 目标
-
-让展示层和方法定义严格一致。([GitHub][3])
-
----
-
-# P5：把实验需要的失败语义和指标补齐
-
-## 文件：`svmap/runtime/executor.py`
-
-### TODO 17：把 stalled graph / blocked graph 写入报告
-
-当前如果没有 ready nodes，运行会停滞；这类信息应该显式进入 report。
-
-新增：
-
-```python
-report.stalled_node_ids: list[str]
-report.failure_summary: dict[str, int]
-```
-
-### 目标
-
-实验时能区分：
-
-* verifier failure
-* replan failure
-* graph stalled
-* no-root/no-ready-node failure。([GitHub][8])
-
----
+# 六、把 trace 和 metrics 改成能解释这类失败
 
 ## 文件：`svmap/runtime/metrics.py`
 
-### TODO 18：补论文需要的核心指标
+### 14. 新增 plan-family 专用指标
 
-新增或确认这些字段：
+这次你虽然 `task_success=True`，但其实内容质量不够好。
+所以光靠 `task_success_rate` 不够。
 
-```python
-task_success_rate
-final_response_success_rate
-verification_precision
-verification_recall
-recovery_rate
-subtree_replan_success_rate
-global_replan_success_rate
-patch_success_rate_by_type
-avg_saved_downstream_nodes
-```
+**TODO**
+新增：
 
-### 目标
+* `placeholder_output_rate`
+* `plan_structure_pass_rate`
+* `semantic_alignment_rate`
+* `coverage_verification_pass_rate`
 
-直接支撑你的 4 个创新点：
-
-* 显式图
-* 结构内验证
-* intent 形式化
-* 结构变换修复。([GitHub][8])
+这样后面实验不会被“形式成功率”误导。
 
 ---
 
-## 文件：`experiments/run_multitask_eval.py`
+## 文件：`svmap/runtime/trace.py`
 
-（如果你已有实验脚本就按现有路径改）
+### 15. 记录低信息量失败与 plan-specific failure
 
-### TODO 19：加入消融开关
+每次 verifier 命中：
 
-至少支持：
+* `final_placeholder_output`
+* `plan_coverage_incomplete`
+* `requirements_analysis_failed`
 
-* `--no_tree`
-* `--no_intent`
-* `--no_structural_repair`
-* `--no_final_node`
+都写进 trace，方便后续 case study 分析。
 
-### 目标
+---
 
-后续实验能直接验证 4 个创新点的增益。
+# 七、建议的修改顺序
+
+先做这 5 步，收益最大：
+
+### 第一步
+
+改 `planner.py`
+把 plan family 节点输出契约改成结构化，而不是 summary。
+
+### 第二步
+
+改 `assigner.py`
+让不同 plan 节点落到不同 agent。
+
+### 第三步
+
+改 `verifiers.py`
+补 plan-specific verifier，并加强 `FinalResponseVerifier`。
+
+### 第四步
+
+改 `verification/engine.py`
+按 task_type 路由 verifier。
+
+### 第五步
+
+改 `replanner.py`
+把低质量输出映射到 subtree replan / schema patch。
 
 ---

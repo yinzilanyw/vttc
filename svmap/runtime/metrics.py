@@ -31,6 +31,10 @@ class MetricsSummary:
     final_response_success_rate: float = 0.0
     aggregation_success_rate: float = 0.0
     multitask_generalization_score: float = 0.0
+    placeholder_output_rate: float = 0.0
+    plan_structure_pass_rate: float = 0.0
+    semantic_alignment_rate: float = 0.0
+    coverage_verification_pass_rate: float = 0.0
 
 
 class MetricsCollector:
@@ -65,6 +69,24 @@ class MetricsCollector:
             if rec and rec.status == "success":
                 agg_ok += 1
         family = report.task_family or "unknown"
+        placeholder_failures = sum(
+            1
+            for rec in report.node_records.values()
+            if rec.failure_type in {"final_placeholder_output", "low_information_output"}
+        )
+        intent_failures = sum(
+            1 for rec in report.node_records.values() if rec.failure_type in {"intent_misalignment"}
+        )
+        verify_coverage_nodes = [nid for nid in node_task_types if nid == "verify_coverage"]
+        verify_coverage_ok = sum(
+            1
+            for nid in verify_coverage_nodes
+            if (report.node_records.get(nid) and report.node_records[nid].status == "success")
+        )
+        plan_structure_fail = report.failure_summary.get("final_answer_missing_structure", 0) + report.failure_summary.get(
+            "plan_coverage_incomplete",
+            0,
+        )
 
         return MetricsSummary(
             task_success=report.success,
@@ -103,6 +125,14 @@ class MetricsCollector:
                 0.4 * (1.0 if report.success else 0.0)
                 + 0.3 * (final_ok / max(len(final_nodes), 1))
                 + 0.3 * (agg_ok / max(len(aggregation_nodes), 1))
+            ),
+            placeholder_output_rate=placeholder_failures / total_nodes,
+            plan_structure_pass_rate=1.0 if plan_structure_fail == 0 else 0.0,
+            semantic_alignment_rate=max(0.0, 1.0 - (intent_failures / total_nodes)),
+            coverage_verification_pass_rate=(
+                verify_coverage_ok / max(len(verify_coverage_nodes), 1)
+                if verify_coverage_nodes
+                else (1.0 if family != "plan" else 0.0)
             ),
         )
 

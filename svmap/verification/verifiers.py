@@ -47,6 +47,109 @@ def _contains_plan_sections(text: str) -> bool:
     return all(token in lowered for token in ["goal", "deliverable", "metric"])
 
 
+def _extract_query_topics(query: str) -> List[str]:
+    tokens = re.findall(r"[a-zA-Z][a-zA-Z0-9_-]{2,}", _normalize_text(query))
+    stop = {
+        "design",
+        "build",
+        "learning",
+        "plan",
+        "daily",
+        "day",
+        "days",
+        "with",
+        "goal",
+        "goals",
+        "deliverable",
+        "deliverables",
+        "metric",
+        "metrics",
+        "for",
+        "and",
+        "the",
+        "a",
+        "an",
+    }
+    topics: List[str] = []
+    for token in tokens:
+        if token in stop:
+            continue
+        if token not in topics:
+            topics.append(token)
+    return topics[:8]
+
+
+def _looks_like_placeholder_plan(text: str) -> bool:
+    lowered = _normalize_text(text)
+    placeholder_patterns = [
+        r"complete step\s*\d+",
+        r"artifact\s*\d+",
+        r"measure\s*\d+",
+    ]
+    if any(re.search(p, lowered) for p in placeholder_patterns):
+        return True
+    day_matches = re.findall(r"day\s*([1-9]|10)[^.;\n]*", lowered)
+    if day_matches and len(set(day_matches)) >= 5:
+        # If most day lines are near-identical besides the day index, treat as placeholder.
+        normalized_day_lines = re.findall(r"day\s*(?:[1-9]|10)\s*[:\-]?\s*([^\n]+)", lowered)
+        compact = [re.sub(r"\b[1-9]\b", "", line).strip() for line in normalized_day_lines]
+        if len(compact) >= 5 and len(set(compact)) <= 2:
+            return True
+    return False
+
+
+def _contains_query_topics(answer: str, query: str) -> bool:
+    topics = _extract_query_topics(query)
+    if not topics:
+        return True
+    lowered_answer = _normalize_text(answer)
+    hit_count = sum(1 for topic in topics if topic in lowered_answer)
+    return hit_count >= max(1, min(2, len(topics)))
+
+
+def _has_progressive_day_structure(answer: str) -> bool:
+    lowered = _as_text(answer).lower()
+    goals = re.findall(r"day\s*(?:[1-9]|10)\s*:\s*goal=([^;\n]+)", lowered)
+    if len(goals) < 4:
+        return False
+    normalized_goals: List[str] = []
+    for goal in goals:
+        compact = re.sub(r"\s+", " ", goal)
+        compact = re.sub(r"\b[1-9]\b", "", compact)
+        compact = re.sub(r"\b(day|goal|for)\b", "", compact).strip()
+        normalized_goals.append(compact)
+    return len(set(normalized_goals)) >= max(4, len(normalized_goals) // 2)
+
+
+def _is_grounded_in_all_days(output: Dict[str, Any]) -> bool:
+    used_nodes = output.get("used_nodes")
+    if not isinstance(used_nodes, list):
+        return False
+    used = {str(x).lower() for x in used_nodes}
+    day_nodes = {f"generate_day{idx}" for idx in range(1, 8)}
+    if day_nodes.issubset(used):
+        return True
+    verification = output.get("coverage_verification")
+    if isinstance(verification, dict):
+        grounded = verification.get("grounded_nodes")
+        if isinstance(grounded, list):
+            grounded_set = {str(x).lower() for x in grounded}
+            return day_nodes.issubset(grounded_set)
+    return False
+
+
+def _is_trivial_summary(summary: str, upstream_text: str) -> bool:
+    summary_norm = _normalize_text(summary)
+    upstream_norm = _normalize_text(upstream_text)
+    if not summary_norm:
+        return True
+    if summary_norm == upstream_norm:
+        return True
+    if _similarity(summary_norm, upstream_norm) >= 0.95 and len(summary_norm) <= len(upstream_norm) + 24:
+        return True
+    return False
+
+
 class SchemaVerifier(BaseVerifier):
     def supports_task_types(self) -> List[str]:
         return ["*"]
@@ -526,7 +629,15 @@ class EdgeConsistencyVerifier(BaseVerifier):
 
         used_nodes = dst_output.get("used_nodes")
         if isinstance(used_nodes, list) and src_output and dst_node.is_final_response():
-            if src_node.id not in [str(x) for x in used_nodes]:
+            src_id = src_node.id
+            if src_id.startswith("ev_"):
+                return results
+            used_set = {str(x) for x in used_nodes}
+            if src_id == "verify_coverage" and _is_grounded_in_all_days(dst_output):
+                return results
+            if src_id.startswith("generate_day") and src_id in used_set:
+                return results
+            if src_id not in used_set and src_id.startswith("generate_day"):
                 results.append(
                     ConstraintResult(
                         passed=False,
@@ -726,6 +837,254 @@ class ExtractionVerifier(BaseVerifier):
         return []
 
 
+class RequirementsAnalysisVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["reasoning", "summarization"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        if node.id != "analyze_requirements":
+            return []
+        topics = output.get("topics")
+        constraints = output.get("constraints")
+        required_fields = output.get("required_fields")
+        duration_days = output.get("duration_days")
+        if not isinstance(topics, list) or not topics:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_topics_missing",
+                    message="Requirements analysis must extract core topics.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        if not isinstance(constraints, list) or not constraints:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_constraints_missing",
+                    message="Requirements analysis must include constraints list.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        if not isinstance(required_fields, list) or not {"goal", "deliverable", "metric"}.issubset(set(required_fields)):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_required_fields_missing",
+                    message="required_fields must include goal/deliverable/metric.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        if duration_days != 7:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_duration_invalid",
+                    message="duration_days should be 7 for 7-day plan tasks.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        query = _as_text(context.get("global_context", {}).get("query"))
+        query_topics = _extract_query_topics(query)
+        topic_text = " ".join([_as_text(x).lower() for x in topics])
+        if query_topics and not any(topic in topic_text for topic in query_topics):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_topic_misalignment",
+                    message="Extracted requirements topics are not aligned with query topics.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        return []
+
+
+class PlanSchemaVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["reasoning", "aggregation"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        if node.id != "design_plan_schema":
+            return []
+        day_template = output.get("day_template")
+        progression = output.get("progression")
+        if not isinstance(day_template, dict):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="schema_day_template_missing",
+                    message="Plan schema must define day_template object.",
+                    failure_type="schema_design_failed",
+                    repair_hint="build_schema_patch",
+                    violation_scope="node",
+                )
+            ]
+        missing_fields = [x for x in ["goal", "deliverable", "metric"] if x not in day_template]
+        if missing_fields:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="schema_day_template_incomplete",
+                    message=f"Plan schema day_template missing fields: {missing_fields}",
+                    failure_type="schema_design_failed",
+                    repair_hint="build_schema_patch",
+                    violation_scope="node",
+                )
+            ]
+        if not isinstance(progression, list) or len(progression) < 3:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="schema_progression_missing",
+                    message="Plan schema must define progression ordering.",
+                    failure_type="schema_design_failed",
+                    repair_hint="build_schema_patch",
+                    violation_scope="node",
+                )
+            ]
+        return []
+
+
+class PlanCoverageVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["verification", "summarization"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        if node.id != "verify_coverage":
+            return []
+        missing_days = output.get("missing_days")
+        missing_fields = output.get("missing_fields")
+        semantic_gaps = output.get("semantic_gaps")
+        grounded_nodes = output.get("grounded_nodes")
+        if not isinstance(missing_days, list) or not isinstance(missing_fields, list) or not isinstance(semantic_gaps, list):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="plan_coverage_structure_invalid",
+                    message="verify_coverage output must include missing_days/missing_fields/semantic_gaps arrays.",
+                    failure_type="plan_coverage_incomplete",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        if missing_days:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="plan_coverage_missing_days",
+                    message=f"Coverage reports missing days: {missing_days}",
+                    failure_type="plan_coverage_incomplete",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        if missing_fields:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="plan_coverage_missing_fields",
+                    message=f"Coverage reports missing fields: {missing_fields}",
+                    failure_type="plan_coverage_incomplete",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        if semantic_gaps:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="plan_coverage_semantic_gaps",
+                    message=f"Coverage reports semantic gaps: {semantic_gaps}",
+                    failure_type="plan_coverage_incomplete",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        if not isinstance(grounded_nodes, list) or len([x for x in grounded_nodes if "generate_day" in str(x)]) < 7:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="plan_coverage_grounding_weak",
+                    message="Coverage verification must ground against all generate_day nodes.",
+                    failure_type="plan_coverage_incomplete",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        query = _as_text(context.get("global_context", {}).get("query"))
+        topics = _extract_query_topics(query)
+        merged = " ".join([_as_text(x) for x in semantic_gaps]).lower()
+        if topics and "topic_not_aligned" in merged:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="plan_coverage_query_misalignment",
+                    message="Coverage identified day entries not aligned with query topics.",
+                    failure_type="plan_coverage_incomplete",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        return []
+
+
+class NoPlaceholderVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["aggregation", "reasoning", "final_response"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        if not (node.id.startswith("generate_day") or node.id == "final_response"):
+            return []
+        fields: List[str] = []
+        for key in ["goal", "deliverable", "metric", "answer", "final_response"]:
+            value = output.get(key)
+            if isinstance(value, str):
+                fields.append(value)
+        merged = " ".join(fields)
+        if _looks_like_placeholder_plan(merged):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="template_placeholder_detected",
+                    message="Placeholder pattern detected in plan content.",
+                    failure_type="low_information_output",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        return []
+
+
 class SummarizationVerifier(BaseVerifier):
     def supports_task_types(self) -> List[str]:
         return ["summarization"]
@@ -758,6 +1117,35 @@ class SummarizationVerifier(BaseVerifier):
                     repair_hint="build_summary_patch",
                 )
             ]
+        upstream_text = _as_text(context.get("node_inputs", {}).get("text"))
+        if dep_outputs:
+            upstream_text = " | ".join([_as_text(x) for x in dep_outputs.values()])
+        if _is_trivial_summary(summary, upstream_text):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="low_information_output",
+                    message="Summary is trivial and adds little information over inputs.",
+                    failure_type="low_information_output",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+
+        if node.id in {"analyze_requirements", "design_plan_schema", "verify_coverage"}:
+            lowered = _normalize_text(summary)
+            query = _as_text(context.get("global_context", {}).get("query"))
+            if query and _similarity(lowered, _normalize_text(query)) >= 0.9:
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="low_information_output",
+                        message=f"{node.id} output is near-query paraphrase without structured gain.",
+                        failure_type="low_information_output",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                ]
         return []
 
 
@@ -920,6 +1308,50 @@ class FinalResponseVerifier(BaseVerifier):
                         violation_scope="node",
                         repair_hint="build_final_response_patch",
                         evidence={"day_count": day_count},
+                    )
+                ]
+            if _looks_like_placeholder_plan(answer):
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="final_placeholder_output",
+                        message="Final plan output appears to be template placeholders.",
+                        failure_type="final_placeholder_output",
+                        violation_scope="node",
+                        repair_hint="replan_subtree",
+                    )
+                ]
+            if not _contains_query_topics(answer, query):
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="final_query_topic_misalignment",
+                        message="Final plan output does not cover core query topics.",
+                        failure_type="intent_misalignment",
+                        violation_scope="node",
+                        repair_hint="replan_subtree",
+                    )
+                ]
+            if not _has_progressive_day_structure(answer):
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="final_progression_missing",
+                        message="Final plan lacks progressive day-by-day structure.",
+                        failure_type="intent_misalignment",
+                        violation_scope="node",
+                        repair_hint="replan_subtree",
+                    )
+                ]
+            if not _is_grounded_in_all_days(output):
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="final_grounding_missing_all_days",
+                        message="Final plan output is not grounded in all generated day nodes.",
+                        failure_type="grounding_error",
+                        violation_scope="global",
+                        repair_hint="replan_subtree",
                     )
                 ]
 

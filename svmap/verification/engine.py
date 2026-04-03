@@ -35,6 +35,41 @@ class VerifierEngine:
             selected.append(verifier)
         return selected
 
+    def select_verifiers_for_node(
+        self,
+        node: TaskNode,
+        context: Dict[str, Any],
+        scope: str = "node",
+    ) -> List[BaseVerifier]:
+        selected = self._select_verifiers(scope=scope, task_type=node.spec.task_type)
+        task_family = ""
+        tree = context.get("task_tree")
+        if isinstance(tree, TaskTree):
+            task_family = str(tree.metadata.get("task_family", "")).strip().lower()
+        if not task_family:
+            task_family = str(context.get("task_family", "")).strip().lower()
+        if task_family != "plan" or scope != "node":
+            return selected
+
+        node_id = node.id.lower()
+        route_names: List[str] = []
+        if node_id == "analyze_requirements":
+            route_names = ["RequirementsAnalysisVerifier", "IntentVerifier", "SchemaVerifier", "RuleVerifier"]
+        elif node_id == "design_plan_schema":
+            route_names = ["PlanSchemaVerifier", "IntentVerifier", "SchemaVerifier", "RuleVerifier"]
+        elif node_id.startswith("generate_day"):
+            route_names = ["NoPlaceholderVerifier", "IntentVerifier", "SchemaVerifier", "RuleVerifier"]
+        elif node_id == "verify_coverage":
+            route_names = ["PlanCoverageVerifier", "IntentVerifier", "SchemaVerifier", "RuleVerifier"]
+        elif node.is_final_response():
+            route_names = ["FinalResponseVerifier", "IntentVerifier", "SchemaVerifier", "RuleVerifier"]
+        if not route_names:
+            return selected
+        routed = [v for v in selected if v.__class__.__name__ in route_names]
+        passthrough = [v for v in selected if v.__class__.__name__ in {"SemanticVerifier"}]
+        merged = routed + [v for v in passthrough if v not in routed]
+        return merged or selected
+
     def _infer_failure_type(self, item: ConstraintResult) -> str:
         if item.failure_type:
             return item.failure_type
@@ -43,6 +78,16 @@ class VerifierEngine:
             return "internal_execution_error"
         if "final_answer_missing_structure" in code:
             return "final_answer_missing_structure"
+        if "final_placeholder_output" in code:
+            return "final_placeholder_output"
+        if "plan_coverage" in code:
+            return "plan_coverage_incomplete"
+        if "requirements" in code:
+            return "requirements_analysis_failed"
+        if "schema_day_template" in code or "schema_progression" in code:
+            return "schema_design_failed"
+        if "low_information_output" in code or "placeholder" in code:
+            return "low_information_output"
         if "intent" in code:
             return "intent_misalignment"
         if "echo_retrieval" in code:
@@ -65,6 +110,11 @@ class VerifierEngine:
         priority = [
             "internal_execution_error",
             "final_answer_missing_structure",
+            "final_placeholder_output",
+            "plan_coverage_incomplete",
+            "requirements_analysis_failed",
+            "schema_design_failed",
+            "low_information_output",
             "intent_misalignment",
             "echo_retrieval",
             "empty_extraction",
@@ -112,7 +162,7 @@ class VerifierEngine:
             output: Dict[str, Any] = kwargs.get("output", {})
             context: Dict[str, Any] = kwargs.get("context", {})
             details: List[ConstraintResult] = []
-            for verifier in self._select_verifiers(scope="node", task_type=node.spec.task_type):
+            for verifier in self.select_verifiers_for_node(node=node, context=context, scope="node"):
                 details.extend(verifier.verify(node=node, output=output, context=context))
             return self._aggregate(details)
 

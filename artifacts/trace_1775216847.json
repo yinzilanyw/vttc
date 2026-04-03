@@ -1,0 +1,660 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775216757.0391817,
+    "payload": {
+      "node_count": 11,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216757.0391817,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216759.5029757,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216759.5029757,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216761.061138,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216761.061138,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216763.2421787,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216763.2421787,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216765.1351514,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216765.1351514,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216767.1942625,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216767.1942625,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216769.2157593,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216769.2157593,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216770.8512652,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216770.8512652,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216772.5408583,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216772.5408583,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216775.3046038,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216775.3046038,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216777.3017247,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216777.3017247,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216786.8638737,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775216786.8638737,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "final_progression_missing:Final plan lacks progressive day-by-day structure."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775216786.8638737,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:intent_misalignment"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775216786.8638737,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216786.8638737,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216794.0457938,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775216794.0457938,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "final_progression_missing:Final plan lacks progressive day-by-day structure."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775216794.0457938,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:intent_misalignment"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775216794.0457938,
+    "payload": {
+      "before_version": 2,
+      "after_version": 3,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216794.0457938,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216800.8867948,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775216800.8867948,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "final_progression_missing:Final plan lacks progressive day-by-day structure."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775216800.8867948,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:intent_misalignment"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775216800.8867948,
+    "payload": {
+      "before_version": 3,
+      "after_version": 4,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216800.8867948,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216809.0481908,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775216809.0481908,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "final_progression_missing:Final plan lacks progressive day-by-day structure."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775216809.0481908,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:intent_misalignment"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775216809.0481908,
+    "payload": {
+      "before_version": 4,
+      "after_version": 5,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216809.0481908,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216815.1922204,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775216815.1922204,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "final_progression_missing:Final plan lacks progressive day-by-day structure."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775216815.193226,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:intent_misalignment"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775216815.193226,
+    "payload": {
+      "before_version": 5,
+      "after_version": 6,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216815.193226,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216821.0060499,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775216821.0060499,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "final_progression_missing:Final plan lacks progressive day-by-day structure."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775216821.0060499,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:intent_misalignment"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775216821.0060499,
+    "payload": {
+      "before_version": 6,
+      "after_version": 7,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216821.0060499,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216827.9992685,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775216827.9992685,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "final_progression_missing:Final plan lacks progressive day-by-day structure."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775216827.9992685,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:intent_misalignment"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775216827.9992685,
+    "payload": {
+      "before_version": 7,
+      "after_version": 8,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216827.9992685,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216834.52665,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775216834.52665,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "final_progression_missing:Final plan lacks progressive day-by-day structure."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775216834.52665,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:intent_misalignment"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775216834.52665,
+    "payload": {
+      "before_version": 8,
+      "after_version": 9,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216834.52665,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216840.7923565,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775216840.7923565,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "final_progression_missing:Final plan lacks progressive day-by-day structure."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775216840.7923565,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:intent_misalignment"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775216840.7923565,
+    "payload": {
+      "before_version": 9,
+      "after_version": 10,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775216840.7923565,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775216847.8680966,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775216847.8680966,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "final_progression_missing:Final plan lacks progressive day-by-day structure."
+      ]
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775216847.8680966,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:intent_misalignment"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775216847.8680966,
+    "payload": {
+      "before_version": 10,
+      "after_version": 11,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  }
+]

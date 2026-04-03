@@ -19,13 +19,43 @@ class CapabilityBasedAssigner(AssignmentStrategy):
     task_type_weight: float = 1.0
     output_mode_weight: float = 0.8
     final_response_weight: float = 1.2
+    task_type_preference_bonus: float = 1.5
 
     def _score(self, spec: AgentSpec) -> float:
         cost = max(spec.cost_weight, 1e-6)
         latency = max(spec.latency_weight, 1e-6)
         return spec.reliability / (cost * latency)
 
-    def _score_for_node(self, spec: AgentSpec, node: TaskNode) -> float:
+    def preferred_agents_for_task_type(self, task_type: str) -> list[str]:
+        mapping = {
+            "reasoning": ["reason_agent", "synthesize_agent"],
+            "verification": ["verify_agent", "reason_agent"],
+            "aggregation": ["synthesize_agent", "reason_agent"],
+            "final_response": ["synthesize_agent"],
+            "comparison": ["compare_agent", "reason_agent"],
+            "calculation": ["calculate_agent", "reason_agent"],
+            "extraction": ["extract_agent", "reason_agent"],
+            "tool_call": ["retrieve_agent"],
+        }
+        return mapping.get(task_type, [])
+
+    def _preferred_agents_for_node(self, node: TaskNode, task_family: str) -> list[str]:
+        if task_family != "plan":
+            return self.preferred_agents_for_task_type(node.spec.task_type)
+        node_id = node.id.lower()
+        if node_id == "analyze_requirements":
+            return ["reason_agent"]
+        if node_id == "design_plan_schema":
+            return ["synthesize_agent", "reason_agent"]
+        if node_id.startswith("generate_day"):
+            return ["synthesize_agent"]
+        if node_id == "verify_coverage":
+            return ["verify_agent"]
+        if node.is_final_response():
+            return ["synthesize_agent"]
+        return self.preferred_agents_for_task_type(node.spec.task_type)
+
+    def _score_for_node(self, spec: AgentSpec, node: TaskNode, task_family: str = "") -> float:
         base = self._score(spec)
         intent_bonus = 0.0
         if node.spec.intent_tags:
@@ -36,7 +66,12 @@ class CapabilityBasedAssigner(AssignmentStrategy):
         task_type_bonus = self.task_type_weight if (not spec.task_types or node.spec.task_type in spec.task_types) else 0.0
         output_mode_bonus = self.output_mode_weight if (not spec.output_modes or node.spec.output_mode in spec.output_modes) else 0.0
         final_bonus = self.final_response_weight if node.is_final_response() and ("final_response" in spec.task_types or "synthesize" in spec.capabilities) else 0.0
-        return base + intent_bonus + hist_bonus + task_type_bonus + output_mode_bonus + final_bonus
+        pref_bonus = 0.0
+        preferred = self._preferred_agents_for_node(node=node, task_family=task_family)
+        if spec.name in preferred and preferred:
+            rank = preferred.index(spec.name)
+            pref_bonus = self.task_type_preference_bonus * (1.0 - rank / max(len(preferred), 1))
+        return base + intent_bonus + hist_bonus + task_type_bonus + output_mode_bonus + final_bonus + pref_bonus
 
     def assign(self, tree: TaskTree, registry: AgentRegistry) -> TaskTree:
         return self.assign_by_capability(tree=tree, registry=registry)
@@ -45,6 +80,7 @@ class CapabilityBasedAssigner(AssignmentStrategy):
         return self.assign_by_capability(tree=tree, registry=registry)
 
     def assign_by_capability(self, tree: TaskTree, registry: AgentRegistry) -> TaskTree:
+        task_family = str(tree.metadata.get("task_family", "")).strip().lower()
         for node in tree.nodes.values():
             candidates = registry.find_candidates_for_intent(
                 capability_tag=node.spec.capability_tag,
@@ -59,7 +95,11 @@ class CapabilityBasedAssigner(AssignmentStrategy):
             ]
             if not candidates:
                 continue
-            ranked = sorted(candidates, key=lambda spec: self._score_for_node(spec, node), reverse=True)
+            ranked = sorted(
+                candidates,
+                key=lambda spec: self._score_for_node(spec, node, task_family=task_family),
+                reverse=True,
+            )
             node.assigned_agent = ranked[0].name
             node.fallback_agents = [spec.name for spec in ranked[1:]]
         return self.assign_final_response_node(tree=tree, registry=registry)
@@ -71,7 +111,11 @@ class CapabilityBasedAssigner(AssignmentStrategy):
         for node in tree.nodes.values():
             if not node.is_final_response():
                 continue
-            ranked = sorted(final_candidates, key=lambda spec: self._score_for_node(spec, node), reverse=True)
+            ranked = sorted(
+                final_candidates,
+                key=lambda spec: self._score_for_node(spec, node, task_family=str(tree.metadata.get("task_family", "")).strip().lower()),
+                reverse=True,
+            )
             node.assigned_agent = ranked[0].name
             node.fallback_agents = [spec.name for spec in ranked[1:]]
         return tree

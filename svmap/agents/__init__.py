@@ -7,10 +7,12 @@ from .demo_agents import (
     CompareAgent,
     ExtractAgent,
     FallbackCEOAgent,
+    ReasonAgent,
     RetrieveAgent,
     SearchAgent,
     SummarizeAgent,
     SynthesizeAgent,
+    VerifyAgent,
 )
 from .registry import AgentRegistry, AgentSpec
 
@@ -26,8 +28,10 @@ __all__ = [
     "CompanyAgent",
     "ExtractAgent",
     "FallbackCEOAgent",
+    "ReasonAgent",
     "RetrieveAgent",
     "SearchAgent",
     "SummarizeAgent",
     "SynthesizeAgent",
+    "VerifyAgent",
 ]

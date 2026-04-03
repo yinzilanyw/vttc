@@ -37,3 +37,7 @@ def build_calculation_patch(node_id: str) -> Dict[str, Any]:
 
 def build_final_response_patch(node_id: str) -> Dict[str, Any]:
     return {"template": "final_response_patch", "target": node_id}
+
+
+def build_schema_patch(node_id: str) -> Dict[str, Any]:
+    return {"template": "schema_patch", "target": node_id}
