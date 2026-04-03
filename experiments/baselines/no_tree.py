@@ -11,7 +11,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from svmap.demos.run_demo import load_env_file
+from svmap.config import load_env_file
 
 
 def _env_flag(name: str, default: bool = False) -> bool:

@@ -16,7 +16,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from experiments.baselines.no_tree import run_no_tree_baseline
-from svmap.demos.run_demo import run_demo_collect
+from svmap.pipeline import RunConfig, RunResult, run_batch
 
 
 def load_dataset(path: str, max_samples: int = 100) -> List[Dict[str, str]]:
@@ -37,15 +37,12 @@ def load_dataset(path: str, max_samples: int = 100) -> List[Dict[str, str]]:
     return samples
 
 
-def _extract_no_final_answer(result: Dict[str, Any]) -> str:
-    report = result.get("report")
-    task_tree = result.get("task_tree")
-    dag_order = result.get("dag_order", [])
-    if report is None or task_tree is None:
+def _extract_no_final_answer(result: RunResult) -> str:
+    if result.task_tree is None:
         return ""
-
-    for node_id in reversed(dag_order):
-        node = task_tree.nodes.get(node_id)
+    report = result.report
+    for node_id in reversed(result.dag_order):
+        node = result.task_tree.nodes.get(node_id)
         if node is None or node.is_final_response():
             continue
         rec = report.node_records.get(node_id)
@@ -123,52 +120,56 @@ def run_multitask_eval(
         no_final_node=no_final_node,
     )
 
-    for idx, sample in enumerate(samples, start=1):
-        family = sample["task_family"]
-        query = sample["query"]
-        print(f"[{idx}/{len(samples)}] {family}: {query[:80]}")
-
-        if no_tree:
+    if no_tree:
+        for idx, sample in enumerate(samples, start=1):
+            family = sample["task_family"]
+            query = sample["query"]
+            print(f"[{idx}/{len(samples)}] {family}: {query[:80]}")
             result = run_no_tree_baseline(query=query)
-            row = {
-                "mode": mode_label,
-                "task_family": family,
-                "query": query,
-                "success": 1 if bool(result.get("task_success")) else 0,
-                "retries": int(result.get("retry_count", 0)),
-                "replans": int(result.get("replan_count", 0)),
-                "verification_failures": int(result.get("verification_failure_count", 0)),
-                "final_answer": str(result.get("answer", "")),
-            }
-            rows.append(row)
-            continue
+            rows.append(
+                {
+                    "mode": mode_label,
+                    "task_family": family,
+                    "query": query,
+                    "success": 1 if bool(result.get("task_success")) else 0,
+                    "retries": int(result.get("retry_count", 0)),
+                    "replans": int(result.get("replan_count", 0)),
+                    "verification_failures": int(result.get("verification_failure_count", 0)),
+                    "final_answer": str(result.get("answer", "")),
+                }
+            )
+    else:
+        for idx, sample in enumerate(samples, start=1):
+            print(f"[{idx}/{len(samples)}] {sample['task_family']}: {sample['query'][:80]}")
 
-        result = run_demo_collect(
-            query=query,
-            task_family=family,
-            stop_on_failure=True if no_replan else None,
-            enable_replan=not no_replan,
-            enable_intent_verifier=not no_intent,
+        config = RunConfig(
+            mode="eval",
             export_trace=False,
+            enable_intent_verifier=not no_intent,
+            enable_replan=not no_replan,
+            stop_on_failure=True if no_replan else None,
         )
-        final_answer = str(result.get("final_answer", ""))
-        success = bool(result.get("success", False))
+        results = run_batch(config=config, tasks=samples)
 
-        if no_final_node:
-            final_answer = _extract_no_final_answer(result)
-            success = bool(final_answer)
+        for sample, result in zip(samples, results):
+            final_answer = result.final_answer()
+            success = result.success
+            if no_final_node:
+                final_answer = _extract_no_final_answer(result)
+                success = bool(final_answer)
 
-        row = {
-            "mode": mode_label,
-            "task_family": family,
-            "query": query,
-            "success": 1 if success else 0,
-            "retries": int(result.get("total_retries", 0)),
-            "replans": int(result.get("replan_count", 0)),
-            "verification_failures": int(result.get("verification_failures", 0)),
-            "final_answer": final_answer,
-        }
-        rows.append(row)
+            rows.append(
+                {
+                    "mode": mode_label,
+                    "task_family": sample["task_family"],
+                    "query": sample["query"],
+                    "success": 1 if success else 0,
+                    "retries": int(result.total_retries),
+                    "replans": int(result.replan_count),
+                    "verification_failures": int(result.verification_failures),
+                    "final_answer": final_answer,
+                }
+            )
 
     summary_rows = summarize_by_task_family(rows)
 

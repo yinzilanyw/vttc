@@ -1,0 +1,2 @@
+mode,task_family,query,success,retries,replans,verification_failures,final_answer
+full,qa,Who is the CEO of the company founded by Elon Musk?,1,0,0,0,"Elon Musk is the founder and CEO of Tesla, Inc."

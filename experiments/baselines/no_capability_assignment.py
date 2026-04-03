@@ -1,6 +1,5 @@
 ﻿from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 from typing import Any, Dict
@@ -9,19 +8,19 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from svmap.demos.run_demo import run_demo_collect
+from svmap.pipeline import RunConfig, run_task
 
 
 def run_no_capability_assignment_baseline(query: str, task_family: str = "qa") -> Dict[str, Any]:
-    old_mode = os.getenv("ASSIGNMENT_MODE")
-    os.environ["ASSIGNMENT_MODE"] = "naive"
-    try:
-        result = run_demo_collect(query=query, task_family=task_family, export_trace=False)
-    finally:
-        if old_mode is None:
-            os.environ.pop("ASSIGNMENT_MODE", None)
-        else:
-            os.environ["ASSIGNMENT_MODE"] = old_mode
+    result = run_task(
+        RunConfig(
+            mode="eval",
+            query=query,
+            task_family=task_family,
+            assignment_mode="naive",
+            export_trace=False,
+        )
+    ).to_legacy_dict()
 
     return {
         "mode": "no_capability_assignment",

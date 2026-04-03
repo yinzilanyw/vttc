@@ -1,0 +1,30 @@
+{
+  "mode": "full",
+  "config": {
+    "no_tree": false,
+    "no_intent": false,
+    "no_replan": false,
+    "no_final_node": false
+  },
+  "samples": [
+    {
+      "mode": "full",
+      "task_family": "qa",
+      "query": "Who is the CEO of the company founded by Elon Musk?",
+      "success": 1,
+      "retries": 0,
+      "replans": 0,
+      "verification_failures": 0,
+      "final_answer": "Elon Musk is the founder and CEO of Tesla, Inc."
+    }
+  ],
+  "summary": [
+    {
+      "task_family": "qa",
+      "count": 1,
+      "success_rate": 1.0,
+      "avg_retries": 0.0,
+      "avg_replans": 0.0
+    }
+  ]
+}

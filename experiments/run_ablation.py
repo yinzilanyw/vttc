@@ -16,7 +16,8 @@ if str(ROOT_DIR) not in sys.path:
 
 from experiments.baselines.no_replan import run_no_replan_baseline
 from experiments.baselines.no_tree import run_no_tree_baseline
-from svmap.demos.run_demo import DEFAULT_QUERY, load_env_file, run_demo_collect
+from svmap.config import load_env_file
+from svmap.pipeline import DEFAULT_QUERY, RunConfig, run_task
 
 
 def _truncate(text: str, max_len: int = 48) -> str:
@@ -165,7 +166,17 @@ def run_ablation(query: str | None = None, save_artifacts: bool = True) -> List[
     print()
 
     rows = [
-        _run_with_guard("full", lambda: run_demo_collect(query=user_query, stop_on_failure=False)),
+        _run_with_guard(
+            "full",
+            lambda: run_task(
+                RunConfig(
+                    mode="eval",
+                    query=user_query,
+                    stop_on_failure=False,
+                    export_trace=False,
+                )
+            ).to_legacy_dict(),
+        ),
         _run_with_guard("no_replan", lambda: run_no_replan_baseline(query=user_query)),
         _run_with_guard("no_tree", lambda: run_no_tree_baseline(query=user_query)),
     ]
