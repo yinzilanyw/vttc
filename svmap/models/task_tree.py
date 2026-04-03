@@ -46,6 +46,8 @@ class TaskTree:
                     output_semantics=raw_intent.get("output_semantics", {}),
                     response_style=raw_intent.get("response_style", "plain"),
                     aggregation_requirements=raw_intent.get("aggregation_requirements", []),
+                    propagates_to_children=bool(raw_intent.get("propagates_to_children", True)),
+                    required_upstream_intents=raw_intent.get("required_upstream_intents", []),
                 )
             spec = NodeSpec(
                 description=node_data.get("description", ""),
@@ -300,6 +302,10 @@ class TaskTree:
                 "after_version": self.version,
             },
         )
+        self.record_graph_delta(
+            action="subtree_replace",
+            payload={"type": "subtree_replace", "node": root_node_id},
+        )
 
     def record_graph_delta(self, action: str, payload: Dict[str, Any]) -> None:
         delta = {"action": action, "payload": payload, "version": self.version}
@@ -464,4 +470,3 @@ def _next_answer_role(node_data: Dict[str, Any], task_type: str) -> str:
     if task_type == "final_response":
         return "final"
     return "intermediate"
-

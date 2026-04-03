@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import csv
@@ -15,6 +15,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from experiments.baselines.no_tree import run_no_tree_baseline
 from svmap.demos.run_demo import run_demo_collect
 
 
@@ -36,35 +37,45 @@ def load_dataset(path: str, max_samples: int = 100) -> List[Dict[str, str]]:
     return samples
 
 
-def run_multitask_eval(dataset_path: str, max_samples: int = 100, save: bool = True) -> Dict[str, Any]:
-    samples = load_dataset(dataset_path, max_samples=max_samples)
-    rows: List[Dict[str, Any]] = []
-    reports_by_family: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+def _extract_no_final_answer(result: Dict[str, Any]) -> str:
+    report = result.get("report")
+    task_tree = result.get("task_tree")
+    dag_order = result.get("dag_order", [])
+    if report is None or task_tree is None:
+        return ""
 
-    for idx, sample in enumerate(samples, start=1):
-        family = sample["task_family"]
-        query = sample["query"]
-        print(f"[{idx}/{len(samples)}] {family}: {query[:80]}")
-        result = run_demo_collect(query=query, task_family=family, export_trace=False)
-        row = {
-            "task_family": family,
-            "query": query,
-            "success": 1 if result["success"] else 0,
-            "retries": int(result["total_retries"]),
-            "replans": int(result["replan_count"]),
-            "verification_failures": int(result["verification_failures"]),
-            "final_answer": str(result.get("final_answer", "")),
-        }
-        rows.append(row)
-        reports_by_family[family].append(row)
+    for node_id in reversed(dag_order):
+        node = task_tree.nodes.get(node_id)
+        if node is None or node.is_final_response():
+            continue
+        rec = report.node_records.get(node_id)
+        if rec is None or not isinstance(rec.output, dict):
+            continue
+        output = rec.output
+        for key in ("answer", "summary", "comparison", "result", "ceo", "company", "evidence", "extracted"):
+            value = output.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            if isinstance(value, (int, float)):
+                return str(value)
+    return ""
 
-    summary_rows: List[Dict[str, Any]] = []
-    for family, family_rows in reports_by_family.items():
+
+def summarize_by_task_family(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    family_map: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        family_map[str(row.get("task_family", "unknown"))].append(row)
+
+    summary: List[Dict[str, Any]] = []
+    for family in ["qa", "summary", "compare", "calculate", "extract"]:
+        family_rows = family_map.get(family, [])
+        if not family_rows:
+            continue
         count = len(family_rows)
         success_rate = sum(int(x["success"]) for x in family_rows) / max(count, 1)
         avg_retries = sum(int(x["retries"]) for x in family_rows) / max(count, 1)
         avg_replans = sum(int(x["replans"]) for x in family_rows) / max(count, 1)
-        summary_rows.append(
+        summary.append(
             {
                 "task_family": family,
                 "count": count,
@@ -73,26 +84,133 @@ def run_multitask_eval(dataset_path: str, max_samples: int = 100, save: bool = T
                 "avg_replans": avg_replans,
             }
         )
+    return summary
+
+
+def _build_mode_label(
+    no_tree: bool,
+    no_intent: bool,
+    no_replan: bool,
+    no_final_node: bool,
+) -> str:
+    if no_tree:
+        return "no_tree"
+    parts = ["full"]
+    if no_intent:
+        parts.append("no_intent")
+    if no_replan:
+        parts.append("no_replan")
+    if no_final_node:
+        parts.append("no_final_node")
+    return "+".join(parts)
+
+
+def run_multitask_eval(
+    dataset_path: str,
+    max_samples: int = 100,
+    save: bool = True,
+    no_tree: bool = False,
+    no_intent: bool = False,
+    no_replan: bool = False,
+    no_final_node: bool = False,
+) -> Dict[str, Any]:
+    samples = load_dataset(dataset_path, max_samples=max_samples)
+    rows: List[Dict[str, Any]] = []
+    mode_label = _build_mode_label(
+        no_tree=no_tree,
+        no_intent=no_intent,
+        no_replan=no_replan,
+        no_final_node=no_final_node,
+    )
+
+    for idx, sample in enumerate(samples, start=1):
+        family = sample["task_family"]
+        query = sample["query"]
+        print(f"[{idx}/{len(samples)}] {family}: {query[:80]}")
+
+        if no_tree:
+            result = run_no_tree_baseline(query=query)
+            row = {
+                "mode": mode_label,
+                "task_family": family,
+                "query": query,
+                "success": 1 if bool(result.get("task_success")) else 0,
+                "retries": int(result.get("retry_count", 0)),
+                "replans": int(result.get("replan_count", 0)),
+                "verification_failures": int(result.get("verification_failure_count", 0)),
+                "final_answer": str(result.get("answer", "")),
+            }
+            rows.append(row)
+            continue
+
+        result = run_demo_collect(
+            query=query,
+            task_family=family,
+            stop_on_failure=True if no_replan else None,
+            enable_replan=not no_replan,
+            enable_intent_verifier=not no_intent,
+            export_trace=False,
+        )
+        final_answer = str(result.get("final_answer", ""))
+        success = bool(result.get("success", False))
+
+        if no_final_node:
+            final_answer = _extract_no_final_answer(result)
+            success = bool(final_answer)
+
+        row = {
+            "mode": mode_label,
+            "task_family": family,
+            "query": query,
+            "success": 1 if success else 0,
+            "retries": int(result.get("total_retries", 0)),
+            "replans": int(result.get("replan_count", 0)),
+            "verification_failures": int(result.get("verification_failures", 0)),
+            "final_answer": final_answer,
+        }
+        rows.append(row)
+
+    summary_rows = summarize_by_task_family(rows)
 
     print("\n=== Multitask Summary ===")
+    print("Mode:", mode_label)
     print("| task_family | count | success_rate | avg_retries | avg_replans |")
     print("|---|---:|---:|---:|---:|")
-    for row in sorted(summary_rows, key=lambda x: x["task_family"]):
+    for row in summary_rows:
         print(
             f"| {row['task_family']} | {row['count']} | {row['success_rate']:.2f} | "
             f"{row['avg_retries']:.2f} | {row['avg_replans']:.2f} |"
         )
 
-    output = {"samples": rows, "summary": summary_rows}
+    output = {
+        "mode": mode_label,
+        "config": {
+            "no_tree": no_tree,
+            "no_intent": no_intent,
+            "no_replan": no_replan,
+            "no_final_node": no_final_node,
+        },
+        "samples": rows,
+        "summary": summary_rows,
+    }
     if save:
         os.makedirs("artifacts", exist_ok=True)
         ts = int(time.time())
-        json_path = os.path.join("artifacts", f"multitask_eval_{ts}.json")
-        csv_path = os.path.join("artifacts", f"multitask_eval_{ts}.csv")
+        json_path = os.path.join("artifacts", f"multitask_eval_{mode_label}_{ts}.json")
+        csv_path = os.path.join("artifacts", f"multitask_eval_{mode_label}_{ts}.csv")
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
         with open(csv_path, "w", encoding="utf-8", newline="") as f:
-            fieldnames = ["task_family", "query", "success", "retries", "replans", "verification_failures", "final_answer"]
+            fieldnames = [
+                "mode",
+                "task_family",
+                "query",
+                "success",
+                "retries",
+                "replans",
+                "verification_failures",
+                "final_answer",
+            ]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)
@@ -111,5 +229,18 @@ if __name__ == "__main__":
     )
     parser.add_argument("--max-samples", type=int, default=100)
     parser.add_argument("--no-save", action="store_true")
+    parser.add_argument("--no_tree", action="store_true")
+    parser.add_argument("--no_intent", action="store_true")
+    parser.add_argument("--no_replan", action="store_true")
+    parser.add_argument("--no_final_node", action="store_true")
     args = parser.parse_args()
-    run_multitask_eval(dataset_path=args.dataset, max_samples=args.max_samples, save=not args.no_save)
+    run_multitask_eval(
+        dataset_path=args.dataset,
+        max_samples=args.max_samples,
+        save=not args.no_save,
+        no_tree=args.no_tree,
+        no_intent=args.no_intent,
+        no_replan=args.no_replan,
+        no_final_node=args.no_final_node,
+    )
+

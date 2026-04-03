@@ -332,18 +332,6 @@ def _extract_final_answer(result: Dict[str, Any]) -> str:
         answer = report.final_output.get("answer") or report.final_output.get("final_response")
         if isinstance(answer, str) and answer.strip():
             return answer.strip()
-
-    for node_id in reversed(result["dag_order"]):
-        record = report.node_records.get(node_id)
-        if not record or not isinstance(record.output, dict):
-            continue
-        output = record.output
-        for key in ("answer", "final_response", "summary", "comparison", "result", "ceo", "company"):
-            value = output.get(key)
-            if isinstance(value, str) and value.strip():
-                return value.strip()
-            if isinstance(value, (int, float)):
-                return str(value)
     return ""
 
 
@@ -351,6 +339,8 @@ def run_demo_collect(
     query: Optional[str] = None,
     task_family: Optional[str] = None,
     stop_on_failure: Optional[bool] = None,
+    enable_replan: bool = True,
+    enable_intent_verifier: bool = True,
     export_trace: bool = True,
 ) -> Dict[str, Any]:
     start_ts = time.time()
@@ -403,31 +393,33 @@ def run_demo_collect(
         raise RuntimeError(f"Plan validation failed: {plan_errors}")
 
     semantic_judge = components["semantic_judge"]
-    verifier_engine = VerifierEngine(
-        verifiers=[
-            SchemaVerifier(),
-            RuleVerifier(),
-            SemanticVerifier(semantic_judge=semantic_judge),
-            CrossNodeVerifier(),
-            CrossNodeGraphVerifier(),
-            IntentVerifier(),
-            SummarizationVerifier(),
-            ComparisonVerifier(),
-            CalculationVerifier(),
-            FinalResponseVerifier(),
-            CustomNodeVerifier(),
-        ]
-    )
+    verifiers = [
+        SchemaVerifier(),
+        RuleVerifier(),
+        SemanticVerifier(semantic_judge=semantic_judge),
+        CrossNodeVerifier(),
+        CrossNodeGraphVerifier(),
+        SummarizationVerifier(),
+        ComparisonVerifier(),
+        CalculationVerifier(),
+        FinalResponseVerifier(),
+        CustomNodeVerifier(),
+    ]
+    if enable_intent_verifier:
+        verifiers.insert(5, IntentVerifier())
+    verifier_engine = VerifierEngine(verifiers=verifiers)
 
     trace_logger = TraceLogger()
     stop_on_failure_flag = _env_flag("STOP_ON_FAILURE", default=False)
     if stop_on_failure is not None:
         stop_on_failure_flag = stop_on_failure
+    elif not enable_replan:
+        stop_on_failure_flag = True
 
     runtime = ExecutionRuntime(
         registry=registry,
         verifier_engine=verifier_engine,
-        replanner=ConstraintAwareReplanner(planner=planner),
+        replanner=ConstraintAwareReplanner(planner=planner) if enable_replan else None,
         trace_logger=trace_logger,
         stop_on_failure=stop_on_failure_flag,
         parallel=False,

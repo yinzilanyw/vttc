@@ -59,6 +59,7 @@ class PlanValidator:
                         )
         errors.extend(self.validate_intents(tree))
         errors.extend(self.validate_cross_node_constraints(tree))
+        errors.extend(self.validate_final_node(tree))
         errors.extend(self.validate_final_response(tree))
         return errors
 
@@ -122,12 +123,17 @@ class PlanValidator:
     def validate_final_response(self, tree: TaskTree) -> List[str]:
         errors: List[str] = []
         final_nodes = [node for node in tree.nodes.values() if node.is_final_response()]
-        if not final_nodes:
-            errors.append("task_tree:missing_final_response_node")
+        if len(final_nodes) != 1:
             return errors
-        if len(final_nodes) > 1:
-            errors.append(f"task_tree:multiple_final_response_nodes:{len(final_nodes)}")
         final_node = final_nodes[0]
         if final_node.id not in tree.get_sink_nodes():
             errors.append(f"task_tree:final_response_not_sink:{final_node.id}")
         return errors
+
+    def validate_final_node(self, tree: TaskTree) -> List[str]:
+        final_nodes = [node for node in tree.nodes.values() if node.is_final_response()]
+        if len(final_nodes) == 0:
+            return ["Missing final_response node"]
+        if len(final_nodes) > 1:
+            return ["Multiple final_response nodes"]
+        return []

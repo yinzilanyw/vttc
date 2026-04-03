@@ -13,6 +13,7 @@ class ConstraintResult:
     passed: bool
     code: str
     message: str
+    failure_type: str = ""
     severity: str = "error"
     evidence: Dict[str, Any] = field(default_factory=dict)
     repair_hint: str = ""

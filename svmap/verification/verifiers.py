@@ -29,6 +29,7 @@ class SchemaVerifier(BaseVerifier):
                     passed=False,
                     code="schema_error",
                     message="Output must be dict.",
+                    failure_type="schema",
                 )
             )
             return results
@@ -41,6 +42,7 @@ class SchemaVerifier(BaseVerifier):
                     passed=False,
                     code="schema_missing_required",
                     message=f"Missing output schema fields: {missing}",
+                    failure_type="schema",
                     evidence={"missing_fields": missing},
                 )
             )
@@ -113,6 +115,7 @@ class SemanticVerifier(BaseVerifier):
                             passed=False,
                             code="semantic_check_failed",
                             message="Factual node lacks upstream evidence.",
+                            failure_type="evidence",
                         )
                     ]
             return []
@@ -133,6 +136,7 @@ class SemanticVerifier(BaseVerifier):
                 passed=False,
                 code="semantic_check_failed",
                 message=verdict.reason or "Semantic verifier judged the node output as insufficient.",
+                failure_type="semantic",
                 confidence=verdict.confidence,
                 repair_hint=verdict.repair_hint,
             )
@@ -160,6 +164,7 @@ class CustomNodeVerifier(BaseVerifier):
                     passed=False,
                     code="custom_verifier_failed",
                     message="Custom verifier returned False.",
+                    failure_type="rule",
                 )
             ]
         return []
@@ -205,6 +210,33 @@ class IntentVerifier(BaseVerifier):
         for field_name in intent.output_semantics.keys():
             if field_name not in output:
                 missing.append(field_name)
+        dependency_outputs = context.get("dependency_outputs", {})
+        missing_upstream_intents: List[str] = []
+        for required_goal in intent.required_upstream_intents:
+            found = False
+            for dep_id in node.dependencies:
+                dep_output = dependency_outputs.get(dep_id, {})
+                if not isinstance(dep_output, dict):
+                    continue
+                if dep_output:
+                    found = True
+                    break
+            if not found:
+                missing_upstream_intents.append(required_goal)
+        if missing_upstream_intents:
+            node.mark_intent_violated(
+                f"missing upstream intents: {missing_upstream_intents}"
+            )
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="intent_upstream_missing",
+                    message=f"Missing required upstream intents: {missing_upstream_intents}",
+                    failure_type="intent_misalignment",
+                    repair_hint="replan_subtree",
+                    violation_scope="subtree",
+                )
+            ]
         if missing:
             node.mark_intent_violated(
                 f"intent outputs missing fields: {missing}"
@@ -214,6 +246,7 @@ class IntentVerifier(BaseVerifier):
                     passed=False,
                     code="intent_mismatch",
                     message=f"Intent semantics not satisfied, missing fields: {missing}",
+                    failure_type="intent_misalignment",
                     repair_hint="replan_subtree",
                     violation_scope="subtree",
                 )
@@ -250,6 +283,7 @@ class CrossNodeGraphVerifier(BaseVerifier):
                     passed=False,
                     code="cross_node_graph_inconsistency",
                     message="Downstream company is empty while upstream company exists.",
+                    failure_type="consistency",
                     violation_scope="edge",
                     repair_hint="apply_normalization_patch",
                 )
@@ -274,6 +308,7 @@ class SummarizationVerifier(BaseVerifier):
                     passed=False,
                     code="summary_missing",
                     message="Summarization node must output non-empty summary.",
+                    failure_type="schema",
                 )
             ]
 
@@ -284,6 +319,7 @@ class SummarizationVerifier(BaseVerifier):
                     passed=False,
                     code="summary_too_short",
                     message="Summary is too short to cover upstream evidence.",
+                    failure_type="evidence",
                     repair_hint="build_summary_patch",
                 )
             ]
@@ -308,6 +344,7 @@ class ComparisonVerifier(BaseVerifier):
                     passed=False,
                     code="comparison_items_missing",
                     message="Comparison needs at least two compared items.",
+                    failure_type="consistency",
                     repair_hint="replan_for_incomplete_comparison",
                 )
             ]
@@ -317,6 +354,7 @@ class ComparisonVerifier(BaseVerifier):
                     passed=False,
                     code="comparison_text_missing",
                     message="Comparison node must provide comparison text.",
+                    failure_type="schema",
                 )
             ]
         return []
@@ -339,6 +377,7 @@ class CalculationVerifier(BaseVerifier):
                     passed=False,
                     code="calculation_result_not_numeric",
                     message="Calculation result must be numeric.",
+                    failure_type="schema",
                     repair_hint="build_calculation_patch",
                 )
             ]
@@ -349,6 +388,7 @@ class CalculationVerifier(BaseVerifier):
                     passed=False,
                     code="calculation_trace_missing",
                     message="Calculation node should provide a trace.",
+                    failure_type="evidence",
                 )
             ]
         return []
@@ -371,6 +411,7 @@ class FinalResponseVerifier(BaseVerifier):
                     passed=False,
                     code="final_answer_missing",
                     message="Final response node must output 'answer'.",
+                    failure_type="intent_misalignment",
                     violation_scope="global",
                     repair_hint="replan_for_missing_final_response",
                 )
@@ -382,6 +423,7 @@ class FinalResponseVerifier(BaseVerifier):
                     passed=False,
                     code="final_answer_not_grounded",
                     message="Final response should reference upstream nodes via used_nodes.",
+                    failure_type="evidence",
                     violation_scope="global",
                     repair_hint="build_final_response_patch",
                 )

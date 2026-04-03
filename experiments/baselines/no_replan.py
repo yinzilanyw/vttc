@@ -13,7 +13,7 @@ from svmap.demos.run_demo import run_demo_collect
 
 
 def run_no_replan_baseline(query: str) -> dict:
-    return run_demo_collect(query=query, stop_on_failure=True)
+    return run_demo_collect(query=query, stop_on_failure=True, enable_replan=False)
 
 
 if __name__ == "__main__":

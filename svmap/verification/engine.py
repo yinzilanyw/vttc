@@ -20,6 +20,18 @@ class VerifierEngine:
     def __init__(self, verifiers: List[BaseVerifier]) -> None:
         self.verifiers = verifiers
 
+    def select_verifiers_for_node(self, node: TaskNode, scope: str = "node") -> List[BaseVerifier]:
+        selected: List[BaseVerifier] = []
+        task_type = node.spec.task_type
+        for verifier in self.verifiers:
+            if scope not in verifier.supports_scope():
+                continue
+            supported_task_types = verifier.supports_task_types()
+            if "*" not in supported_task_types and task_type not in supported_task_types:
+                continue
+            selected.append(verifier)
+        return selected
+
     def verify(
         self,
         node: TaskNode,
@@ -28,13 +40,7 @@ class VerifierEngine:
         scope: str = "node",
     ) -> VerificationResult:
         details: List[ConstraintResult] = []
-        task_type = node.spec.task_type
-        for verifier in self.verifiers:
-            if scope not in verifier.supports_scope():
-                continue
-            supported_task_types = verifier.supports_task_types()
-            if "*" not in supported_task_types and task_type not in supported_task_types:
-                continue
+        for verifier in self.select_verifiers_for_node(node=node, scope=scope):
             details.extend(verifier.verify(node=node, output=output, context=context))
 
         errors = [item for item in details if not item.passed and item.severity == "error"]

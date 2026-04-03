@@ -32,6 +32,8 @@ class IntentSpec:
     output_semantics: Dict[str, str] = field(default_factory=dict)
     response_style: str = "plain"
     aggregation_requirements: List[str] = field(default_factory=list)
+    propagates_to_children: bool = True
+    required_upstream_intents: List[str] = field(default_factory=list)
 
 
 @dataclass

@@ -671,6 +671,7 @@ class ConstraintAwarePlanner(BasePlanner):
             normalized = self.normalize_planner_output(self._default_plan(context))
             tree = TaskTree.from_dict(normalized)
             tree.metadata["task_family"] = context.task_family
+            self.ensure_final_node(tree)
             return self.attach_intent_specs(tree=tree, context=context)
 
         raw = self.llm_planner(self._build_prompt(context))
@@ -683,6 +684,7 @@ class ConstraintAwarePlanner(BasePlanner):
         normalized = self.normalize_planner_output(data)
         tree = TaskTree.from_dict(normalized)
         tree.metadata["task_family"] = context.task_family
+        self.ensure_final_node(tree)
         return self.attach_intent_specs(tree=tree, context=context)
 
     def refine_plan(self, tree: TaskTree, feedback: Dict[str, Any]) -> TaskTree:
@@ -696,8 +698,36 @@ class ConstraintAwarePlanner(BasePlanner):
                 node.spec.intent = self.infer_intent_from_description(node=node)
             if not node.spec.intent_tags:
                 node.spec.intent_tags = [node.spec.capability_tag, node.spec.task_type]
-        tree.ensure_single_final_response()
+        self.propagate_intents(tree)
+        self.ensure_final_node(tree)
         return tree
+
+    def propagate_intents(self, tree: TaskTree) -> None:
+        for node in tree.nodes.values():
+            intent = node.spec.intent
+            if intent is None or not intent.propagates_to_children:
+                continue
+            for child_id in tree.get_downstream_nodes(node.id):
+                child = tree.nodes.get(child_id)
+                if child is None or child.spec.intent is None:
+                    continue
+                goal = intent.goal.strip()
+                if not goal:
+                    continue
+                if goal not in child.spec.intent.required_upstream_intents:
+                    child.spec.intent.required_upstream_intents.append(goal)
+
+    def ensure_final_node(self, tree: TaskTree) -> None:
+        sink_ids = tree.get_sink_nodes()
+        if not sink_ids:
+            tree.ensure_single_final_response()
+            tree.validate()
+            return
+
+        final_sink_ids = [node_id for node_id in sink_ids if tree.nodes[node_id].is_final_response()]
+        if len(sink_ids) != 1 or len(final_sink_ids) != 1:
+            tree.ensure_single_final_response()
+            tree.validate()
 
     def infer_intent_from_description(self, node: TaskNode) -> IntentSpec:
         text = node.spec.description.lower()

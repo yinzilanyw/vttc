@@ -58,14 +58,18 @@ class ExecutionRuntime:
         }
 
     def finalize_response(self, tree: TaskTree, context: ExecutionContext) -> Dict[str, Any]:
-        final_nodes = [node for node in tree.nodes.values() if node.is_final_response()]
-        if not final_nodes:
-            return {"answer": "", "reason": "missing_final_node"}
-        final_node = final_nodes[0]
-        output = context.node_outputs.get(final_node.id, {})
+        sink_ids = tree.get_sink_nodes()
+        if len(sink_ids) != 1:
+            return {}
+        final_node = tree.nodes.get(sink_ids[0])
+        if final_node is None or not final_node.is_final_response():
+            return {}
+        output = context.node_outputs.get(final_node.id)
         if isinstance(output, dict):
             return output
-        return {"answer": str(output)}
+        if isinstance(final_node.outputs, dict):
+            return final_node.outputs
+        return {}
 
     def execute_final_response_node(
         self,
@@ -233,6 +237,28 @@ class ExecutionRuntime:
             records.append(record)
         return records
 
+    def infer_failure_type(self, verification_results: List[Any]) -> str:
+        failed = [item for item in verification_results if not item.passed]
+        if not failed:
+            return "unknown"
+        counts: Dict[str, int] = {}
+        for item in failed:
+            failure_type = str(getattr(item, "failure_type", "") or "")
+            if not failure_type:
+                code = str(getattr(item, "code", ""))
+                if "schema" in code or "type" in code or "required" in code:
+                    failure_type = "schema"
+                elif "intent" in code:
+                    failure_type = "intent_misalignment"
+                elif "consistency" in code or "cross_node" in code:
+                    failure_type = "consistency"
+                elif "evidence" in code or "source" in code or "semantic" in code:
+                    failure_type = "evidence"
+                else:
+                    failure_type = "rule"
+            counts[failure_type] = counts.get(failure_type, 0) + 1
+        return sorted(counts.items(), key=lambda item: item[1], reverse=True)[0][0]
+
     def should_abort_for_budget(
         self,
         report: ExecutionReport,
@@ -264,6 +290,45 @@ class ExecutionRuntime:
     def execute(self, tree: TaskTree, context: ExecutionContext) -> ExecutionReport:
         tree.ensure_single_final_response()
         tree.validate()
+        sink_nodes = tree.get_sink_nodes()
+        if not sink_nodes:
+            return ExecutionReport(
+                success=False,
+                node_records={},
+                total_retries=0,
+                verification_failures=0,
+                final_node_id=None,
+                final_output=None,
+                node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
+                task_family=str(tree.metadata.get("task_family", "")),
+                error="No final response node",
+            )
+        if len(sink_nodes) > 1:
+            return ExecutionReport(
+                success=False,
+                node_records={},
+                total_retries=0,
+                verification_failures=0,
+                final_node_id=None,
+                final_output=None,
+                node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
+                task_family=str(tree.metadata.get("task_family", "")),
+                error=f"Multiple sink nodes found: {sink_nodes}",
+            )
+        final_node_id = sink_nodes[0]
+        final_sink_node = tree.nodes.get(final_node_id)
+        if final_sink_node is None or not final_sink_node.is_final_response():
+            return ExecutionReport(
+                success=False,
+                node_records={},
+                total_retries=0,
+                verification_failures=0,
+                final_node_id=final_node_id,
+                final_output=None,
+                node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
+                task_family=str(tree.metadata.get("task_family", "")),
+                error=f"Sink node is not final_response: {final_node_id}",
+            )
         node_records: Dict[str, NodeExecutionRecord] = {}
         total_retries = 0
         verification_failures = 0
@@ -273,7 +338,6 @@ class ExecutionRuntime:
         budget_exhausted = False
         max_runtime_steps = self.max_runtime_steps
         runtime_steps = 0
-        final_node_id = next((n.id for n in tree.nodes.values() if n.is_final_response()), None)
 
         if self.trace_logger:
             self.trace_logger.log_event(
@@ -316,7 +380,7 @@ class ExecutionRuntime:
                 if record.status != "success":
                     failure = NodeFailure(
                         node_id=node.id,
-                        failure_type="verification_failed",
+                        failure_type=self.infer_failure_type(record.verification_results),
                         reasons=record.verify_errors,
                         output_snapshot=record.output,
                         retryable=node.execution_policy.retryable,
@@ -358,9 +422,10 @@ class ExecutionRuntime:
                                 )
                             },
                             final_node_id=final_node_id,
-                            final_output=self.finalize_response(tree=tree, context=context),
+                            final_output=None,
                             node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
                             task_family=str(tree.metadata.get("task_family", "")),
+                            error="Node execution failed before final node succeeded",
                         )
 
             # Continue loop so patched/reassigned nodes can be retried dynamically.
@@ -377,12 +442,38 @@ class ExecutionRuntime:
                 budget_exhausted = True
                 break
 
-        final_output = self.finalize_response(tree=tree, context=context)
         final_node = tree.nodes.get(final_node_id) if final_node_id else None
         final_node_success = final_node is not None and final_node.status == "success"
+        if not final_node_success:
+            return ExecutionReport(
+                success=False,
+                node_records=node_records,
+                total_retries=total_retries,
+                verification_failures=verification_failures,
+                replan_count=replan_count,
+                plan_versions=tree.version,
+                budget_exhausted=budget_exhausted,
+                replan_actions=replan_actions,
+                structural_savings={
+                    "avg_saved_downstream_nodes": (
+                        sum(structural_savings["saved_downstream_nodes"])
+                        / max(len(structural_savings["saved_downstream_nodes"]), 1)
+                    ),
+                    "parallelizable_node_ratio": 0.0,
+                    "avg_cost_saved_vs_full_rerun": 0.0,
+                },
+                final_node_id=final_node_id,
+                final_output=None,
+                node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
+                task_family=str(tree.metadata.get("task_family", "")),
+                error="Final node not successful",
+            )
+        final_output = final_node.outputs or context.node_outputs.get(final_node_id) or {}
+        if not isinstance(final_output, dict):
+            final_output = {"answer": str(final_output)}
         success = all(n.status in {"success", "skipped"} for n in tree.nodes.values()) and all(
             n.status != "failed" for n in tree.nodes.values()
-        ) and final_node_success
+        )
         return ExecutionReport(
             success=success,
             node_records=node_records,
@@ -404,4 +495,5 @@ class ExecutionRuntime:
             final_output=final_output,
             node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
             task_family=str(tree.metadata.get("task_family", "")),
+            error="",
         )

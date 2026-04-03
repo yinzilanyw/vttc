@@ -75,3 +75,4 @@ class ExecutionReport:
     final_output: Optional[Dict[str, Any]] = None
     node_task_types: Dict[str, str] = field(default_factory=dict)
     task_family: str = ""
+    error: str = ""

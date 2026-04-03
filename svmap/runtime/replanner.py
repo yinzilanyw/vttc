@@ -128,6 +128,27 @@ class ConstraintAwareReplanner(BaseReplanner):
             payload=build_summary_patch(node.id),
         )
 
+    def build_evidence_patch(self, node_id: str) -> Dict[str, Any]:
+        return build_evidence_patch(node_id)
+
+    def build_crosscheck_patch(self, node_id: str) -> Dict[str, Any]:
+        return build_crosscheck_patch(node_id)
+
+    def build_normalization_patch(self, node_id: str) -> Dict[str, Any]:
+        return build_normalization_patch(node_id)
+
+    def should_escalate_to_subtree(self, failure: NodeFailure, retry_count: int) -> bool:
+        return retry_count >= 2 or failure.failure_type == "intent_misalignment"
+
+    def patch_for_failure_type(self, node: TaskNode, failure_type: str) -> Optional[Dict[str, Any]]:
+        if failure_type == "evidence":
+            return self.build_evidence_patch(node.id)
+        if failure_type == "consistency":
+            return self.build_crosscheck_patch(node.id)
+        if failure_type == "schema":
+            return self.build_normalization_patch(node.id)
+        return None
+
     def enumerate_candidates(
         self,
         node: TaskNode,
@@ -236,8 +257,26 @@ class ConstraintAwareReplanner(BaseReplanner):
         context: ExecutionContext,
     ) -> ReplanDecision:
         reasons_text = " ".join(failure.reasons).lower()
+        failure_type = failure.failure_type.strip().lower()
         replan_attempts = int(node.metadata.get("replan_attempts", 0))
         has_evidence_dep = any(dep.startswith("ev_") for dep in node.dependencies)
+
+        if self.should_escalate_to_subtree(failure=failure, retry_count=replan_attempts):
+            return ReplanDecision(
+                action="replan_subtree",
+                target_node_id=node.id,
+                patch=build_decomposition_patch(node.id),
+                reason=f"escalate_to_subtree:{failure.failure_type}",
+            )
+
+        patch = self.patch_for_failure_type(node=node, failure_type=failure_type)
+        if failure.retryable and patch is not None:
+            return ReplanDecision(
+                action="patch_subgraph",
+                target_node_id=node.id,
+                patch=patch,
+                reason=f"patch_by_failure_type:{failure.failure_type}",
+            )
 
         candidates = self.enumerate_candidates(node=node, failure=failure, tree=tree, context=context)
         scored = sorted(

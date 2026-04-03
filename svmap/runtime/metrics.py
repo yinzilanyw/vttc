@@ -20,6 +20,7 @@ class MetricsSummary:
     replan_count: int = 0
     recovery_rate: float = 0.0
     success_after_first_failure: float = 0.0
+    subtree_replan_success_rate: float = 0.0
     patch_success_rate_by_type: Dict[str, float] = field(default_factory=dict)
     avg_saved_downstream_nodes: float = 0.0
     parallelizable_node_ratio: float = 0.0
@@ -43,7 +44,11 @@ class MetricsCollector:
             if r.status == "success" and r.attempts > 1
         )
         patch_actions = [a for a in report.replan_actions if "patch" in a]
+        subtree_actions = [a for a in report.replan_actions if a == "replan_subtree"]
         patch_success = 1.0 if patch_actions and report.success else (0.0 if patch_actions else 1.0)
+        patch_success_by_type: Dict[str, float] = {}
+        for action in sorted(set(patch_actions)):
+            patch_success_by_type[action] = 1.0 if report.success else 0.0
         node_task_types = report.node_task_types or {}
         final_nodes = [nid for nid, t in node_task_types.items() if t == "final_response"]
         aggregation_nodes = [nid for nid, t in node_task_types.items() if t in {"summarization", "comparison", "aggregation"}]
@@ -72,7 +77,10 @@ class MetricsCollector:
             replan_count=report.replan_count,
             recovery_rate=recovered_nodes / total_nodes,
             success_after_first_failure=1.0 if recovered_nodes > 0 else 0.0,
-            patch_success_rate_by_type={"patch_subgraph": patch_success},
+            subtree_replan_success_rate=(
+                1.0 if subtree_actions and report.success else (0.0 if subtree_actions else 0.0)
+            ),
+            patch_success_rate_by_type=patch_success_by_type or {"patch_subgraph": patch_success},
             avg_saved_downstream_nodes=float(
                 report.structural_savings.get("avg_saved_downstream_nodes", 0.0)
             ),
