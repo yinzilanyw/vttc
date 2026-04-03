@@ -1,0 +1,197 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775214053.6795363,
+    "payload": {
+      "node_count": 11,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775214053.6795363,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775214054.895389,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775214054.895389,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775214055.547222,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775214055.547222,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775214056.25393,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775214056.25393,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775214056.9774308,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775214056.9774308,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775214057.6959822,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775214057.6959822,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775214058.3546038,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775214058.3546038,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775214058.932566,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775214058.932566,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775214059.6127899,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775214059.6127899,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775214060.601781,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775214060.601781,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775214061.591517,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775214061.591517,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775214062.9958243,
+    "payload": {
+      "node_id": "final_response",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  }
+]

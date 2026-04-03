@@ -33,6 +33,7 @@ from svmap.verification import (
     CrossNodeGraphVerifier,
     CrossNodeVerifier,
     CustomNodeVerifier,
+    EdgeConsistencyVerifier,
     ExtractionVerifier,
     FinalResponseVerifier,
     IntentVerifier,
@@ -40,6 +41,7 @@ from svmap.verification import (
     RuleVerifier,
     SchemaVerifier,
     SemanticVerifier,
+    SubtreeIntentVerifier,
     SummarizationVerifier,
     VerifierEngine,
 )
@@ -51,7 +53,7 @@ DEFAULT_QUERY = "Who is the CEO of the company founded by Elon Musk?"
 @dataclass
 class RunConfig:
     mode: str = "demo"
-    task_family: str = "qa"
+    task_family: Optional[str] = None
     query: Optional[str] = None
     use_env: bool = True
     export_trace: bool = True
@@ -357,6 +359,8 @@ def build_runtime(config: RunConfig) -> Dict[str, Any]:
         ExtractionVerifier(),
         CrossNodeVerifier(),
         CrossNodeGraphVerifier(),
+        EdgeConsistencyVerifier(),
+        SubtreeIntentVerifier(),
         SummarizationVerifier(),
         ComparisonVerifier(),
         CalculationVerifier(),
@@ -402,10 +406,20 @@ def build_runtime(config: RunConfig) -> Dict[str, Any]:
 
 def _resolve_query_and_family(config: RunConfig, app_config: AppConfig) -> tuple[str, str]:
     query = (config.query or app_config.default_query or DEFAULT_QUERY).strip() or DEFAULT_QUERY
-    family = (config.task_family or app_config.default_task_family or "qa").strip().lower() or "qa"
-    if family not in {"qa", "summary", "compare", "calculate", "extract", "plan"}:
-        family = ConstraintAwarePlanner(llm_planner=None).infer_task_family(query)
+    family = resolve_task_family(query=query, explicit_family=config.task_family, planner=ConstraintAwarePlanner(llm_planner=None))
     return query, family
+
+
+def resolve_task_family(
+    query: str,
+    explicit_family: Optional[str],
+    planner: ConstraintAwarePlanner,
+) -> str:
+    normalized = (explicit_family or "").strip().lower()
+    if normalized:
+        return normalized
+    inferred = planner.infer_task_family(query)
+    return inferred or "qa"
 
 
 def run_task(config: RunConfig) -> RunResult:
@@ -492,8 +506,9 @@ def run_batch(config: RunConfig, tasks: List[Dict[str, str]]) -> List[RunResult]
         query = str(task.get("query", "")).strip()
         if not query:
             continue
-        family = str(task.get("task_family", config.task_family or "qa")).strip().lower() or "qa"
-        task_cfg = replace(config, query=query, task_family=family)
+        task_family_value = task.get("task_family", config.task_family)
+        family = str(task_family_value).strip().lower() if task_family_value is not None else None
+        task_cfg = replace(config, query=query, task_family=family or None)
         results.append(run_task(task_cfg))
     return results
 
@@ -510,7 +525,7 @@ def run_task_collect(
     config = RunConfig(
         mode="demo",
         query=query,
-        task_family=task_family or "qa",
+        task_family=task_family,
         stop_on_failure=stop_on_failure,
         enable_replan=enable_replan,
         enable_intent_verifier=enable_intent_verifier,

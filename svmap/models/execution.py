@@ -79,3 +79,5 @@ class ExecutionReport:
     node_task_types: Dict[str, str] = field(default_factory=dict)
     task_family: str = ""
     error: str = ""
+    stalled_node_ids: List[str] = field(default_factory=list)
+    failure_summary: Dict[str, int] = field(default_factory=dict)

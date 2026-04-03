@@ -88,6 +88,7 @@ def _build_mode_label(
     no_tree: bool,
     no_intent: bool,
     no_replan: bool,
+    no_structural_repair: bool,
     no_final_node: bool,
 ) -> str:
     if no_tree:
@@ -95,7 +96,7 @@ def _build_mode_label(
     parts = ["full"]
     if no_intent:
         parts.append("no_intent")
-    if no_replan:
+    if no_replan or no_structural_repair:
         parts.append("no_replan")
     if no_final_node:
         parts.append("no_final_node")
@@ -109,6 +110,7 @@ def run_multitask_eval(
     no_tree: bool = False,
     no_intent: bool = False,
     no_replan: bool = False,
+    no_structural_repair: bool = False,
     no_final_node: bool = False,
 ) -> Dict[str, Any]:
     samples = load_dataset(dataset_path, max_samples=max_samples)
@@ -117,6 +119,7 @@ def run_multitask_eval(
         no_tree=no_tree,
         no_intent=no_intent,
         no_replan=no_replan,
+        no_structural_repair=no_structural_repair,
         no_final_node=no_final_node,
     )
 
@@ -142,12 +145,13 @@ def run_multitask_eval(
         for idx, sample in enumerate(samples, start=1):
             print(f"[{idx}/{len(samples)}] {sample['task_family']}: {sample['query'][:80]}")
 
+        disable_structural_repair = no_replan or no_structural_repair
         config = RunConfig(
             mode="eval",
             export_trace=False,
             enable_intent_verifier=not no_intent,
-            enable_replan=not no_replan,
-            stop_on_failure=True if no_replan else None,
+            enable_replan=not disable_structural_repair,
+            stop_on_failure=True if disable_structural_repair else None,
         )
         results = run_batch(config=config, tasks=samples)
 
@@ -189,6 +193,7 @@ def run_multitask_eval(
             "no_tree": no_tree,
             "no_intent": no_intent,
             "no_replan": no_replan,
+            "no_structural_repair": no_structural_repair,
             "no_final_node": no_final_node,
         },
         "samples": rows,
@@ -233,6 +238,7 @@ if __name__ == "__main__":
     parser.add_argument("--no_tree", action="store_true")
     parser.add_argument("--no_intent", action="store_true")
     parser.add_argument("--no_replan", action="store_true")
+    parser.add_argument("--no_structural_repair", action="store_true")
     parser.add_argument("--no_final_node", action="store_true")
     args = parser.parse_args()
     run_multitask_eval(
@@ -242,5 +248,6 @@ if __name__ == "__main__":
         no_tree=args.no_tree,
         no_intent=args.no_intent,
         no_replan=args.no_replan,
+        no_structural_repair=args.no_structural_repair,
         no_final_node=args.no_final_node,
     )

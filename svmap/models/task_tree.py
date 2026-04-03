@@ -48,6 +48,7 @@ class TaskTree:
                     aggregation_requirements=raw_intent.get("aggregation_requirements", []),
                     propagates_to_children=bool(raw_intent.get("propagates_to_children", True)),
                     required_upstream_intents=raw_intent.get("required_upstream_intents", []),
+                    child_completion_criteria=raw_intent.get("child_completion_criteria", []),
                 )
             spec = NodeSpec(
                 description=node_data.get("description", ""),
@@ -308,7 +309,13 @@ class TaskTree:
         )
 
     def record_graph_delta(self, action: str, payload: Dict[str, Any]) -> None:
-        delta = {"action": action, "payload": payload, "version": self.version}
+        normalized_payload = dict(payload)
+        normalized_payload.setdefault("action", action)
+        normalized_payload.setdefault("failure_type", "")
+        normalized_payload.setdefault("affected_nodes", [])
+        normalized_payload.setdefault("before_version", self.version)
+        normalized_payload.setdefault("after_version", self.version)
+        delta = {"action": action, "payload": normalized_payload, "version": self.version}
         self.graph_deltas.append(delta)
         self.replan_history.append(delta)
 

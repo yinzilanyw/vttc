@@ -74,7 +74,7 @@ def print_demo_result(result: RunResult) -> None:
 def run_demo(query: Optional[str] = None, task_family: Optional[str] = None) -> None:
     load_env_file(".env")
     demos = build_demo_queries()
-    family = (task_family or os.getenv("DEMO_TASK_FAMILY", "qa")).strip().lower() or "qa"
+    family = (task_family or "").strip().lower() or None
 
     if family == "all":
         for item_family, item_query in demos.items():
@@ -92,10 +92,10 @@ def run_demo(query: Optional[str] = None, task_family: Optional[str] = None) -> 
 
     if query:
         selected_query = query
-    elif task_family and family in demos:
+    elif family and family in demos:
         selected_query = demos[family]
     else:
-        selected_query = os.getenv("DEMO_QUERY") or demos.get(family, DEFAULT_QUERY)
+        selected_query = os.getenv("DEMO_QUERY") or DEFAULT_QUERY
 
     result = run_task(
         RunConfig(

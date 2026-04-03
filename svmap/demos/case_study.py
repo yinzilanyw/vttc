@@ -5,7 +5,6 @@ import os
 import shutil
 from typing import Optional
 
-from svmap.planning import ConstraintAwarePlanner
 from svmap.pipeline import RunConfig, run_task
 
 
@@ -32,10 +31,7 @@ def get_case_query(name: str) -> str:
 def run_case_study(case_name: Optional[str] = None, query: Optional[str] = None) -> None:
     selected_case = (case_name or os.getenv("CASE_NAME") or "qa_basic").strip()
     selected_query = (query or get_case_query(selected_case)).strip()
-    if query:
-        task_family = ConstraintAwarePlanner(llm_planner=None).infer_task_family(selected_query)
-    else:
-        task_family = CASE_FAMILY.get(selected_case, "qa")
+    task_family = None if query else CASE_FAMILY.get(selected_case)
 
     result = run_task(
         RunConfig(

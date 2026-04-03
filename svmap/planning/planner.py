@@ -340,11 +340,33 @@ class ConstraintAwarePlanner(BasePlanner):
             ]
         ):
             return "plan"
+        if any(k in text for k in ["structured generation", "schema", "json schema", "format as json"]):
+            return "structured_generation"
         if any(k in text for k in ["summarize", "summary", "tl;dr", "概括", "总结"]):
             return "summary"
         if any(k in text for k in ["compare", "difference", "vs", "versus", "对比", "比较"]):
             return "compare"
-        if any(k in text for k in ["calculate", "compute", "total", "sum", "multiply", "plus", "减", "加", "乘", "除"]):
+        if any(
+            k in text
+            for k in [
+                "calculate",
+                "compute",
+                "total",
+                "sum",
+                "multiply",
+                "plus",
+                "precision",
+                "recall",
+                "rate",
+                "ratio",
+                "比例",
+                "计算",
+                "减",
+                "加",
+                "乘",
+                "除",
+            ]
+        ):
             return "calculate"
         if any(k in text for k in ["extract", "fields", "json", "结构化", "提取"]):
             return "extract"
@@ -727,6 +749,49 @@ class ConstraintAwarePlanner(BasePlanner):
                 ]
             }
 
+        if family == "structured_generation":
+            return {
+                "nodes": [
+                    {
+                        "id": "n1",
+                        "description": "Retrieve facts needed for structured generation.",
+                        "inputs": {"query": query},
+                        "dependencies": [],
+                        "capability_tag": "retrieve",
+                        "candidate_capabilities": ["retrieve", "extract"],
+                        "node_type": "tool_call",
+                        "task_type": "tool_call",
+                        "output_mode": "json",
+                        "answer_role": "intermediate",
+                        "constraint": ["required_keys:evidence", "non_empty_values"],
+                    },
+                    {
+                        "id": "n2",
+                        "description": "Transform evidence into structured fields.",
+                        "dependencies": ["n1"],
+                        "capability_tag": "extract",
+                        "candidate_capabilities": ["extract", "reason"],
+                        "node_type": "extraction",
+                        "task_type": "extraction",
+                        "output_mode": "json",
+                        "answer_role": "intermediate",
+                        "constraint": ["required_keys:extracted", "non_empty_values"],
+                    },
+                    {
+                        "id": "final_response",
+                        "description": "Return final structured answer.",
+                        "dependencies": ["n2"],
+                        "capability_tag": "synthesize",
+                        "candidate_capabilities": ["synthesize", "extract"],
+                        "node_type": "final_response",
+                        "task_type": "final_response",
+                        "output_mode": "text",
+                        "answer_role": "final",
+                        "constraint": ["required_keys:answer", "non_empty_values"],
+                    },
+                ]
+            }
+
         return {
             "nodes": [
                 {
@@ -828,11 +893,11 @@ class ConstraintAwarePlanner(BasePlanner):
             existing_types = {getattr(c, "constraint_type", "") for c in node.spec.constraints}
 
             if node.is_final_response():
-                if plan_mode and "final_structure" not in existing_types:
+                if "final_structure" not in existing_types:
                     node.spec.constraints.append(
                         FinalStructureConstraint(
-                            required_sections=["goal", "deliverable", "metric"],
-                            min_items=7,
+                            required_sections=["goal", "deliverable", "metric"] if plan_mode else [],
+                            min_items=7 if plan_mode else 0,
                             forbid_query_echo=True,
                         )
                     )
@@ -857,19 +922,60 @@ class ConstraintAwarePlanner(BasePlanner):
                 )
 
     def propagate_intents(self, tree: TaskTree) -> None:
-        for node in tree.nodes.values():
+        task_family = str(tree.metadata.get("task_family", "")).strip().lower()
+        children_map: Dict[str, List[str]] = {node_id: [] for node_id in tree.nodes}
+        for child_id, child in tree.nodes.items():
+            for dep in child.dependencies:
+                children_map.setdefault(dep, []).append(child_id)
+
+        for node_id, node in tree.nodes.items():
             intent = node.spec.intent
-            if intent is None or not intent.propagates_to_children:
+            if intent is None:
                 continue
-            for child_id in tree.get_downstream_nodes(node.id):
-                child = tree.nodes.get(child_id)
-                if child is None or child.spec.intent is None:
-                    continue
-                goal = intent.goal.strip()
-                if not goal:
-                    continue
-                if goal not in child.spec.intent.required_upstream_intents:
-                    child.spec.intent.required_upstream_intents.append(goal)
+
+            child_ids = children_map.get(node_id, [])
+            if intent.propagates_to_children and intent.goal.strip():
+                for child_id in child_ids:
+                    child = tree.nodes.get(child_id)
+                    if child is None or child.spec.intent is None:
+                        continue
+                    goal = intent.goal.strip()
+                    if goal not in child.spec.intent.required_upstream_intents:
+                        child.spec.intent.required_upstream_intents.append(goal)
+
+            # final_response goal reversely constrains upstream synthesis / aggregation path.
+            if node.is_final_response() and intent.goal.strip():
+                for dep_id in node.dependencies:
+                    dep = tree.nodes.get(dep_id)
+                    if dep is None or dep.spec.intent is None:
+                        continue
+                    if dep.is_aggregation_node() or dep.spec.task_type in {"reasoning", "synthesis"}:
+                        criterion = f"supports_final_goal:{intent.goal.strip()}"
+                        if criterion not in dep.spec.intent.child_completion_criteria:
+                            dep.spec.intent.child_completion_criteria.append(criterion)
+
+            # compare nodes require at least two upstream objects.
+            if node.spec.task_type == "comparison":
+                if "requires_two_upstream_objects" not in intent.child_completion_criteria:
+                    intent.child_completion_criteria.append("requires_two_upstream_objects")
+                if len(node.dependencies) < 2:
+                    node.metadata["intent_warning"] = "comparison_requires_at_least_two_inputs"
+
+            # summary nodes require evidence-bearing upstream outputs.
+            if node.spec.task_type == "summarization":
+                if node.dependencies and "requires_evidence_bearing_upstream" not in intent.required_upstream_intents:
+                    intent.required_upstream_intents.append("requires_evidence_bearing_upstream")
+
+            # plan family expects day-by-day coverage.
+            if task_family == "plan" and (node.is_final_response() or "plan" in intent.goal.lower()):
+                for day in range(1, 8):
+                    criterion = f"cover_day_{day}"
+                    if criterion not in intent.child_completion_criteria:
+                        intent.child_completion_criteria.append(criterion)
+                for section in ["goal", "deliverable", "metric"]:
+                    criterion = f"include_section_{section}"
+                    if criterion not in intent.child_completion_criteria:
+                        intent.child_completion_criteria.append(criterion)
 
     def ensure_final_node(self, tree: TaskTree) -> None:
         sink_ids = tree.get_sink_nodes()
@@ -890,6 +996,7 @@ class ConstraintAwarePlanner(BasePlanner):
         evidence_requirements: List[str] = []
         output_semantics: Dict[str, str] = {}
         aggregation_requirements: List[str] = []
+        child_completion_criteria: List[str] = []
 
         if task_type == "tool_call":
             success_conditions.extend(["evidence_retrieved"])
@@ -905,6 +1012,7 @@ class ConstraintAwarePlanner(BasePlanner):
             success_conditions.extend(["comparison_completed"])
             output_semantics["comparison"] = "comparison result across candidates"
             aggregation_requirements.append("include_all_compared_items")
+            child_completion_criteria.append("requires_two_upstream_objects")
         if task_type == "calculation":
             success_conditions.extend(["calculation_completed"])
             output_semantics["result"] = "numeric calculation result"
@@ -913,6 +1021,7 @@ class ConstraintAwarePlanner(BasePlanner):
             output_semantics["answer"] = "final user-facing answer"
             aggregation_requirements.append("grounded_in_upstream_outputs")
             evidence_requirements.append("dependency_outputs")
+            child_completion_criteria.append("must_reference_used_nodes")
 
         if "source" in text or "factual" in text:
             evidence_requirements.append("source")
@@ -930,6 +1039,7 @@ class ConstraintAwarePlanner(BasePlanner):
             output_semantics=output_semantics,
             response_style=response_style,
             aggregation_requirements=aggregation_requirements,
+            child_completion_criteria=child_completion_criteria,
         )
 
     def build_patch_candidates(self, node: TaskNode, failure: Dict[str, Any]) -> List[Dict[str, Any]]:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from svmap.models import ConstraintResult, TaskNode
+from svmap.models import ConstraintResult, TaskNode, TaskTree
 
 from .base import BaseVerifier
 
@@ -24,55 +24,16 @@ class VerifierEngine:
     def __init__(self, verifiers: List[BaseVerifier]) -> None:
         self.verifiers = verifiers
 
-    def select_verifiers_for_node(self, node: TaskNode, scope: str = "node") -> List[BaseVerifier]:
+    def _select_verifiers(self, scope: str, task_type: str = "*") -> List[BaseVerifier]:
         selected: List[BaseVerifier] = []
-        task_type = node.spec.task_type
         for verifier in self.verifiers:
             if scope not in verifier.supports_scope():
                 continue
             supported_task_types = verifier.supports_task_types()
-            if "*" not in supported_task_types and task_type not in supported_task_types:
+            if task_type != "*" and "*" not in supported_task_types and task_type not in supported_task_types:
                 continue
             selected.append(verifier)
         return selected
-
-    def verify(
-        self,
-        node: TaskNode,
-        output: Dict[str, Any],
-        context: Dict[str, Any],
-        scope: str = "node",
-    ) -> VerificationResult:
-        details: List[ConstraintResult] = []
-        for verifier in self.select_verifiers_for_node(node=node, scope=scope):
-            details.extend(verifier.verify(node=node, output=output, context=context))
-
-        errors = [item for item in details if not item.passed and item.severity == "error"]
-        reasons = [f"{item.code}:{item.message}" for item in errors]
-        failure_type = self._select_primary_failure_type(errors)
-        repair_hints = sorted({x.repair_hint for x in errors if x.repair_hint})
-        violation_scopes = sorted({x.violation_scope for x in errors if x.violation_scope})
-        fatal_types = {
-            "internal_execution_error",
-            "final_answer_missing_structure",
-            "final_query_echo",
-            "intent_misalignment",
-            "echo_retrieval",
-            "empty_extraction",
-            "final_answer_not_grounded",
-            "final_output_not_valid",
-        }
-        fatal = bool(errors) and (failure_type in fatal_types)
-        return VerificationResult(
-            passed=len(errors) == 0,
-            reasons=reasons,
-            details=details,
-            failure_type=failure_type,
-            repair_hints=repair_hints,
-            violation_scopes=violation_scopes,
-            fatal=fatal,
-            confidence=1.0 if len(errors) == 0 else 0.0,
-        )
 
     def _infer_failure_type(self, item: ConstraintResult) -> str:
         if item.failure_type:
@@ -89,11 +50,13 @@ class VerifierEngine:
         if "empty_extraction" in code:
             return "empty_extraction"
         if "schema" in code or "type" in code or "required" in code:
-            return "schema"
-        if "consistency" in code:
-            return "consistency"
+            return "schema_error"
+        if "ground" in code:
+            return "grounding_error"
+        if "consistency" in code or "cross_node" in code:
+            return "consistency_error"
         if "evidence" in code or "source" in code:
-            return "evidence"
+            return "evidence_error"
         return "rule"
 
     def _select_primary_failure_type(self, errors: List[ConstraintResult]) -> str:
@@ -105,12 +68,110 @@ class VerifierEngine:
             "intent_misalignment",
             "echo_retrieval",
             "empty_extraction",
+            "grounding_error",
+            "consistency_error",
+            "schema_error",
         ]
-        typed: List[str] = [self._infer_failure_type(item) for item in errors]
+        typed = [self._infer_failure_type(item) for item in errors]
         for target in priority:
             if target in typed:
                 return target
         return typed[0]
+
+    def _aggregate(self, details: List[ConstraintResult]) -> VerificationResult:
+        errors = [item for item in details if not item.passed and item.severity == "error"]
+        reasons = [f"{item.code}:{item.message}" for item in errors]
+        failure_type = self._select_primary_failure_type(errors)
+        repair_hints = sorted({x.repair_hint for x in errors if x.repair_hint})
+        violation_scopes = sorted({x.violation_scope for x in errors if x.violation_scope})
+        fatal_types = {
+            "internal_execution_error",
+            "final_answer_missing_structure",
+            "final_query_echo",
+            "intent_misalignment",
+            "echo_retrieval",
+            "empty_extraction",
+            "grounding_error",
+            "final_output_not_valid",
+        }
+        fatal = bool(errors) and (failure_type in fatal_types)
+        return VerificationResult(
+            passed=len(errors) == 0,
+            reasons=reasons,
+            details=details,
+            failure_type=failure_type,
+            repair_hints=repair_hints,
+            violation_scopes=violation_scopes,
+            fatal=fatal,
+            confidence=1.0 if len(errors) == 0 else 0.0,
+        )
+
+    def verify(self, scope: str = "node", **kwargs: Any) -> VerificationResult:
+        if scope == "node":
+            node: TaskNode = kwargs["node"]
+            output: Dict[str, Any] = kwargs.get("output", {})
+            context: Dict[str, Any] = kwargs.get("context", {})
+            details: List[ConstraintResult] = []
+            for verifier in self._select_verifiers(scope="node", task_type=node.spec.task_type):
+                details.extend(verifier.verify(node=node, output=output, context=context))
+            return self._aggregate(details)
+
+        if scope == "edge":
+            src_node: TaskNode = kwargs["src_node"]
+            dst_node: TaskNode = kwargs["dst_node"]
+            dst_output: Dict[str, Any] = kwargs.get("dst_output", {})
+            context: Dict[str, Any] = kwargs.get("context", {})
+            edge_context = dict(context)
+            dep_outputs = edge_context.setdefault("dependency_outputs", {})
+            if src_node.id in dep_outputs:
+                edge_context["src_output"] = dep_outputs.get(src_node.id, {})
+            edge_context["dst_output"] = dst_output
+            details = []
+            for verifier in self._select_verifiers(scope="edge", task_type=dst_node.spec.task_type):
+                if hasattr(verifier, "verify_edge"):
+                    details.extend(verifier.verify_edge(src_node=src_node, dst_node=dst_node, context=edge_context))
+                else:
+                    details.extend(verifier.verify(node=dst_node, output=dst_output, context=edge_context))
+            return self._aggregate(details)
+
+        if scope == "subtree":
+            tree: TaskTree = kwargs["tree"]
+            root_node_id: str = kwargs["root_node_id"]
+            context: Dict[str, Any] = kwargs.get("context", {})
+            root = tree.nodes.get(root_node_id)
+            task_type = root.spec.task_type if root is not None else "*"
+            details = []
+            for verifier in self._select_verifiers(scope="subtree", task_type=task_type):
+                details.extend(
+                    verifier.verify_subtree(tree=tree, root_node_id=root_node_id, context=context)
+                )
+            return self._aggregate(details)
+
+        if scope == "global":
+            tree: TaskTree = kwargs["tree"]
+            context: Dict[str, Any] = kwargs.get("context", {})
+            details = []
+            for verifier in self._select_verifiers(scope="global", task_type="*"):
+                details.extend(verifier.verify_global(tree=tree, context=context))
+            return self._aggregate(details)
+
+        return VerificationResult(
+            passed=False,
+            reasons=[f"unsupported_scope:{scope}"],
+            details=[
+                ConstraintResult(
+                    passed=False,
+                    code="unsupported_scope",
+                    message=f"Unsupported verification scope: {scope}",
+                    failure_type="rule",
+                )
+            ],
+            failure_type="rule",
+            repair_hints=[],
+            violation_scopes=["node"],
+            fatal=False,
+            confidence=0.0,
+        )
 
     def verify_node(
         self,
@@ -118,28 +179,34 @@ class VerifierEngine:
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> VerificationResult:
-        return self.verify(node=node, output=output, context=context, scope="node")
+        return self.verify(scope="node", node=node, output=output, context=context)
 
     def verify_edge(
         self,
-        node: TaskNode,
-        output: Dict[str, Any],
+        src_node: TaskNode,
+        dst_node: TaskNode,
+        dst_output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> VerificationResult:
-        return self.verify(node=node, output=output, context=context, scope="edge")
+        return self.verify(
+            scope="edge",
+            src_node=src_node,
+            dst_node=dst_node,
+            dst_output=dst_output,
+            context=context,
+        )
 
     def verify_subtree(
         self,
-        node: TaskNode,
-        output: Dict[str, Any],
+        tree: TaskTree,
+        root_node_id: str,
         context: Dict[str, Any],
     ) -> VerificationResult:
-        return self.verify(node=node, output=output, context=context, scope="subtree")
+        return self.verify(scope="subtree", tree=tree, root_node_id=root_node_id, context=context)
 
     def verify_global(
         self,
-        node: TaskNode,
-        output: Dict[str, Any],
+        tree: TaskTree,
         context: Dict[str, Any],
     ) -> VerificationResult:
-        return self.verify(node=node, output=output, context=context, scope="global")
+        return self.verify(scope="global", tree=tree, context=context)

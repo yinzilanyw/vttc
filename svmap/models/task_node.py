@@ -34,6 +34,7 @@ class IntentSpec:
     aggregation_requirements: List[str] = field(default_factory=list)
     propagates_to_children: bool = True
     required_upstream_intents: List[str] = field(default_factory=list)
+    child_completion_criteria: List[str] = field(default_factory=list)
 
 
 @dataclass

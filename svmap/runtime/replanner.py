@@ -138,18 +138,31 @@ class ConstraintAwareReplanner(BaseReplanner):
     def build_normalization_patch(self, node_id: str) -> Dict[str, Any]:
         return build_normalization_patch(node_id)
 
-    def should_escalate_to_subtree(self, failure: NodeFailure, retry_count: int) -> bool:
+    def should_escalate_to_subtree(
+        self,
+        failure: NodeFailure,
+        retry_count: int,
+        patch_count: int,
+    ) -> bool:
         failure_type = failure.failure_type.strip().lower()
         if failure_type in {"intent_misalignment", "internal_execution_error"}:
             return True
+        if patch_count >= 2:
+            return True
         return retry_count >= 2
 
+    def should_escalate_to_global(self, failure: NodeFailure, subtree_fail_count: int) -> bool:
+        failure_type = failure.failure_type.strip().lower()
+        if failure_type in {"global_violation", "final_output_not_valid"}:
+            return True
+        return subtree_fail_count >= 2
+
     def patch_for_failure_type(self, node: TaskNode, failure_type: str) -> Optional[Dict[str, Any]]:
-        if failure_type in {"evidence", "echo_retrieval"}:
+        if failure_type in {"evidence", "evidence_error", "echo_retrieval"}:
             return self.build_evidence_patch(node.id)
-        if failure_type in {"consistency"}:
+        if failure_type in {"consistency", "consistency_error", "grounding_error"}:
             return self.build_crosscheck_patch(node.id)
-        if failure_type in {"schema", "empty_extraction"}:
+        if failure_type in {"schema", "schema_error", "empty_extraction"}:
             return self.build_normalization_patch(node.id)
         if failure_type in {"final_answer_missing_structure", "final_answer_not_grounded", "final_query_echo"}:
             return build_final_response_patch(node.id)
@@ -266,6 +279,7 @@ class ConstraintAwareReplanner(BaseReplanner):
         failure_type = failure.failure_type.strip().lower()
         replan_attempts = int(node.metadata.get("replan_attempts", 0))
         patch_attempts = int(node.metadata.get("patch_attempts", 0))
+        subtree_fail_count = int(node.metadata.get("subtree_replan_count", 0))
         has_evidence_dep = any(dep.startswith("ev_") for dep in node.dependencies)
 
         if node.spec.task_type in {"final_response", "aggregation", "summarization", "comparison"} and failure_type in {
@@ -282,7 +296,7 @@ class ConstraintAwareReplanner(BaseReplanner):
                 failure_type=failure.failure_type,
             )
 
-        if patch_attempts >= 1 and failure.retryable:
+        if patch_attempts >= 2 and failure.retryable:
             return ReplanDecision(
                 action="replan_subtree",
                 target_node_id=node.id,
@@ -291,7 +305,19 @@ class ConstraintAwareReplanner(BaseReplanner):
                 failure_type=failure.failure_type,
             )
 
-        if self.should_escalate_to_subtree(failure=failure, retry_count=replan_attempts):
+        if self.should_escalate_to_global(failure=failure, subtree_fail_count=subtree_fail_count):
+            return ReplanDecision(
+                action="replan_global",
+                target_node_id=node.id,
+                reason=f"escalate_to_global:{failure.failure_type}",
+                failure_type=failure.failure_type,
+            )
+
+        if self.should_escalate_to_subtree(
+            failure=failure,
+            retry_count=replan_attempts,
+            patch_count=patch_attempts,
+        ):
             return ReplanDecision(
                 action="replan_subtree",
                 target_node_id=node.id,
@@ -466,6 +492,7 @@ class ConstraintAwareReplanner(BaseReplanner):
             return tree
 
         if decision.action == "replan_subtree":
+            target.metadata["subtree_replan_count"] = int(target.metadata.get("subtree_replan_count", 0)) + 1
             self.apply_subtree_replan(
                 node=target,
                 tree=tree,
@@ -475,11 +502,12 @@ class ConstraintAwareReplanner(BaseReplanner):
             return tree
 
         if decision.action == "replan_global":
-            # Reserved interface: keep current graph and mark intent for upstream planner.
-            tree.metadata["global_replan_requested"] = {
-                "node_id": target.id,
-                "reason": decision.reason,
-            }
+            self.apply_global_replan(
+                tree=tree,
+                context=context,
+                failed_node_id=target.id,
+                failure_type=decision.failure_type,
+            )
             return tree
 
         if decision.action == "abort":
@@ -536,6 +564,8 @@ class ConstraintAwareReplanner(BaseReplanner):
             failure_context={"node_id": node.id, "reasons": node.repair_history},
             replan_scope="subtree",
         )
+        affected_before = [node.id, *tree.get_downstream_nodes(node.id)]
+        before_version = tree.version
         new_nodes = self.planner.replan_subtree(
             tree=tree,
             failed_node_id=node.id,
@@ -551,12 +581,112 @@ class ConstraintAwareReplanner(BaseReplanner):
                 "root_node_id": node.id,
                 "new_nodes": [n.id for n in new_nodes],
                 "failure_type": failure_type,
+                "action": "subtree_replan",
                 "patch_template": "decomposition",
-                "affected_nodes": [node.id, *tree.get_downstream_nodes(node.id)],
+                "affected_nodes": affected_before,
+                "before_version": before_version,
+                "after_version": tree.version,
             },
         )
-        for nid in [node.id, *tree.get_downstream_nodes(node.id)]:
+        for nid in affected_before:
             context.node_outputs.pop(nid, None)
+
+    def apply_global_replan(
+        self,
+        tree: TaskTree,
+        context: ExecutionContext,
+        failed_node_id: str = "",
+        failure_type: str = "",
+    ) -> None:
+        if self.planner is None:
+            if failed_node_id in tree.nodes:
+                self._apply_patch_subgraph(target=tree.nodes[failed_node_id], tree=tree, context=context)
+            return
+
+        if not failed_node_id or failed_node_id not in tree.nodes:
+            for node_id, node in tree.nodes.items():
+                if node.status == "failed":
+                    failed_node_id = node_id
+                    break
+        if not failed_node_id or failed_node_id not in tree.nodes:
+            return
+
+        before_version = tree.version
+        suffix_ids = {failed_node_id, *tree.get_downstream_nodes(failed_node_id)}
+        topo = tree.topo_sort()
+        prefix_ids: List[str] = []
+        for node_id in topo:
+            if node_id in suffix_ids:
+                break
+            node = tree.nodes.get(node_id)
+            if node is not None and node.status == "success":
+                prefix_ids.append(node_id)
+
+        preserved_nodes = {node_id: deepcopy(tree.nodes[node_id]) for node_id in prefix_ids if node_id in tree.nodes}
+
+        planning_context = PlanningContext(
+            user_query=context.global_context.get("query", ""),
+            available_agents=[],
+            available_tools=[],
+            failure_context={
+                "node_id": failed_node_id,
+                "failure_type": failure_type,
+                "replan_type": "global",
+            },
+            replan_scope="global",
+            task_family=str(tree.metadata.get("task_family", "")),
+        )
+        rebuilt_tree = self.planner.plan(planning_context)
+
+        merged_nodes: Dict[str, TaskNode] = {}
+        for node_id, node in preserved_nodes.items():
+            merged_nodes[node_id] = node
+        for node_id, node in rebuilt_tree.nodes.items():
+            if node_id in merged_nodes:
+                continue
+            cloned = deepcopy(node)
+            cloned.status = "pending"
+            cloned.outputs = {}
+            merged_nodes[node_id] = cloned
+
+        existing_ids = set(merged_nodes.keys())
+        for node in merged_nodes.values():
+            node.dependencies = [dep for dep in node.dependencies if dep in existing_ids]
+
+        new_tree = TaskTree(nodes=merged_nodes)
+        new_tree.metadata = {**tree.metadata, **rebuilt_tree.metadata}
+        new_tree.version = before_version + 1
+        new_tree.ensure_single_final_response()
+        new_tree.validate()
+
+        removed_ids = [node_id for node_id in tree.nodes if node_id not in new_tree.nodes]
+        inserted_ids = [node_id for node_id in new_tree.nodes if node_id not in tree.nodes]
+
+        tree.nodes = new_tree.nodes
+        tree.root_ids = new_tree.root_ids
+        tree.metadata = new_tree.metadata
+        tree.version = new_tree.version
+        tree.validate()
+
+        safe_prefix = set(prefix_ids)
+        for node_id in list(context.node_outputs.keys()):
+            if node_id not in safe_prefix:
+                context.node_outputs.pop(node_id, None)
+
+        tree.record_graph_delta(
+            action="global_replan",
+            payload={
+                "failure_type": failure_type,
+                "failed_node_id": failed_node_id,
+                "action": "global_replan",
+                "affected_nodes": sorted(list(suffix_ids)),
+                "preserved_prefix": prefix_ids,
+                "removed_ids": removed_ids,
+                "inserted_ids": inserted_ids,
+                "before_version": before_version,
+                "after_version": tree.version,
+            },
+        )
 
     def apply_patch_template(
         self,
@@ -576,6 +706,8 @@ class ConstraintAwareReplanner(BaseReplanner):
             "calculation_patch",
             "final_response_patch",
         }:
+            affected_before = [node.id, *tree.get_downstream_nodes(node.id)]
+            before_version = tree.version
             self._apply_patch_subgraph(target=node, tree=tree, context=context)
             tree.record_graph_delta(
                 action="patch_template_applied",
@@ -583,8 +715,11 @@ class ConstraintAwareReplanner(BaseReplanner):
                     "node_id": node.id,
                     "template": template_name,
                     "failure_type": failure_type,
+                    "action": "patch_subgraph",
                     "patch_template": template_name,
-                    "affected_nodes": [node.id, *tree.get_downstream_nodes(node.id)],
+                    "affected_nodes": affected_before,
+                    "before_version": before_version,
+                    "after_version": tree.version,
                 },
             )
             return

@@ -5,7 +5,7 @@ import difflib
 import re
 from typing import Any, Callable, Dict, List, Optional
 
-from svmap.models import ConstraintResult, TaskNode
+from svmap.models import ConstraintResult, TaskNode, TaskTree
 from svmap.models.constraints import ConsistencyConstraint, RequiredFieldsConstraint
 
 from .base import BaseVerifier
@@ -439,6 +439,200 @@ class CrossNodeGraphVerifier(BaseVerifier):
                 )
             ]
         return []
+
+
+class EdgeConsistencyVerifier(BaseVerifier):
+    def supports_scope(self) -> List[str]:
+        return ["edge"]
+
+    def supports_task_types(self) -> List[str]:
+        return ["*"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        return []
+
+    def verify_edge(
+        self,
+        src_node: TaskNode,
+        dst_node: TaskNode,
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        src_output = context.get("src_output")
+        if not isinstance(src_output, dict):
+            src_output = context.get("dependency_outputs", {}).get(src_node.id, {})
+        if not isinstance(src_output, dict):
+            src_output = {}
+
+        dst_output = context.get("dst_output")
+        if not isinstance(dst_output, dict):
+            dst_output = {}
+
+        results: List[ConstraintResult] = []
+        dependency_outputs = context.get("dependency_outputs", {})
+        required_inputs = [f.name for f in dst_node.spec.io.input_fields if f.required]
+        missing_required: List[str] = []
+        for field_name in required_inputs:
+            if field_name in dst_node.inputs and dst_node.inputs.get(field_name) not in (None, "", [], {}):
+                continue
+            in_any_upstream = False
+            for dep_out in dependency_outputs.values():
+                if isinstance(dep_out, dict) and dep_out.get(field_name) not in (None, "", [], {}):
+                    in_any_upstream = True
+                    break
+            if not in_any_upstream:
+                missing_required.append(field_name)
+        if missing_required:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="edge_missing_upstream_fields",
+                    message=f"Downstream node lacks required upstream fields: {missing_required}",
+                    failure_type="consistency_error",
+                    violation_scope="edge",
+                    repair_hint="build_normalization_patch",
+                    evidence={"missing_fields": missing_required, "src_node_id": src_node.id},
+                )
+            )
+
+        for key in ["company", "founder", "ceo", "entity", "subject"]:
+            src_val = _as_text(src_output.get(key))
+            dst_val = _as_text(dst_output.get(key))
+            if src_val and dst_val:
+                src_norm = _normalize_text(src_val)
+                dst_norm = _normalize_text(dst_val)
+                if src_norm == dst_norm:
+                    continue
+                if src_norm in dst_norm or dst_norm in src_norm:
+                    continue
+                if _similarity(src_norm, dst_norm) >= 0.72:
+                    continue
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="edge_entity_inconsistent",
+                        message=f"Entity mismatch on '{key}' between {src_node.id} and {dst_node.id}.",
+                        failure_type="consistency_error",
+                        violation_scope="edge",
+                        repair_hint="build_crosscheck_patch",
+                        evidence={"key": key, "src": src_val, "dst": dst_val},
+                    )
+                )
+                break
+
+        used_nodes = dst_output.get("used_nodes")
+        if isinstance(used_nodes, list) and src_output and dst_node.is_final_response():
+            if src_node.id not in [str(x) for x in used_nodes]:
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="edge_grounding_missing",
+                        message=f"Downstream output does not acknowledge required upstream node {src_node.id}.",
+                        failure_type="grounding_error",
+                        violation_scope="edge",
+                        repair_hint="build_final_response_patch",
+                    )
+                )
+        return results
+
+
+class SubtreeIntentVerifier(BaseVerifier):
+    def supports_scope(self) -> List[str]:
+        return ["subtree"]
+
+    def supports_task_types(self) -> List[str]:
+        return ["*"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        return []
+
+    def verify_subtree(
+        self,
+        tree: TaskTree,
+        root_node_id: str,
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        root = tree.nodes.get(root_node_id)
+        if root is None:
+            return []
+
+        results: List[ConstraintResult] = []
+        subtree_ids = set(tree.get_subtree(root_node_id))
+
+        for node_id in subtree_ids:
+            node = tree.nodes.get(node_id)
+            if node is None or node.spec.intent is None:
+                continue
+            required_upstream = node.spec.intent.required_upstream_intents
+            if not required_upstream:
+                continue
+            dep_goals = []
+            for dep_id in node.dependencies:
+                dep = tree.nodes.get(dep_id)
+                if dep is None or dep.spec.intent is None:
+                    continue
+                dep_goals.append(_normalize_text(dep.spec.intent.goal))
+            for requirement in required_upstream:
+                req = _normalize_text(requirement)
+                if req == "requires_evidence_bearing_upstream":
+                    has_evidence_like = any(
+                        tree.nodes.get(dep_id) is not None
+                        and tree.nodes[dep_id].spec.task_type in {"tool_call", "retrieval", "extraction"}
+                        for dep_id in node.dependencies
+                    )
+                    if not has_evidence_like:
+                        results.append(
+                            ConstraintResult(
+                                passed=False,
+                                code="subtree_intent_missing_evidence_upstream",
+                                message=f"Node {node_id} requires evidence-bearing upstream nodes.",
+                                failure_type="intent_misalignment",
+                                violation_scope="subtree",
+                                repair_hint="replan_subtree",
+                            )
+                        )
+                elif req and not any(req in goal for goal in dep_goals):
+                    results.append(
+                        ConstraintResult(
+                            passed=False,
+                            code="subtree_intent_upstream_goal_missing",
+                            message=f"Node {node_id} misses required upstream intent: {requirement}",
+                            failure_type="intent_misalignment",
+                            violation_scope="subtree",
+                            repair_hint="replan_subtree",
+                        )
+                    )
+
+        task_family = str(tree.metadata.get("task_family", "")).strip().lower()
+        query = _normalize_text(_as_text(context.get("global_context", {}).get("query")))
+        if task_family == "plan" or _is_plan_query(query):
+            day_hits = set()
+            for node in tree.nodes.values():
+                text = f"{node.id} {node.spec.description}".lower()
+                for match in re.findall(r"\bday\s*([1-9]|10)\b", text):
+                    day_hits.add(match)
+            if len(day_hits) < 7:
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="subtree_plan_day_coverage_incomplete",
+                        message=f"Plan subtree day coverage incomplete: found {len(day_hits)} distinct days.",
+                        failure_type="intent_misalignment",
+                        violation_scope="subtree",
+                        repair_hint="replan_subtree",
+                        evidence={"days_found": sorted(day_hits)},
+                    )
+                )
+        return results
 
 
 class RetrievalVerifier(BaseVerifier):

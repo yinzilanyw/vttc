@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from svmap.agents import AgentRegistry
 from svmap.models import (
+    ConstraintResult,
     ExecutionContext,
     ExecutionReport,
     NodeExecutionRecord,
@@ -13,7 +14,7 @@ from svmap.models import (
     TaskNode,
     TaskTree,
 )
-from svmap.verification import VerifierEngine
+from svmap.verification import VerificationResult, VerifierEngine
 
 from .replanner import BaseReplanner
 from .trace import TraceLogger
@@ -57,20 +58,6 @@ class ExecutionRuntime:
             "global_context": context.global_context,
         }
 
-    def finalize_response(self, tree: TaskTree, context: ExecutionContext) -> Dict[str, Any]:
-        sink_ids = tree.get_sink_nodes()
-        if len(sink_ids) != 1:
-            return {}
-        final_node = tree.nodes.get(sink_ids[0])
-        if final_node is None or not final_node.is_final_response():
-            return {}
-        output = context.node_outputs.get(final_node.id)
-        if isinstance(output, dict):
-            return output
-        if isinstance(final_node.outputs, dict):
-            return final_node.outputs
-        return {}
-
     def execute_final_response_node(
         self,
         node: TaskNode,
@@ -78,6 +65,74 @@ class ExecutionRuntime:
         context: ExecutionContext,
     ) -> NodeExecutionRecord:
         return self.execute_node(node=node, tree=tree, context=context)
+
+    def _merge_verification_results(self, scope_results: List[VerificationResult]) -> VerificationResult:
+        details: List[ConstraintResult] = []
+        reasons: List[str] = []
+        repair_hints: List[str] = []
+        violation_scopes: List[str] = []
+        failure_type = ""
+        fatal = False
+        for result in scope_results:
+            details.extend(result.details)
+            reasons.extend(result.reasons)
+            repair_hints.extend(result.repair_hints)
+            violation_scopes.extend(result.violation_scopes)
+            if not failure_type and result.failure_type:
+                failure_type = result.failure_type
+            fatal = fatal or result.fatal
+        passed = all(result.passed for result in scope_results)
+        return VerificationResult(
+            passed=passed,
+            reasons=reasons,
+            details=details,
+            failure_type=failure_type,
+            repair_hints=sorted(set(repair_hints)),
+            violation_scopes=sorted(set(violation_scopes)),
+            fatal=fatal,
+            confidence=1.0 if passed else 0.0,
+        )
+
+    def _run_scoped_verification(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        tree: TaskTree,
+        verify_context: Dict[str, Any],
+    ) -> VerificationResult:
+        scoped: List[VerificationResult] = []
+        node_result = self.verifier_engine.verify_node(node=node, output=output, context=verify_context)
+        scoped.append(node_result)
+        if not node_result.passed:
+            return self._merge_verification_results(scoped)
+
+        for dep_id in node.dependencies:
+            src = tree.nodes.get(dep_id)
+            if src is None:
+                continue
+            edge_result = self.verifier_engine.verify_edge(
+                src_node=src,
+                dst_node=node,
+                dst_output=output,
+                context=verify_context,
+            )
+            scoped.append(edge_result)
+
+        if all(result.passed for result in scoped) and node.is_final_response():
+            scoped.append(
+                self.verifier_engine.verify_subtree(
+                    tree=tree,
+                    root_node_id=node.id,
+                    context=verify_context,
+                )
+            )
+            scoped.append(
+                self.verifier_engine.verify_global(
+                    tree=tree,
+                    context=verify_context,
+                )
+            )
+        return self._merge_verification_results(scoped)
 
     def execute_node(
         self,
@@ -88,7 +143,7 @@ class ExecutionRuntime:
         retries = 0
         attempts = 0
         retry_feedback: List[str] = []
-        verification_results = []
+        verification_results: List[ConstraintResult] = []
         output: Dict[str, Any] = {}
         candidate_agents = node.candidate_agents()
         active_agent = node.assigned_agent or ""
@@ -104,6 +159,8 @@ class ExecutionRuntime:
                 task_type=node.spec.task_type,
                 output_mode=node.spec.output_mode,
                 answer_role=node.spec.answer_role,
+                failure_type="runtime_assignment_error",
+                fatal=True,
             )
 
         record = NodeExecutionRecord(
@@ -133,7 +190,12 @@ class ExecutionRuntime:
             verify_context["task_tree"] = tree
             verify_context["total_attempts"] = int(context.shared_memory.get("total_attempts", 0))
             verify_context["total_replans"] = int(context.shared_memory.get("total_replans", 0))
-            verify_result = self.verifier_engine.verify_node(node, output, verify_context)
+            verify_result = self._run_scoped_verification(
+                node=node,
+                output=output,
+                tree=tree,
+                verify_context=verify_context,
+            )
             verification_results.extend(verify_result.details)
 
             if verify_result.passed:
@@ -155,7 +217,7 @@ class ExecutionRuntime:
 
             retries += 1
             retry_feedback = verify_result.reasons
-            record.failure_type = verify_result.failure_type
+            record.failure_type = verify_result.failure_type or self.infer_failure_type(verify_result.details)
             record.repair_hint = verify_result.repair_hints[0] if verify_result.repair_hints else ""
             record.fatal = verify_result.fatal
             if retries <= node.max_retry and retries >= 2 and node.fallback_agents:
@@ -188,7 +250,8 @@ class ExecutionRuntime:
                 "echo_retrieval",
                 "empty_extraction",
                 "intent_misalignment",
-                "final_answer_not_grounded",
+                "grounding_error",
+                "final_output_not_valid",
             }
         return record
 
@@ -217,7 +280,7 @@ class ExecutionRuntime:
                 "after_version": after_version,
             },
             "saved_downstream_nodes": saved,
-            "failure_type": failure.failure_type,
+            "failure_type": decision.failure_type or failure.failure_type,
             "patch_template": patch_template,
             "affected_nodes": [node.id, *tree.get_downstream_nodes(node.id)],
         }
@@ -275,7 +338,7 @@ class ExecutionRuntime:
             if not failure_type:
                 code = str(getattr(item, "code", ""))
                 if "schema" in code or "type" in code or "required" in code:
-                    failure_type = "schema"
+                    failure_type = "schema_error"
                 elif "intent" in code:
                     failure_type = "intent_misalignment"
                 elif "internal_execution_error" in code or "runtime_error" in code:
@@ -288,10 +351,12 @@ class ExecutionRuntime:
                     failure_type = "echo_retrieval"
                 elif "empty_extraction" in code:
                     failure_type = "empty_extraction"
+                elif "ground" in code:
+                    failure_type = "grounding_error"
                 elif "consistency" in code or "cross_node" in code:
-                    failure_type = "consistency"
+                    failure_type = "consistency_error"
                 elif "evidence" in code or "source" in code or "semantic" in code:
-                    failure_type = "evidence"
+                    failure_type = "evidence_error"
                 else:
                     failure_type = "rule"
             counts[failure_type] = counts.get(failure_type, 0) + 1
@@ -325,48 +390,112 @@ class ExecutionRuntime:
                 count += 1
         return count
 
+    def _avg_saved(self, structural_savings: Dict[str, Any]) -> float:
+        saved = structural_savings.get("saved_downstream_nodes", [])
+        if not isinstance(saved, list):
+            return 0.0
+        return float(sum(saved) / max(len(saved), 1))
+
+    def _build_report(
+        self,
+        *,
+        success: bool,
+        node_records: Dict[str, NodeExecutionRecord],
+        total_retries: int,
+        verification_failures: int,
+        replan_count: int,
+        tree: TaskTree,
+        final_node_id: Optional[str],
+        final_output: Optional[Dict[str, Any]],
+        replan_actions: List[str],
+        structural_savings: Dict[str, Any],
+        budget_exhausted: bool,
+        error: str,
+        stalled_node_ids: List[str],
+        failure_summary: Dict[str, int],
+    ) -> ExecutionReport:
+        return ExecutionReport(
+            success=success,
+            node_records=node_records,
+            total_retries=total_retries,
+            verification_failures=verification_failures,
+            replan_count=replan_count,
+            plan_versions=tree.version,
+            budget_exhausted=budget_exhausted,
+            replan_actions=replan_actions,
+            structural_savings={
+                "avg_saved_downstream_nodes": self._avg_saved(structural_savings),
+                "parallelizable_node_ratio": 0.0,
+                "avg_cost_saved_vs_full_rerun": 0.0,
+            },
+            final_node_id=final_node_id,
+            final_output=final_output,
+            node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
+            task_family=str(tree.metadata.get("task_family", "")),
+            error=error,
+            stalled_node_ids=stalled_node_ids,
+            failure_summary=failure_summary,
+        )
+
     def execute(self, tree: TaskTree, context: ExecutionContext) -> ExecutionReport:
         tree.ensure_single_final_response()
         tree.validate()
         sink_nodes = tree.get_sink_nodes()
         if not sink_nodes:
-            return ExecutionReport(
+            return self._build_report(
                 success=False,
                 node_records={},
                 total_retries=0,
                 verification_failures=0,
+                replan_count=0,
+                tree=tree,
                 final_node_id=None,
                 final_output=None,
-                node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
-                task_family=str(tree.metadata.get("task_family", "")),
-                error="No final response node",
+                replan_actions=[],
+                structural_savings={"saved_downstream_nodes": []},
+                budget_exhausted=False,
+                error="no_final_response_node",
+                stalled_node_ids=[],
+                failure_summary={"no_final_response_node": 1},
             )
         if len(sink_nodes) > 1:
-            return ExecutionReport(
+            return self._build_report(
                 success=False,
                 node_records={},
                 total_retries=0,
                 verification_failures=0,
+                replan_count=0,
+                tree=tree,
                 final_node_id=None,
                 final_output=None,
-                node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
-                task_family=str(tree.metadata.get("task_family", "")),
-                error=f"Multiple sink nodes found: {sink_nodes}",
+                replan_actions=[],
+                structural_savings={"saved_downstream_nodes": []},
+                budget_exhausted=False,
+                error="multiple_sink_nodes",
+                stalled_node_ids=[],
+                failure_summary={"multiple_sink_nodes": 1},
             )
+
         final_node_id = sink_nodes[0]
         final_sink_node = tree.nodes.get(final_node_id)
         if final_sink_node is None or not final_sink_node.is_final_response():
-            return ExecutionReport(
+            return self._build_report(
                 success=False,
                 node_records={},
                 total_retries=0,
                 verification_failures=0,
+                replan_count=0,
+                tree=tree,
                 final_node_id=final_node_id,
                 final_output=None,
-                node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
-                task_family=str(tree.metadata.get("task_family", "")),
-                error=f"Sink node is not final_response: {final_node_id}",
+                replan_actions=[],
+                structural_savings={"saved_downstream_nodes": []},
+                budget_exhausted=False,
+                error="sink_not_final_response",
+                stalled_node_ids=[],
+                failure_summary={"sink_not_final_response": 1},
             )
+
         node_records: Dict[str, NodeExecutionRecord] = {}
         total_retries = 0
         verification_failures = 0
@@ -374,8 +503,9 @@ class ExecutionRuntime:
         replan_actions: List[str] = []
         structural_savings: Dict[str, Any] = {"saved_downstream_nodes": []}
         budget_exhausted = False
-        max_runtime_steps = self.max_runtime_steps
         runtime_steps = 0
+        stalled_node_ids: List[str] = []
+        failure_summary: Dict[str, int] = {}
 
         if self.trace_logger:
             self.trace_logger.log_event(
@@ -383,16 +513,16 @@ class ExecutionRuntime:
                 {"node_count": len(tree.nodes), "version": tree.version},
             )
 
-        while runtime_steps < max_runtime_steps:
+        while runtime_steps < self.max_runtime_steps:
             runtime_steps += 1
             ready_nodes = tree.get_ready_nodes()
             if not ready_nodes:
                 pending_nodes = [n for n in tree.nodes.values() if n.status == "pending"]
                 if pending_nodes:
-                    # Stalled graph: no ready nodes while pending exists.
+                    stalled_node_ids = [n.id for n in pending_nodes]
+                    failure_summary["graph_stalled"] = failure_summary.get("graph_stalled", 0) + 1
                     for node in pending_nodes:
                         node.status = "failed"
-                    break
                 break
 
             batch_records = self.execute_ready_batch(
@@ -416,9 +546,11 @@ class ExecutionRuntime:
                 )
 
                 if record.status != "success":
+                    failure_type = record.failure_type or self.infer_failure_type(record.verification_results)
+                    failure_summary[failure_type] = failure_summary.get(failure_type, 0) + 1
                     failure = NodeFailure(
                         node_id=node.id,
-                        failure_type=record.failure_type or self.infer_failure_type(record.verification_results),
+                        failure_type=failure_type,
                         reasons=record.verify_errors,
                         output_snapshot=record.output,
                         retryable=node.execution_policy.retryable,
@@ -444,144 +576,116 @@ class ExecutionRuntime:
                     record.replan_action = str(replan_meta.get("chosen_action", ""))
 
                     if self.stop_on_failure and not recovered:
-                        return ExecutionReport(
+                        failure_summary["replan_failure"] = failure_summary.get("replan_failure", 0) + 1
+                        return self._build_report(
                             success=False,
                             node_records=node_records,
                             total_retries=total_retries,
                             verification_failures=verification_failures,
                             replan_count=replan_count,
-                            plan_versions=tree.version,
-                            budget_exhausted=budget_exhausted,
-                            replan_actions=replan_actions,
-                            structural_savings={
-                                "avg_saved_downstream_nodes": (
-                                    sum(structural_savings["saved_downstream_nodes"])
-                                    / max(len(structural_savings["saved_downstream_nodes"]), 1)
-                                )
-                            },
+                            tree=tree,
                             final_node_id=final_node_id,
                             final_output=None,
-                            node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
-                            task_family=str(tree.metadata.get("task_family", "")),
+                            replan_actions=replan_actions,
+                            structural_savings=structural_savings,
+                            budget_exhausted=budget_exhausted,
                             error="final_output_not_valid",
+                            stalled_node_ids=stalled_node_ids,
+                            failure_summary=failure_summary,
                         )
 
-            # Continue loop so patched/reassigned nodes can be retried dynamically.
             probe_report = ExecutionReport(
                 success=False,
                 node_records=node_records,
                 total_retries=total_retries,
                 verification_failures=verification_failures,
                 replan_count=replan_count,
-                plan_versions=tree.version,
-                replan_actions=replan_actions,
             )
             if self.should_abort_for_budget(probe_report, self.budget, runtime_steps):
                 budget_exhausted = True
+                failure_summary["budget_exhausted"] = failure_summary.get("budget_exhausted", 0) + 1
                 break
 
         final_node = tree.nodes.get(final_node_id) if final_node_id else None
         final_node_success = final_node is not None and final_node.status == "success"
         if not final_node_success:
-            return ExecutionReport(
+            failure_summary["final_output_not_valid"] = failure_summary.get("final_output_not_valid", 0) + 1
+            return self._build_report(
                 success=False,
                 node_records=node_records,
                 total_retries=total_retries,
                 verification_failures=verification_failures,
                 replan_count=replan_count,
-                plan_versions=tree.version,
-                budget_exhausted=budget_exhausted,
-                replan_actions=replan_actions,
-                structural_savings={
-                    "avg_saved_downstream_nodes": (
-                        sum(structural_savings["saved_downstream_nodes"])
-                        / max(len(structural_savings["saved_downstream_nodes"]), 1)
-                    ),
-                    "parallelizable_node_ratio": 0.0,
-                    "avg_cost_saved_vs_full_rerun": 0.0,
-                },
+                tree=tree,
                 final_node_id=final_node_id,
                 final_output=None,
-                node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
-                task_family=str(tree.metadata.get("task_family", "")),
+                replan_actions=replan_actions,
+                structural_savings=structural_savings,
+                budget_exhausted=budget_exhausted,
                 error="final_output_not_valid",
+                stalled_node_ids=stalled_node_ids,
+                failure_summary=failure_summary,
             )
+
         final_record = node_records.get(final_node_id)
         if final_record is not None and final_record.fatal:
-            return ExecutionReport(
+            failure_summary["final_output_not_valid"] = failure_summary.get("final_output_not_valid", 0) + 1
+            return self._build_report(
                 success=False,
                 node_records=node_records,
                 total_retries=total_retries,
                 verification_failures=verification_failures,
                 replan_count=replan_count,
-                plan_versions=tree.version,
-                budget_exhausted=budget_exhausted,
-                replan_actions=replan_actions,
-                structural_savings={
-                    "avg_saved_downstream_nodes": (
-                        sum(structural_savings["saved_downstream_nodes"])
-                        / max(len(structural_savings["saved_downstream_nodes"]), 1)
-                    ),
-                    "parallelizable_node_ratio": 0.0,
-                    "avg_cost_saved_vs_full_rerun": 0.0,
-                },
+                tree=tree,
                 final_node_id=final_node_id,
                 final_output=None,
-                node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
-                task_family=str(tree.metadata.get("task_family", "")),
+                replan_actions=replan_actions,
+                structural_savings=structural_savings,
+                budget_exhausted=budget_exhausted,
                 error="final_output_not_valid",
+                stalled_node_ids=stalled_node_ids,
+                failure_summary=failure_summary,
             )
+
         final_output = final_node.outputs or context.node_outputs.get(final_node_id) or {}
         if not isinstance(final_output, dict):
             final_output = {"answer": str(final_output)}
         final_answer = final_output.get("answer") or final_output.get("final_response")
         if not isinstance(final_answer, str) or not final_answer.strip():
-            return ExecutionReport(
+            failure_summary["final_output_not_valid"] = failure_summary.get("final_output_not_valid", 0) + 1
+            return self._build_report(
                 success=False,
                 node_records=node_records,
                 total_retries=total_retries,
                 verification_failures=verification_failures,
                 replan_count=replan_count,
-                plan_versions=tree.version,
-                budget_exhausted=budget_exhausted,
-                replan_actions=replan_actions,
-                structural_savings={
-                    "avg_saved_downstream_nodes": (
-                        sum(structural_savings["saved_downstream_nodes"])
-                        / max(len(structural_savings["saved_downstream_nodes"]), 1)
-                    ),
-                    "parallelizable_node_ratio": 0.0,
-                    "avg_cost_saved_vs_full_rerun": 0.0,
-                },
+                tree=tree,
                 final_node_id=final_node_id,
                 final_output=None,
-                node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
-                task_family=str(tree.metadata.get("task_family", "")),
+                replan_actions=replan_actions,
+                structural_savings=structural_savings,
+                budget_exhausted=budget_exhausted,
                 error="final_output_not_valid",
+                stalled_node_ids=stalled_node_ids,
+                failure_summary=failure_summary,
             )
+
         success = all(n.status in {"success", "skipped"} for n in tree.nodes.values()) and all(
             n.status != "failed" for n in tree.nodes.values()
         )
-        return ExecutionReport(
+        return self._build_report(
             success=success,
             node_records=node_records,
             total_retries=total_retries,
             verification_failures=verification_failures,
             replan_count=replan_count,
-            plan_versions=tree.version,
-            budget_exhausted=budget_exhausted,
-            replan_actions=replan_actions,
-            structural_savings={
-                "avg_saved_downstream_nodes": (
-                    sum(structural_savings["saved_downstream_nodes"])
-                    / max(len(structural_savings["saved_downstream_nodes"]), 1)
-                ),
-                "parallelizable_node_ratio": 0.0,
-                "avg_cost_saved_vs_full_rerun": 0.0,
-            },
+            tree=tree,
             final_node_id=final_node_id,
             final_output=final_output,
-            node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
-            task_family=str(tree.metadata.get("task_family", "")),
+            replan_actions=replan_actions,
+            structural_savings=structural_savings,
+            budget_exhausted=budget_exhausted,
             error="",
+            stalled_node_ids=stalled_node_ids,
+            failure_summary=failure_summary,
         )
