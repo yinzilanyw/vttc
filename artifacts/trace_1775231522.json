@@ -1,39 +1,22 @@
 [
   {
     "event_type": "plan_generated",
-    "timestamp": 1775124205.2871635,
+    "timestamp": 1775231518.9145987,
     "payload": {
-      "node_count": 3,
+      "node_count": 2,
       "version": 1
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775124205.2871635,
-    "payload": {
-      "node_id": "company_agent"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775124205.288164,
-    "payload": {
-      "node_id": "company_agent",
-      "status": "success",
-      "attempts": 1,
-      "agent": "retrieve_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775124205.288164,
+    "timestamp": 1775231518.9145987,
     "payload": {
       "node_id": "ceo_agent"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775124205.288164,
+    "timestamp": 1775231521.9446392,
     "payload": {
       "node_id": "ceo_agent",
       "status": "success",
@@ -43,14 +26,14 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775124205.288164,
+    "timestamp": 1775231521.9446392,
     "payload": {
       "node_id": "final_response"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775124205.288164,
+    "timestamp": 1775231522.4077337,
     "payload": {
       "node_id": "final_response",
       "status": "success",

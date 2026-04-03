@@ -20,6 +20,7 @@ class CapabilityBasedAssigner(AssignmentStrategy):
     output_mode_weight: float = 0.8
     final_response_weight: float = 1.2
     task_type_preference_bonus: float = 1.5
+    plan_task_preference_bonus: float = 1.8
 
     def _score(self, spec: AgentSpec) -> float:
         cost = max(spec.cost_weight, 1e-6)
@@ -46,7 +47,7 @@ class CapabilityBasedAssigner(AssignmentStrategy):
         if node_id == "analyze_requirements":
             return ["reason_agent"]
         if node_id == "design_plan_schema":
-            return ["synthesize_agent", "reason_agent"]
+            return ["reason_agent"]
         if node_id.startswith("generate_day"):
             return ["synthesize_agent"]
         if node_id == "verify_coverage":
@@ -70,7 +71,8 @@ class CapabilityBasedAssigner(AssignmentStrategy):
         preferred = self._preferred_agents_for_node(node=node, task_family=task_family)
         if spec.name in preferred and preferred:
             rank = preferred.index(spec.name)
-            pref_bonus = self.task_type_preference_bonus * (1.0 - rank / max(len(preferred), 1))
+            bonus = self.plan_task_preference_bonus if task_family == "plan" else self.task_type_preference_bonus
+            pref_bonus = bonus * (1.0 - rank / max(len(preferred), 1))
         return base + intent_bonus + hist_bonus + task_type_bonus + output_mode_bonus + final_bonus + pref_bonus
 
     def assign(self, tree: TaskTree, registry: AgentRegistry) -> TaskTree:

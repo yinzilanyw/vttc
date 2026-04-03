@@ -35,6 +35,8 @@ class MetricsSummary:
     plan_structure_pass_rate: float = 0.0
     semantic_alignment_rate: float = 0.0
     coverage_verification_pass_rate: float = 0.0
+    topic_drift_rate: float = 0.0
+    plan_quality_pass_rate: float = 0.0
 
 
 class MetricsCollector:
@@ -76,6 +78,11 @@ class MetricsCollector:
         )
         intent_failures = sum(
             1 for rec in report.node_records.values() if rec.failure_type in {"intent_misalignment"}
+        )
+        topic_drift_failures = sum(
+            1
+            for rec in report.node_records.values()
+            if rec.failure_type in {"plan_topic_drift", "final_topic_drift"}
         )
         verify_coverage_nodes = [nid for nid in node_task_types if nid == "verify_coverage"]
         verify_coverage_ok = sum(
@@ -133,6 +140,19 @@ class MetricsCollector:
                 verify_coverage_ok / max(len(verify_coverage_nodes), 1)
                 if verify_coverage_nodes
                 else (1.0 if family != "plan" else 0.0)
+            ),
+            topic_drift_rate=topic_drift_failures / total_nodes,
+            plan_quality_pass_rate=(
+                1.0
+                if (
+                    family != "plan"
+                    or (
+                        plan_structure_fail == 0
+                        and topic_drift_failures == 0
+                        and (verify_coverage_ok == len(verify_coverage_nodes) if verify_coverage_nodes else True)
+                    )
+                )
+                else 0.0
             ),
         )
 

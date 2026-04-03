@@ -78,13 +78,17 @@ class VerifierEngine:
             return "internal_execution_error"
         if "final_answer_missing_structure" in code:
             return "final_answer_missing_structure"
+        if "final_topic_drift" in code:
+            return "final_topic_drift"
         if "final_placeholder_output" in code:
             return "final_placeholder_output"
+        if "plan_topic_drift" in code:
+            return "plan_topic_drift"
         if "plan_coverage" in code:
             return "plan_coverage_incomplete"
         if "requirements" in code:
             return "requirements_analysis_failed"
-        if "schema_day_template" in code or "schema_progression" in code:
+        if "schema_day_template" in code or "schema_progression" in code or "schema_topic" in code:
             return "schema_design_failed"
         if "low_information_output" in code or "placeholder" in code:
             return "low_information_output"
@@ -110,7 +114,9 @@ class VerifierEngine:
         priority = [
             "internal_execution_error",
             "final_answer_missing_structure",
+            "final_topic_drift",
             "final_placeholder_output",
+            "plan_topic_drift",
             "plan_coverage_incomplete",
             "requirements_analysis_failed",
             "schema_design_failed",
@@ -137,8 +143,10 @@ class VerifierEngine:
         fatal_types = {
             "internal_execution_error",
             "final_answer_missing_structure",
+            "final_topic_drift",
             "final_query_echo",
             "intent_misalignment",
+            "plan_topic_drift",
             "echo_retrieval",
             "empty_extraction",
             "grounding_error",

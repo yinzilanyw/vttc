@@ -339,11 +339,15 @@ class ExecutionRuntime:
                 code = str(getattr(item, "code", ""))
                 if "final_placeholder_output" in code:
                     failure_type = "final_placeholder_output"
+                elif "final_topic_drift" in code:
+                    failure_type = "final_topic_drift"
+                elif "plan_topic_drift" in code:
+                    failure_type = "plan_topic_drift"
                 elif "plan_coverage" in code or "coverage_" in code:
                     failure_type = "plan_coverage_incomplete"
                 elif "requirements_" in code:
                     failure_type = "requirements_analysis_failed"
-                elif "schema_day_template" in code or "schema_progression" in code:
+                elif "schema_day_template" in code or "schema_progression" in code or "schema_topic" in code:
                     failure_type = "schema_design_failed"
                 elif "low_information_output" in code or "placeholder" in code:
                     failure_type = "low_information_output"
@@ -567,6 +571,8 @@ class ExecutionRuntime:
                         if failure_type in {
                             "final_placeholder_output",
                             "plan_coverage_incomplete",
+                            "plan_topic_drift",
+                            "final_topic_drift",
                             "requirements_analysis_failed",
                             "schema_design_failed",
                             "low_information_output",

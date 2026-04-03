@@ -312,6 +312,8 @@ class ConstraintParser:
                 parsed.append(CoverageConstraint())
             elif text == "all_days_present":
                 parsed.append(AllDaysPresentConstraint())
+            elif text == "plan_topic_coverage":
+                parsed.append(PlanTopicCoverageConstraint())
             elif text == "no_template_placeholder":
                 parsed.append(NoTemplatePlaceholderConstraint())
             else:
@@ -753,6 +755,85 @@ class AllDaysPresentConstraint(Constraint):
             passed=True,
             code="all_days_present_ok",
             message="All day coverage constraints passed.",
+        )
+
+
+@dataclass
+class PlanTopicCoverageConstraint(Constraint):
+    min_anchor_hits: int = 3
+    constraint_type: str = "plan_topic_coverage"
+
+    def validate(
+        self, node: "TaskNode", output: Dict[str, Any], context: Dict[str, Any]
+    ) -> ConstraintResult:
+        semantic_gaps = output.get("semantic_gaps")
+        if isinstance(semantic_gaps, list) and semantic_gaps:
+            return ConstraintResult(
+                passed=False,
+                code="plan_topic_drift",
+                message=f"Semantic topic gaps detected: {semantic_gaps}",
+                failure_type="plan_topic_drift",
+                repair_hint="replan_subtree",
+                violation_scope="subtree",
+                evidence={"semantic_gaps": semantic_gaps},
+            )
+
+        dependency_outputs = context.get("dependency_outputs", {})
+        day_payloads: List[str] = []
+        for dep_id, dep_output in dependency_outputs.items():
+            if not str(dep_id).startswith("generate_day"):
+                continue
+            if not isinstance(dep_output, dict):
+                continue
+            merged = " ".join(
+                [
+                    str(dep_output.get("goal") or ""),
+                    str(dep_output.get("deliverable") or ""),
+                    str(dep_output.get("metric") or ""),
+                ]
+            ).strip()
+            if merged:
+                day_payloads.append(merged.lower())
+
+        if len(day_payloads) < 7:
+            return ConstraintResult(
+                passed=False,
+                code="plan_topic_coverage_insufficient_days",
+                message="Topic coverage check requires all generated day nodes.",
+                failure_type="plan_topic_drift",
+                repair_hint="replan_subtree",
+                violation_scope="subtree",
+                evidence={"day_count": len(day_payloads)},
+            )
+
+        query_text = str(context.get("global_context", {}).get("query", "")).lower()
+        require_anchor_topics = any(
+            token in query_text
+            for token in ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
+        )
+        anchors = ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
+        anchor_hits = 0
+        for day_text in day_payloads:
+            if any(anchor in day_text for anchor in anchors):
+                anchor_hits += 1
+        if require_anchor_topics and anchor_hits < self.min_anchor_hits:
+            return ConstraintResult(
+                passed=False,
+                code="plan_topic_coverage_anchor_too_low",
+                message=(
+                    f"Only {anchor_hits} day entries align with required anchors, "
+                    f"minimum is {self.min_anchor_hits}."
+                ),
+                failure_type="plan_topic_drift",
+                repair_hint="replan_subtree",
+                violation_scope="subtree",
+                evidence={"anchor_hits": anchor_hits},
+            )
+
+        return ConstraintResult(
+            passed=True,
+            code="plan_topic_coverage_ok",
+            message="Plan topic coverage passed.",
         )
 
 

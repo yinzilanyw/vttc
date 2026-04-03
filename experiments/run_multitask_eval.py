@@ -79,9 +79,35 @@ def summarize_by_task_family(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]
                 "success_rate": success_rate,
                 "avg_retries": avg_retries,
                 "avg_replans": avg_replans,
+                "avg_semantic_alignment": sum(float(x.get("semantic_alignment_rate", 0.0)) for x in family_rows)
+                / max(count, 1),
+                "avg_topic_drift_rate": sum(float(x.get("topic_drift_rate", 0.0)) for x in family_rows)
+                / max(count, 1),
             }
         )
     return summary
+
+
+def summarize_plan_family(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    plan_rows = [row for row in rows if str(row.get("task_family", "")) == "plan"]
+    if not plan_rows:
+        return {
+            "plan_semantic_alignment_rate": 0.0,
+            "plan_topic_coverage_rate": 0.0,
+            "plan_topic_drift_rate": 0.0,
+            "plan_replan_trigger_rate": 0.0,
+        }
+    count = len(plan_rows)
+    semantic_alignment_rate = sum(float(r.get("semantic_alignment_rate", 0.0)) for r in plan_rows) / max(count, 1)
+    topic_drift_rate = sum(float(r.get("topic_drift_rate", 0.0)) for r in plan_rows) / max(count, 1)
+    topic_coverage_rate = sum(float(r.get("coverage_verification_pass_rate", 0.0)) for r in plan_rows) / max(count, 1)
+    replan_trigger_rate = sum(1 for r in plan_rows if int(r.get("replans", 0)) > 0) / max(count, 1)
+    return {
+        "plan_semantic_alignment_rate": semantic_alignment_rate,
+        "plan_topic_coverage_rate": topic_coverage_rate,
+        "plan_topic_drift_rate": topic_drift_rate,
+        "plan_replan_trigger_rate": replan_trigger_rate,
+    }
 
 
 def _build_mode_label(
@@ -139,6 +165,9 @@ def run_multitask_eval(
                     "replans": int(result.get("replan_count", 0)),
                     "verification_failures": int(result.get("verification_failure_count", 0)),
                     "final_answer": str(result.get("answer", "")),
+                    "semantic_alignment_rate": float(result.get("semantic_alignment_rate", 0.0)),
+                    "topic_drift_rate": float(result.get("topic_drift_rate", 0.0)),
+                    "coverage_verification_pass_rate": float(result.get("coverage_verification_pass_rate", 0.0)),
                 }
             )
     else:
@@ -172,10 +201,16 @@ def run_multitask_eval(
                     "replans": int(result.replan_count),
                     "verification_failures": int(result.verification_failures),
                     "final_answer": final_answer,
+                    "semantic_alignment_rate": float(result.metrics.get("semantic_alignment_rate", 0.0)),
+                    "topic_drift_rate": float(result.metrics.get("topic_drift_rate", 0.0)),
+                    "coverage_verification_pass_rate": float(
+                        result.metrics.get("coverage_verification_pass_rate", 0.0)
+                    ),
                 }
             )
 
     summary_rows = summarize_by_task_family(rows)
+    plan_summary = summarize_plan_family(rows)
 
     print("\n=== Multitask Summary ===")
     print("Mode:", mode_label)
@@ -186,6 +221,9 @@ def run_multitask_eval(
             f"| {row['task_family']} | {row['count']} | {row['success_rate']:.2f} | "
             f"{row['avg_retries']:.2f} | {row['avg_replans']:.2f} |"
         )
+    print("\nPlan-specific metrics:")
+    for key, value in plan_summary.items():
+        print(f"- {key}: {value:.2f}")
 
     output = {
         "mode": mode_label,
@@ -198,6 +236,7 @@ def run_multitask_eval(
         },
         "samples": rows,
         "summary": summary_rows,
+        "plan_summary": plan_summary,
     }
     if save:
         os.makedirs("artifacts", exist_ok=True)
@@ -216,6 +255,9 @@ def run_multitask_eval(
                 "replans",
                 "verification_failures",
                 "final_answer",
+                "semantic_alignment_rate",
+                "topic_drift_rate",
+                "coverage_verification_pass_rate",
             ]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()

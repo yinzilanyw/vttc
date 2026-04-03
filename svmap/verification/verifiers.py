@@ -57,6 +57,11 @@ def _extract_query_topics(query: str) -> List[str]:
         "daily",
         "day",
         "days",
+        "building",
+        "design",
+        "goals",
+        "deliverables",
+        "metrics",
         "with",
         "goal",
         "goals",
@@ -79,12 +84,37 @@ def _extract_query_topics(query: str) -> List[str]:
     return topics[:8]
 
 
+def _extract_required_topics_from_query(query: str) -> List[str]:
+    normalized = _normalize_text(query)
+    required: List[str] = []
+    canonical = [
+        "multi-agent",
+        "workflow",
+        "verifiable",
+        "task tree",
+        "task trees",
+        "planning",
+        "verification",
+        "replanning",
+        "constraint",
+    ]
+    for token in canonical:
+        if token in normalized and token not in required:
+            required.append(token)
+    for topic in _extract_query_topics(query):
+        if topic not in required:
+            required.append(topic)
+    return required[:10]
+
+
 def _looks_like_placeholder_plan(text: str) -> bool:
     lowered = _normalize_text(text)
     placeholder_patterns = [
         r"complete step\s*\d+",
         r"artifact\s*\d+",
         r"measure\s*\d+",
+        r"produce a concrete artifact for day",
+        r"acceptance checklist",
     ]
     if any(re.search(p, lowered) for p in placeholder_patterns):
         return True
@@ -104,7 +134,19 @@ def _contains_query_topics(answer: str, query: str) -> bool:
         return True
     lowered_answer = _normalize_text(answer)
     hit_count = sum(1 for topic in topics if topic in lowered_answer)
-    return hit_count >= max(1, min(2, len(topics)))
+    if len(topics) >= 4:
+        return hit_count >= 2
+    return hit_count >= 1
+
+
+def _covers_query_core_topics(answer: str, query: str, required_topics: List[str]) -> bool:
+    answer_norm = _normalize_text(answer)
+    topics = required_topics or _extract_required_topics_from_query(query)
+    if not topics:
+        return True
+    hits = sum(1 for topic in topics if topic in answer_norm)
+    min_hits = 2 if len(topics) >= 4 else 1
+    return hits >= min_hits
 
 
 def _has_progressive_day_structure(answer: str) -> bool:
@@ -119,6 +161,22 @@ def _has_progressive_day_structure(answer: str) -> bool:
         compact = re.sub(r"\b(day|goal|for)\b", "", compact).strip()
         normalized_goals.append(compact)
     return len(set(normalized_goals)) >= max(4, len(normalized_goals) // 2)
+
+
+def _has_meaningful_progression(answer: str) -> bool:
+    if not _has_progressive_day_structure(answer):
+        return False
+    lowered = _as_text(answer).lower()
+    goals = re.findall(r"day\s*(?:[1-9]|10)\s*:\s*goal=([^;\n]+)", lowered)
+    if len(goals) < 7:
+        return False
+    compact: List[str] = []
+    for goal in goals:
+        normalized = re.sub(r"\b[1-9]\b", "", goal)
+        normalized = re.sub(r"\s+", " ", normalized).strip()
+        compact.append(normalized)
+    diversity = len(set(compact)) / max(len(compact), 1)
+    return diversity >= 0.6
 
 
 def _is_grounded_in_all_days(output: Dict[str, Any]) -> bool:
@@ -849,23 +907,28 @@ class RequirementsAnalysisVerifier(BaseVerifier):
     ) -> List[ConstraintResult]:
         if node.id != "analyze_requirements":
             return []
+        results: List[ConstraintResult] = []
         topics = output.get("topics")
         constraints = output.get("constraints")
         required_fields = output.get("required_fields")
         duration_days = output.get("duration_days")
-        if not isinstance(topics, list) or not topics:
-            return [
+        task_form = _as_text(output.get("task_form"))
+        primary_domain = _as_text(output.get("primary_domain"))
+        must_cover_topics = output.get("must_cover_topics")
+
+        if not isinstance(topics, list) or len(topics) < 3:
+            results.append(
                 ConstraintResult(
                     passed=False,
-                    code="requirements_topics_missing",
-                    message="Requirements analysis must extract core topics.",
+                    code="requirements_topics_too_weak",
+                    message="Requirements analysis must extract at least 3 topics.",
                     failure_type="requirements_analysis_failed",
                     repair_hint="replan_subtree",
                     violation_scope="node",
                 )
-            ]
+            )
         if not isinstance(constraints, list) or not constraints:
-            return [
+            results.append(
                 ConstraintResult(
                     passed=False,
                     code="requirements_constraints_missing",
@@ -874,9 +937,9 @@ class RequirementsAnalysisVerifier(BaseVerifier):
                     repair_hint="replan_subtree",
                     violation_scope="node",
                 )
-            ]
+            )
         if not isinstance(required_fields, list) or not {"goal", "deliverable", "metric"}.issubset(set(required_fields)):
-            return [
+            results.append(
                 ConstraintResult(
                     passed=False,
                     code="requirements_required_fields_missing",
@@ -885,9 +948,9 @@ class RequirementsAnalysisVerifier(BaseVerifier):
                     repair_hint="replan_subtree",
                     violation_scope="node",
                 )
-            ]
+            )
         if duration_days != 7:
-            return [
+            results.append(
                 ConstraintResult(
                     passed=False,
                     code="requirements_duration_invalid",
@@ -896,22 +959,65 @@ class RequirementsAnalysisVerifier(BaseVerifier):
                     repair_hint="replan_subtree",
                     violation_scope="node",
                 )
-            ]
-        query = _as_text(context.get("global_context", {}).get("query"))
-        query_topics = _extract_query_topics(query)
-        topic_text = " ".join([_as_text(x).lower() for x in topics])
-        if query_topics and not any(topic in topic_text for topic in query_topics):
-            return [
+            )
+        if "7-day" not in task_form and "7 day" not in task_form:
+            results.append(
                 ConstraintResult(
                     passed=False,
-                    code="requirements_topic_misalignment",
-                    message="Extracted requirements topics are not aligned with query topics.",
+                    code="requirements_task_form_invalid",
+                    message="task_form should explicitly indicate a 7-day learning plan.",
                     failure_type="requirements_analysis_failed",
                     repair_hint="replan_subtree",
                     violation_scope="node",
                 )
+            )
+        if not primary_domain:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_primary_domain_missing",
+                    message="primary_domain is required for requirements analysis.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            )
+        if not isinstance(must_cover_topics, list) or not must_cover_topics:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_must_cover_topics_missing",
+                    message="must_cover_topics must be a non-empty list.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            )
+
+        query = _as_text(context.get("global_context", {}).get("query"))
+        query_topics = _extract_required_topics_from_query(query)
+        joined = " ".join(
+            [
+                primary_domain,
+                _as_text(output.get("secondary_focus")),
+                " ".join([_as_text(x) for x in (topics if isinstance(topics, list) else [])]),
+                " ".join([_as_text(x) for x in (must_cover_topics if isinstance(must_cover_topics, list) else [])]),
             ]
-        return []
+        ).lower()
+        if query_topics:
+            hit_count = sum(1 for topic in query_topics if topic in joined)
+            if hit_count < max(2, len(query_topics) // 2):
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="requirements_topic_misalignment",
+                        message="Requirements analysis is weakly aligned with query core topics.",
+                        failure_type="requirements_analysis_failed",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                )
+        return results
 
 
 class PlanSchemaVerifier(BaseVerifier):
@@ -926,10 +1032,13 @@ class PlanSchemaVerifier(BaseVerifier):
     ) -> List[ConstraintResult]:
         if node.id != "design_plan_schema":
             return []
+        results: List[ConstraintResult] = []
         day_template = output.get("day_template")
         progression = output.get("progression")
+        topic_allocation = output.get("topic_allocation")
+        required_fields = output.get("required_fields")
         if not isinstance(day_template, dict):
-            return [
+            results.append(
                 ConstraintResult(
                     passed=False,
                     code="schema_day_template_missing",
@@ -938,10 +1047,11 @@ class PlanSchemaVerifier(BaseVerifier):
                     repair_hint="build_schema_patch",
                     violation_scope="node",
                 )
-            ]
-        missing_fields = [x for x in ["goal", "deliverable", "metric"] if x not in day_template]
+            )
+        day_template_map = day_template if isinstance(day_template, dict) else {}
+        missing_fields = [x for x in ["goal", "deliverable", "metric"] if x not in day_template_map]
         if missing_fields:
-            return [
+            results.append(
                 ConstraintResult(
                     passed=False,
                     code="schema_day_template_incomplete",
@@ -950,19 +1060,61 @@ class PlanSchemaVerifier(BaseVerifier):
                     repair_hint="build_schema_patch",
                     violation_scope="node",
                 )
-            ]
-        if not isinstance(progression, list) or len(progression) < 3:
-            return [
+            )
+        if not isinstance(progression, list) or len(progression) < 7:
+            results.append(
                 ConstraintResult(
                     passed=False,
                     code="schema_progression_missing",
-                    message="Plan schema must define progression ordering.",
+                    message="Plan schema must define 7-day progression ordering.",
                     failure_type="schema_design_failed",
                     repair_hint="build_schema_patch",
                     violation_scope="node",
                 )
-            ]
-        return []
+            )
+        if not isinstance(topic_allocation, dict) or len(topic_allocation) < 7:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="schema_topic_allocation_missing",
+                    message="Plan schema must define topic_allocation for day1..day7.",
+                    failure_type="schema_design_failed",
+                    repair_hint="build_schema_patch",
+                    violation_scope="node",
+                )
+            )
+        if not isinstance(required_fields, list) or not {"goal", "deliverable", "metric"}.issubset(set(required_fields)):
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="schema_required_fields_missing",
+                    message="Plan schema required_fields must include goal/deliverable/metric.",
+                    failure_type="schema_design_failed",
+                    repair_hint="build_schema_patch",
+                    violation_scope="node",
+                )
+            )
+
+        query = _as_text(context.get("global_context", {}).get("query"))
+        query_topics = _extract_required_topics_from_query(query)
+        joined = " ".join([_as_text(x) for x in (progression if isinstance(progression, list) else [])])
+        if isinstance(topic_allocation, dict):
+            joined += " " + " ".join([_as_text(x) for x in topic_allocation.values()])
+        joined = joined.lower()
+        if query_topics:
+            hit_count = sum(1 for topic in query_topics if topic in joined)
+            if hit_count < max(2, len(query_topics) // 2):
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="schema_topic_misalignment",
+                        message="Plan schema progression is weakly aligned with query topics.",
+                        failure_type="schema_design_failed",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                )
+        return results
 
 
 class PlanCoverageVerifier(BaseVerifier):
@@ -1020,7 +1172,7 @@ class PlanCoverageVerifier(BaseVerifier):
                     passed=False,
                     code="plan_coverage_semantic_gaps",
                     message=f"Coverage reports semantic gaps: {semantic_gaps}",
-                    failure_type="plan_coverage_incomplete",
+                    failure_type="plan_topic_drift",
                     repair_hint="replan_subtree",
                     violation_scope="node",
                 )
@@ -1036,16 +1188,71 @@ class PlanCoverageVerifier(BaseVerifier):
                     violation_scope="node",
                 )
             ]
+        dep_outputs = context.get("dependency_outputs", {})
+        day_entries: List[str] = []
+        for dep_id, dep_output in dep_outputs.items():
+            if not isinstance(dep_output, dict):
+                continue
+            if not dep_id.startswith("generate_day"):
+                continue
+            merged = " ".join(
+                [
+                    _as_text(dep_output.get("goal")),
+                    _as_text(dep_output.get("deliverable")),
+                    _as_text(dep_output.get("metric")),
+                ]
+            ).lower()
+            merged = re.sub(r"\bday\s*[1-9]\b", "day", merged)
+            merged = re.sub(r"\s+", " ", merged).strip()
+            if merged:
+                day_entries.append(merged)
+        if day_entries:
+            diversity = len(set(day_entries)) / max(len(day_entries), 1)
+            if diversity < 0.6:
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="plan_coverage_repetition_detected",
+                        message="Generated day entries are too repetitive and likely template-driven.",
+                        failure_type="low_information_output",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                        evidence={"diversity": diversity},
+                    )
+                ]
         query = _as_text(context.get("global_context", {}).get("query"))
-        topics = _extract_query_topics(query)
-        merged = " ".join([_as_text(x) for x in semantic_gaps]).lower()
-        if topics and "topic_not_aligned" in merged:
+        required_topics = _extract_required_topics_from_query(query)
+        require_anchor_topics = any(
+            token in _normalize_text(query)
+            for token in ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
+        )
+        anchor_terms = ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
+        anchor_days = 0
+        aligned_days = 0
+        for entry in day_entries:
+            if any(x in entry for x in anchor_terms):
+                anchor_days += 1
+            if required_topics and any(x in entry for x in required_topics):
+                aligned_days += 1
+        if required_topics and aligned_days < 7:
             return [
                 ConstraintResult(
                     passed=False,
                     code="plan_coverage_query_misalignment",
-                    message="Coverage identified day entries not aligned with query topics.",
-                    failure_type="plan_coverage_incomplete",
+                    message="Coverage found day entries not aligned with query core topics.",
+                    failure_type="plan_topic_drift",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                    evidence={"aligned_days": aligned_days},
+                )
+            ]
+        if require_anchor_topics and anchor_days < 3:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="plan_coverage_anchor_days_too_low",
+                    message="Plan should reference multi-agent/workflow/verifiable task tree topics in >=3 days.",
+                    failure_type="plan_topic_drift",
                     repair_hint="replan_subtree",
                     violation_scope="node",
                 )
@@ -1267,6 +1474,7 @@ class FinalResponseVerifier(BaseVerifier):
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> List[ConstraintResult]:
+        results: List[ConstraintResult] = []
         answer = _as_text(output.get("answer") or output.get("final_response"))
         if not answer:
             return [
@@ -1274,9 +1482,9 @@ class FinalResponseVerifier(BaseVerifier):
                     passed=False,
                     code="final_answer_missing",
                     message="Final response node must output 'answer'.",
-                    failure_type="intent_misalignment",
+                    failure_type="final_topic_drift",
                     violation_scope="global",
-                    repair_hint="replan_for_missing_final_response",
+                    repair_hint="replan_subtree",
                 )
             ]
 
@@ -1284,104 +1492,105 @@ class FinalResponseVerifier(BaseVerifier):
         if query:
             sim = _similarity(query, answer)
             if sim >= 0.9 and len(answer) <= len(query) + 16:
-                return [
+                results.append(
                     ConstraintResult(
                         passed=False,
                         code="final_answer_query_echo",
                         message="Final answer mostly repeats query and adds no useful content.",
-                        failure_type="final_query_echo",
+                        failure_type="low_information_output",
                         violation_scope="node",
                         repair_hint="replan_subtree",
                         evidence={"similarity": sim},
                     )
-                ]
+                )
 
         if _is_plan_query(query):
             day_count = _detect_day_count(answer)
             if day_count < 7 or not _contains_plan_sections(answer):
-                return [
+                results.append(
                     ConstraintResult(
                         passed=False,
                         code="final_answer_missing_structure",
                         message="Final plan answer must contain 7-day structure with goal/deliverable/metric.",
                         failure_type="final_answer_missing_structure",
                         violation_scope="node",
-                        repair_hint="build_final_response_patch",
+                        repair_hint="replan_subtree",
                         evidence={"day_count": day_count},
                     )
-                ]
+                )
             if _looks_like_placeholder_plan(answer):
-                return [
+                results.append(
                     ConstraintResult(
                         passed=False,
                         code="final_placeholder_output",
                         message="Final plan output appears to be template placeholders.",
-                        failure_type="final_placeholder_output",
+                        failure_type="low_information_output",
                         violation_scope="node",
                         repair_hint="replan_subtree",
                     )
-                ]
-            if not _contains_query_topics(answer, query):
-                return [
+                )
+            required_topics = _extract_required_topics_from_query(query)
+            if not _covers_query_core_topics(answer, query, required_topics):
+                results.append(
                     ConstraintResult(
                         passed=False,
-                        code="final_query_topic_misalignment",
+                        code="final_topic_drift",
                         message="Final plan output does not cover core query topics.",
-                        failure_type="intent_misalignment",
+                        failure_type="final_topic_drift",
                         violation_scope="node",
                         repair_hint="replan_subtree",
                     )
-                ]
-            if not _has_progressive_day_structure(answer):
-                return [
+                )
+            if not _has_meaningful_progression(answer):
+                results.append(
                     ConstraintResult(
                         passed=False,
                         code="final_progression_missing",
                         message="Final plan lacks progressive day-by-day structure.",
-                        failure_type="intent_misalignment",
+                        failure_type="low_information_output",
                         violation_scope="node",
                         repair_hint="replan_subtree",
                     )
-                ]
+                )
             if not _is_grounded_in_all_days(output):
-                return [
+                results.append(
                     ConstraintResult(
                         passed=False,
                         code="final_grounding_missing_all_days",
                         message="Final plan output is not grounded in all generated day nodes.",
-                        failure_type="grounding_error",
+                        failure_type="final_topic_drift",
                         violation_scope="global",
                         repair_hint="replan_subtree",
                     )
-                ]
+                )
 
         dependency_outputs = context.get("dependency_outputs", {})
         if dependency_outputs:
             used_nodes = output.get("used_nodes")
             if not isinstance(used_nodes, list) or not used_nodes:
-                return [
+                results.append(
                     ConstraintResult(
                         passed=False,
                         code="final_answer_not_grounded",
                         message="Final response should reference upstream nodes via used_nodes.",
-                        failure_type="final_answer_not_grounded",
+                        failure_type="final_topic_drift",
                         violation_scope="global",
-                        repair_hint="build_final_response_patch",
+                        repair_hint="replan_subtree",
                     )
-                ]
+                )
             dep_ids = set(dependency_outputs.keys())
             used_ids = set(str(x) for x in used_nodes)
             coverage = len(dep_ids.intersection(used_ids)) / max(len(dep_ids), 1)
             if coverage < 0.5:
-                return [
+                results.append(
                     ConstraintResult(
                         passed=False,
                         code="final_answer_not_grounded",
                         message="Final answer references too few upstream nodes.",
-                        failure_type="final_answer_not_grounded",
+                        failure_type="final_topic_drift",
                         violation_scope="global",
-                        repair_hint="build_final_response_patch",
+                        repair_hint="replan_subtree",
                         evidence={"coverage": coverage},
                     )
-                ]
-        return []
+                )
+        return results

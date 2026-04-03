@@ -17,6 +17,7 @@ from svmap.models import (
     NoTemplatePlaceholderConstraint,
     NonEmptyExtractionConstraint,
     NonTrivialTransformationConstraint,
+    PlanTopicCoverageConstraint,
     TaskNode,
     TaskTree,
 )
@@ -375,6 +376,16 @@ class ConstraintAwarePlanner(BasePlanner):
             return "extract"
         return "qa"
 
+    def infer_plan_focus(self, user_query: str) -> str:
+        text = user_query.lower().strip()
+        planning_signals = ["learning plan", "7-day", "daily goals", "deliverables", "metric"]
+        svmap_signals = ["multi-agent", "workflow", "verifiable task tree", "verifiable task trees"]
+        if any(x in text for x in planning_signals) and any(x in text for x in svmap_signals):
+            return "svmap_learning"
+        if self.infer_task_family(user_query) == "plan":
+            return "general_plan"
+        return ""
+
     def build_multitask_schema(self) -> Dict[str, Any]:
         return _multitask_schema()
 
@@ -471,10 +482,12 @@ class ConstraintAwarePlanner(BasePlanner):
 
     def _build_prompt(self, context: PlanningContext) -> str:
         family = context.task_family or self.infer_task_family(context.user_query)
+        plan_focus = self.infer_plan_focus(context.user_query) if family == "plan" else ""
         return (
             "Generate a task DAG in JSON only.\n"
             f"User query: {context.user_query}\n"
             f"Task family: {family}\n"
+            f"Plan focus: {plan_focus}\n"
             f"Available agents: {context.available_agents}\n"
             f"Global goal: {context.global_goal}\n"
             f"Global constraints: {context.global_constraints}\n\n"
@@ -496,7 +509,7 @@ class ConstraintAwarePlanner(BasePlanner):
                             "day": day,
                             "query": query,
                         },
-                        "dependencies": ["design_plan_schema"],
+                        "dependencies": ["analyze_requirements", "design_plan_schema"],
                         "capability_tag": "synthesize",
                         "candidate_capabilities": ["synthesize", "reason"],
                         "node_type": "aggregation",
@@ -532,12 +545,20 @@ class ConstraintAwarePlanner(BasePlanner):
                         "output_mode": "json",
                         "answer_role": "intermediate",
                         "constraint": [
-                            "required_keys:topics,constraints,required_fields,duration_days",
+                            (
+                                "required_keys:primary_domain,secondary_focus,task_form,topics,"
+                                "must_cover_topics,forbidden_topic_drift,constraints,required_fields,duration_days"
+                            ),
                             "non_empty_values",
                         ],
                         "io": {
                             "output_fields": [
+                                {"name": "primary_domain", "field_type": "string", "required": True},
+                                {"name": "secondary_focus", "field_type": "string", "required": True},
+                                {"name": "task_form", "field_type": "string", "required": True},
                                 {"name": "topics", "field_type": "list[string]", "required": True},
+                                {"name": "must_cover_topics", "field_type": "list[string]", "required": True},
+                                {"name": "forbidden_topic_drift", "field_type": "list[string]", "required": True},
                                 {"name": "constraints", "field_type": "list[string]", "required": True},
                                 {"name": "required_fields", "field_type": "list[string]", "required": True},
                                 {"name": "duration_days", "field_type": "number", "required": True},
@@ -555,13 +576,14 @@ class ConstraintAwarePlanner(BasePlanner):
                         "output_mode": "json",
                         "answer_role": "intermediate",
                         "constraint": [
-                            "required_keys:day_template,progression,required_fields",
+                            "required_keys:day_template,progression,topic_allocation,required_fields",
                             "non_empty_values",
                         ],
                         "io": {
                             "output_fields": [
                                 {"name": "day_template", "field_type": "json", "required": True},
                                 {"name": "progression", "field_type": "list[string]", "required": True},
+                                {"name": "topic_allocation", "field_type": "json", "required": True},
                                 {"name": "required_fields", "field_type": "list[string]", "required": True},
                             ]
                         },
@@ -581,6 +603,7 @@ class ConstraintAwarePlanner(BasePlanner):
                             "required_keys:coverage_ok,missing_days,missing_fields,semantic_gaps,grounded_nodes",
                             "coverage_constraint",
                             "all_days_present",
+                            "plan_topic_coverage",
                             "no_template_placeholder",
                         ],
                         "io": {
@@ -890,9 +913,15 @@ class ConstraintAwarePlanner(BasePlanner):
     def plan(self, context: PlanningContext) -> TaskTree:
         context.task_family = context.task_family or self.infer_task_family(context.user_query)
         if context.task_family == "plan":
+            plan_focus = self.infer_plan_focus(context.user_query)
+            if plan_focus:
+                context.metadata["plan_focus"] = plan_focus
+        if context.task_family == "plan":
             normalized = self.normalize_planner_output(self._default_plan(context))
             tree = TaskTree.from_dict(normalized)
             tree.metadata["task_family"] = context.task_family
+            if context.metadata.get("plan_focus"):
+                tree.metadata["plan_focus"] = context.metadata.get("plan_focus")
             self.ensure_final_node(tree)
             return self.attach_intent_specs(tree=tree, context=context)
 
@@ -900,6 +929,8 @@ class ConstraintAwarePlanner(BasePlanner):
             normalized = self.normalize_planner_output(self._default_plan(context))
             tree = TaskTree.from_dict(normalized)
             tree.metadata["task_family"] = context.task_family
+            if context.metadata.get("plan_focus"):
+                tree.metadata["plan_focus"] = context.metadata.get("plan_focus")
             self.ensure_final_node(tree)
             return self.attach_intent_specs(tree=tree, context=context)
 
@@ -918,6 +949,8 @@ class ConstraintAwarePlanner(BasePlanner):
                 normalized = self.normalize_planner_output(self._default_plan(context))
         tree = TaskTree.from_dict(normalized)
         tree.metadata["task_family"] = context.task_family
+        if context.metadata.get("plan_focus"):
+            tree.metadata["plan_focus"] = context.metadata.get("plan_focus")
         self.ensure_final_node(tree)
         return self.attach_intent_specs(tree=tree, context=context)
 
@@ -987,8 +1020,33 @@ class ConstraintAwarePlanner(BasePlanner):
                     node.spec.constraints.append(CoverageConstraint())
                 if "all_days_present" not in existing_types:
                     node.spec.constraints.append(AllDaysPresentConstraint())
+                if "plan_topic_coverage" not in existing_types:
+                    node.spec.constraints.append(PlanTopicCoverageConstraint())
                 if "no_template_placeholder" not in existing_types:
                     node.spec.constraints.append(NoTemplatePlaceholderConstraint())
+
+            if plan_mode and node.id in {"analyze_requirements", "design_plan_schema"}:
+                if "intent_alignment" not in existing_types:
+                    node.spec.constraints.append(IntentAlignmentConstraint(target_goal=node.spec.description))
+                if node.id == "analyze_requirements" and "non_trivial_transform" not in existing_types:
+                    node.spec.constraints.append(
+                        NonTrivialTransformationConstraint(
+                            input_field="query",
+                            output_field="topics",
+                            similarity_threshold=0.9,
+                        )
+                    )
+                if node.id == "design_plan_schema" and "no_template_placeholder" not in existing_types:
+                    node.spec.constraints.append(NoTemplatePlaceholderConstraint())
+
+            if plan_mode and node.id.startswith("generate_day"):
+                if "intent_alignment" not in existing_types:
+                    node.spec.constraints.append(IntentAlignmentConstraint(target_goal=node.spec.description))
+                if "no_template_placeholder" not in existing_types:
+                    node.spec.constraints.append(NoTemplatePlaceholderConstraint())
+
+            if plan_mode and node.is_final_response() and "no_template_placeholder" not in existing_types:
+                node.spec.constraints.append(NoTemplatePlaceholderConstraint())
 
     def propagate_intents(self, tree: TaskTree) -> None:
         task_family = str(tree.metadata.get("task_family", "")).strip().lower()

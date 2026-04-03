@@ -106,9 +106,19 @@ def _extract_query_topics(query: str) -> List[str]:
         "plan",
         "day",
         "daily",
+        "days",
+        "building",
+        "design",
+        "goals",
+        "deliverables",
+        "metrics",
     }
     topics: List[str] = []
     for token in tokens:
+        if token.isdigit():
+            continue
+        if re.fullmatch(r"\d+-day", token):
+            continue
         if token in stop or len(token) < 3:
             continue
         if token not in topics:
@@ -410,27 +420,45 @@ class SynthesizeAgent(BaseAgent):
         dependency_outputs = inputs.get("dependency_outputs", {})
         query = _safe_str(inputs.get("global_context", {}).get("query"))
         topics = _extract_query_topics(query)
+        core_topics = topics[:3] if topics else ["the target topic"]
 
         day_idx = _parse_day_index(node.id)
         if day_idx is not None:
-            stage_templates = {
-                1: "Understand the core concepts and event loop model",
-                2: "Build basic coroutine and task orchestration patterns",
-                3: "Design structured concurrency and cancellation handling",
-                4: "Integrate async I/O with external services and retries",
-                5: "Add observability, debugging, and latency profiling",
-                6: "Harden reliability with backpressure and failure recovery",
-                7: "Deliver an end-to-end capstone and evaluation report",
-            }
-            topic_text = ", ".join(topics[:3]) if topics else "the requested topic"
-            goal = f"Day {day_idx}: {stage_templates.get(day_idx, 'Advance the implementation')} for {topic_text}."
+            schema_output = dependency_outputs.get("design_plan_schema", {})
+            if not isinstance(schema_output, dict):
+                schema_output = {}
+            requirements_output = dependency_outputs.get("analyze_requirements", {})
+            if not isinstance(requirements_output, dict):
+                requirements_output = {}
+
+            topic_allocation = schema_output.get("topic_allocation", {})
+            if not isinstance(topic_allocation, dict):
+                topic_allocation = {}
+            progression = schema_output.get("progression", [])
+            if not isinstance(progression, list):
+                progression = []
+            must_cover_topics = requirements_output.get("must_cover_topics", [])
+            if not isinstance(must_cover_topics, list):
+                must_cover_topics = []
+
+            day_key = f"day{day_idx}"
+            assigned_topic = _safe_str(topic_allocation.get(day_key))
+            if not assigned_topic and 0 <= day_idx - 1 < len(progression):
+                assigned_topic = _safe_str(progression[day_idx - 1])
+            if not assigned_topic:
+                assigned_topic = "multi-agent workflow and verifiable task trees"
+
+            topic_text = ", ".join(must_cover_topics[:4] or core_topics)
+            goal = (
+                f"Focus on {assigned_topic} while keeping alignment with {topic_text}."
+            )
             deliverable = (
-                f"Produce a concrete artifact for day {day_idx}: code, notes, and test evidence "
-                f"focused on {topic_text}."
+                f"Produce one concrete artifact for {day_key}: implementation notes, "
+                "verification checks, and evidence of integration in the task tree."
             )
             metric = (
-                f"Complete day {day_idx} acceptance checklist with measurable completion criteria "
-                f"(tests pass, checklist >= 90%, and reflection recorded)."
+                f"{day_key} includes explicit goal/deliverable/metric fields, "
+                "references assigned topic, and passes coverage verification."
             )
             output = {
                 "day": day_idx,
@@ -444,17 +472,28 @@ class SynthesizeAgent(BaseAgent):
         if node.is_final_response():
             day_items: List[Dict[str, Any]] = []
             used_nodes: List[str] = []
+            coverage_verification: Dict[str, Any] = {}
             for dep_id, dep_output in dependency_outputs.items():
                 if isinstance(dep_output, dict) and isinstance(dep_output.get("day"), int):
                     day_items.append(dep_output)
                     used_nodes.append(dep_id)
                 if dep_id == "verify_coverage" and isinstance(dep_output, dict):
+                    coverage_verification = dep_output
+                    if dep_id not in used_nodes:
+                        used_nodes.append(dep_id)
                     for nid in dep_output.get("grounded_nodes", []):
                         if isinstance(nid, str) and nid not in used_nodes:
                             used_nodes.append(nid)
             day_items = sorted(day_items, key=lambda x: int(x.get("day", 0)))
             if day_items:
                 lines: List[str] = []
+                seen_nodes = set()
+                dedup_used_nodes: List[str] = []
+                for nid in used_nodes:
+                    if nid in seen_nodes:
+                        continue
+                    seen_nodes.add(nid)
+                    dedup_used_nodes.append(nid)
                 for item in day_items:
                     lines.append(
                         f"Day {item.get('day')}: goal={_safe_str(item.get('goal'))}; "
@@ -466,7 +505,8 @@ class SynthesizeAgent(BaseAgent):
                     "answer": answer,
                     "final_response": answer,
                     "source": "synthesize_agent",
-                    "used_nodes": used_nodes or list(dependency_outputs.keys()),
+                    "used_nodes": dedup_used_nodes or list(dependency_outputs.keys()),
+                    "coverage_verification": coverage_verification,
                 }
                 return _ensure_required_fields(node=node, output=output)
 
@@ -513,6 +553,25 @@ class ReasonAgent(BaseAgent):
         dependency_outputs = inputs.get("dependency_outputs", {})
 
         if node.id == "analyze_requirements":
+            query_lower = query.lower()
+            svmap_focus = any(
+                token in query_lower
+                for token in ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
+            )
+            must_cover_topics = []
+            if svmap_focus:
+                must_cover_topics.extend(
+                    [
+                        "multi-agent workflow",
+                        "verifiable task trees",
+                        "planning",
+                        "verification",
+                        "replanning",
+                    ]
+                )
+            for topic in topics:
+                if topic not in must_cover_topics:
+                    must_cover_topics.append(topic)
             constraints = []
             if "7-day" in query.lower() or "7 day" in query.lower():
                 constraints.append("duration_days=7")
@@ -522,8 +581,18 @@ class ReasonAgent(BaseAgent):
                 constraints.append("include_deliverable_field")
             if "metric" in query.lower():
                 constraints.append("include_metric_field")
+            primary_domain = "multi-agent systems" if svmap_focus else (topics[0] if topics else "general planning")
+            secondary_focus = "verifiable task trees" if svmap_focus else "query-specific structure"
             output = {
+                "primary_domain": primary_domain,
+                "secondary_focus": secondary_focus,
+                "task_form": "7-day learning plan",
                 "topics": topics or ["general"],
+                "must_cover_topics": must_cover_topics,
+                "forbidden_topic_drift": [
+                    "pure async/event-loop curriculum without task-tree verification",
+                    "generic runtime-only optimization track",
+                ],
                 "constraints": constraints or ["respond_to_user_query"],
                 "required_fields": ["goal", "deliverable", "metric"],
                 "duration_days": 7,
@@ -540,15 +609,59 @@ class ReasonAgent(BaseAgent):
             required_fields = req.get("required_fields") if isinstance(req, dict) else None
             if not isinstance(required_fields, list) or not required_fields:
                 required_fields = ["goal", "deliverable", "metric"]
-            progression = [
-                "foundation",
-                "core patterns",
-                "composition",
-                "integration",
-                "observability",
-                "hardening",
-                "capstone",
-            ]
+            svmap_focus = False
+            if isinstance(req, dict):
+                joined_req = " ".join(
+                    [
+                        _safe_str(req.get("primary_domain")),
+                        _safe_str(req.get("secondary_focus")),
+                        " ".join([_safe_str(x) for x in req.get("must_cover_topics", []) if isinstance(req.get("must_cover_topics"), list)]),
+                    ]
+                ).lower()
+                svmap_focus = any(
+                    token in joined_req for token in ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
+                )
+            if svmap_focus:
+                progression = [
+                    "multi-agent basics",
+                    "workflow orchestration",
+                    "explicit task trees",
+                    "node and edge verification",
+                    "intent and constraints",
+                    "replanning and graph transformation",
+                    "end-to-end capstone",
+                ]
+                topic_allocation = {
+                    "day1": "multi-agent basics and decomposition",
+                    "day2": "workflow orchestration with typed node interfaces",
+                    "day3": "explicit task-tree representation and dependency control",
+                    "day4": "node/edge/subtree/global verification flow",
+                    "day5": "intent alignment and constraint-aware validation",
+                    "day6": "failure taxonomy and subtree/global replanning",
+                    "day7": "end-to-end case study with ablation metrics",
+                }
+            else:
+                progression = [
+                    "scope and requirements",
+                    "core concepts",
+                    "implementation baseline",
+                    "verification and tests",
+                    "iteration and optimization",
+                    "integration and hardening",
+                    "capstone delivery",
+                ]
+                topic_seed = req.get("must_cover_topics", []) if isinstance(req, dict) else []
+                if not isinstance(topic_seed, list) or not topic_seed:
+                    topic_seed = topics or ["target domain"]
+                topic_allocation = {
+                    "day1": f"requirements and scope for {topic_seed[0]}",
+                    "day2": f"core concept drill-down for {topic_seed[min(1, len(topic_seed)-1)]}",
+                    "day3": f"build baseline around {topic_seed[min(2, len(topic_seed)-1)]}",
+                    "day4": f"verification and testing for {topic_seed[min(0, len(topic_seed)-1)]}",
+                    "day5": f"optimization and iteration for {topic_seed[min(1, len(topic_seed)-1)]}",
+                    "day6": f"integration and hardening for {topic_seed[min(2, len(topic_seed)-1)]}",
+                    "day7": "capstone with measurable outcomes",
+                }
             output = {
                 "day_template": {
                     "goal": "A day-specific learning objective tied to query topics.",
@@ -556,6 +669,7 @@ class ReasonAgent(BaseAgent):
                     "metric": "Measurable completion criteria.",
                 },
                 "progression": progression,
+                "topic_allocation": topic_allocation,
                 "required_fields": required_fields,
                 "source": "reason_agent",
             }
@@ -600,6 +714,9 @@ class VerifyAgent(BaseAgent):
             missing_days = [d for d in range(1, 8) if d not in day_objects]
             missing_fields: List[str] = []
             semantic_gaps: List[str] = []
+            anchor_terms = ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
+            require_anchor_topics = any(token in query.lower() for token in anchor_terms)
+            anchor_days = 0
             for day, item in day_objects.items():
                 for field in ["goal", "deliverable", "metric"]:
                     value = _safe_str(item.get(field))
@@ -612,6 +729,27 @@ class VerifyAgent(BaseAgent):
                     semantic_gaps.append(f"day{day}:placeholder_pattern")
                 if topics and not any(topic in merged for topic in topics):
                     semantic_gaps.append(f"day{day}:topic_not_aligned")
+                if any(anchor in merged for anchor in anchor_terms):
+                    anchor_days += 1
+                if "async" in merged or "event loop" in merged or "concurrency" in merged:
+                    if "async" not in query.lower() and "concurrency" not in query.lower():
+                        semantic_gaps.append(f"day{day}:topic_drift_to_runtime")
+
+            normalized_templates: List[str] = []
+            for day in sorted(day_objects):
+                item = day_objects[day]
+                merged = " ".join(
+                    [_safe_str(item.get("goal")), _safe_str(item.get("deliverable")), _safe_str(item.get("metric"))]
+                ).lower()
+                merged = re.sub(r"\bday\s*[1-9]\b", "day", merged)
+                merged = re.sub(r"\s+", " ", merged).strip()
+                normalized_templates.append(merged)
+            if normalized_templates:
+                diversity = len(set(normalized_templates)) / max(len(normalized_templates), 1)
+                if diversity < 0.6:
+                    semantic_gaps.append("plan_repetition_template_detected")
+            if require_anchor_topics and anchor_days < 3:
+                semantic_gaps.append("plan_anchor_coverage_below_threshold")
 
             coverage_ok = len(missing_days) == 0 and len(missing_fields) == 0 and len(semantic_gaps) == 0
             output = {
