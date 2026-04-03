@@ -38,6 +38,7 @@ class ReplanDecision:
     target_node_id: str
     patch: Optional[Dict[str, Any]] = None
     reason: str = ""
+    failure_type: str = ""
 
 
 @dataclass
@@ -138,15 +139,20 @@ class ConstraintAwareReplanner(BaseReplanner):
         return build_normalization_patch(node_id)
 
     def should_escalate_to_subtree(self, failure: NodeFailure, retry_count: int) -> bool:
-        return retry_count >= 2 or failure.failure_type == "intent_misalignment"
+        failure_type = failure.failure_type.strip().lower()
+        if failure_type in {"intent_misalignment", "internal_execution_error"}:
+            return True
+        return retry_count >= 2
 
     def patch_for_failure_type(self, node: TaskNode, failure_type: str) -> Optional[Dict[str, Any]]:
-        if failure_type == "evidence":
+        if failure_type in {"evidence", "echo_retrieval"}:
             return self.build_evidence_patch(node.id)
-        if failure_type == "consistency":
+        if failure_type in {"consistency"}:
             return self.build_crosscheck_patch(node.id)
-        if failure_type == "schema":
+        if failure_type in {"schema", "empty_extraction"}:
             return self.build_normalization_patch(node.id)
+        if failure_type in {"final_answer_missing_structure", "final_answer_not_grounded", "final_query_echo"}:
+            return build_final_response_patch(node.id)
         return None
 
     def enumerate_candidates(
@@ -259,7 +265,31 @@ class ConstraintAwareReplanner(BaseReplanner):
         reasons_text = " ".join(failure.reasons).lower()
         failure_type = failure.failure_type.strip().lower()
         replan_attempts = int(node.metadata.get("replan_attempts", 0))
+        patch_attempts = int(node.metadata.get("patch_attempts", 0))
         has_evidence_dep = any(dep.startswith("ev_") for dep in node.dependencies)
+
+        if node.spec.task_type in {"final_response", "aggregation", "summarization", "comparison"} and failure_type in {
+            "semantic",
+            "final_answer_missing_structure",
+            "final_query_echo",
+            "intent_misalignment",
+        }:
+            return ReplanDecision(
+                action="replan_subtree",
+                target_node_id=node.id,
+                patch=build_decomposition_patch(node.id),
+                reason=f"aggregation_semantic_failure:{failure.failure_type}",
+                failure_type=failure.failure_type,
+            )
+
+        if patch_attempts >= 1 and failure.retryable:
+            return ReplanDecision(
+                action="replan_subtree",
+                target_node_id=node.id,
+                patch=build_decomposition_patch(node.id),
+                reason=f"patch_failed_escalate:{failure.failure_type}",
+                failure_type=failure.failure_type,
+            )
 
         if self.should_escalate_to_subtree(failure=failure, retry_count=replan_attempts):
             return ReplanDecision(
@@ -267,15 +297,34 @@ class ConstraintAwareReplanner(BaseReplanner):
                 target_node_id=node.id,
                 patch=build_decomposition_patch(node.id),
                 reason=f"escalate_to_subtree:{failure.failure_type}",
+                failure_type=failure.failure_type,
+            )
+
+        if failure_type == "internal_execution_error":
+            return ReplanDecision(
+                action="replan_subtree",
+                target_node_id=node.id,
+                patch=build_decomposition_patch(node.id),
+                reason="internal_execution_error_requires_subtree_replan",
+                failure_type=failure.failure_type,
             )
 
         patch = self.patch_for_failure_type(node=node, failure_type=failure_type)
         if failure.retryable and patch is not None:
+            if failure_type == "final_answer_missing_structure" and replan_attempts >= 1:
+                return ReplanDecision(
+                    action="replan_subtree",
+                    target_node_id=node.id,
+                    patch=build_decomposition_patch(node.id),
+                    reason="final_structure_patch_failed_once",
+                    failure_type=failure.failure_type,
+                )
             return ReplanDecision(
                 action="patch_subgraph",
                 target_node_id=node.id,
                 patch=patch,
                 reason=f"patch_by_failure_type:{failure.failure_type}",
+                failure_type=failure.failure_type,
             )
 
         candidates = self.enumerate_candidates(node=node, failure=failure, tree=tree, context=context)
@@ -300,6 +349,7 @@ class ConstraintAwareReplanner(BaseReplanner):
                 target_node_id=node.id,
                 patch=build_evidence_patch(node.id),
                 reason="factuality-related failure",
+                failure_type=failure.failure_type,
             )
 
         if failure.retryable and ("final_answer_missing" in reasons_text or "final_answer_not_grounded" in reasons_text):
@@ -308,6 +358,7 @@ class ConstraintAwareReplanner(BaseReplanner):
                 target_node_id=node.id,
                 patch=build_final_response_patch(node.id),
                 reason="missing or ungrounded final response",
+                failure_type=failure.failure_type,
             )
 
         if failure.retryable and ("comparison_items_missing" in reasons_text or "comparison_text_missing" in reasons_text):
@@ -316,6 +367,7 @@ class ConstraintAwareReplanner(BaseReplanner):
                 target_node_id=node.id,
                 patch=build_compare_patch(node.id),
                 reason="comparison quality issue",
+                failure_type=failure.failure_type,
             )
 
         if failure.retryable and ("summary_too_short" in reasons_text or "summary_missing" in reasons_text):
@@ -324,6 +376,7 @@ class ConstraintAwareReplanner(BaseReplanner):
                 target_node_id=node.id,
                 patch=build_summary_patch(node.id),
                 reason="summary coverage issue",
+                failure_type=failure.failure_type,
             )
 
         if failure.retryable and ("calculation_result_not_numeric" in reasons_text or "calculation_trace_missing" in reasons_text):
@@ -332,6 +385,7 @@ class ConstraintAwareReplanner(BaseReplanner):
                 target_node_id=node.id,
                 patch=build_calculation_patch(node.id),
                 reason="calculation validation issue",
+                failure_type=failure.failure_type,
             )
 
         if (
@@ -344,6 +398,7 @@ class ConstraintAwareReplanner(BaseReplanner):
                 action="switch_agent",
                 target_node_id=node.id,
                 reason="retryable non-semantic failure with available fallback agents",
+                failure_type=failure.failure_type,
             )
 
         if failure.retryable and replan_attempts < 3:
@@ -355,14 +410,21 @@ class ConstraintAwareReplanner(BaseReplanner):
                         target_node_id=node.id,
                         patch=top.payload or None,
                         reason=top.reason,
+                        failure_type=failure.failure_type,
                     )
             return ReplanDecision(
                 action="retry_same",
                 target_node_id=node.id,
                 reason="default retry",
+                failure_type=failure.failure_type,
             )
 
-        return ReplanDecision(action="abort", target_node_id=node.id, reason="not retryable")
+        return ReplanDecision(
+            action="abort",
+            target_node_id=node.id,
+            reason="not retryable",
+            failure_type=failure.failure_type,
+        )
 
     def apply(
         self,
@@ -393,16 +455,23 @@ class ConstraintAwareReplanner(BaseReplanner):
             template_name = ""
             if decision.patch:
                 template_name = str(decision.patch.get("template", ""))
+            target.metadata["patch_attempts"] = int(target.metadata.get("patch_attempts", 0)) + 1
             self.apply_patch_template(
                 template_name=template_name or "evidence_retrieval",
                 node=target,
                 tree=tree,
                 context=context,
+                failure_type=decision.failure_type,
             )
             return tree
 
         if decision.action == "replan_subtree":
-            self.apply_subtree_replan(node=target, tree=tree, context=context)
+            self.apply_subtree_replan(
+                node=target,
+                tree=tree,
+                context=context,
+                failure_type=decision.failure_type,
+            )
             return tree
 
         if decision.action == "replan_global":
@@ -454,6 +523,7 @@ class ConstraintAwareReplanner(BaseReplanner):
         node: TaskNode,
         tree: TaskTree,
         context: ExecutionContext,
+        failure_type: str = "",
     ) -> None:
         if self.planner is None:
             self._apply_patch_subgraph(target=node, tree=tree, context=context)
@@ -477,7 +547,13 @@ class ConstraintAwareReplanner(BaseReplanner):
         tree.replace_subtree(root_node_id=node.id, new_nodes=new_nodes)
         tree.record_graph_delta(
             action="subtree_replaced",
-            payload={"root_node_id": node.id, "new_nodes": [n.id for n in new_nodes]},
+            payload={
+                "root_node_id": node.id,
+                "new_nodes": [n.id for n in new_nodes],
+                "failure_type": failure_type,
+                "patch_template": "decomposition",
+                "affected_nodes": [node.id, *tree.get_downstream_nodes(node.id)],
+            },
         )
         for nid in [node.id, *tree.get_downstream_nodes(node.id)]:
             context.node_outputs.pop(nid, None)
@@ -488,6 +564,7 @@ class ConstraintAwareReplanner(BaseReplanner):
         node: TaskNode,
         tree: TaskTree,
         context: ExecutionContext,
+        failure_type: str = "",
     ) -> None:
         if template_name in {
             "evidence_retrieval",
@@ -502,11 +579,22 @@ class ConstraintAwareReplanner(BaseReplanner):
             self._apply_patch_subgraph(target=node, tree=tree, context=context)
             tree.record_graph_delta(
                 action="patch_template_applied",
-                payload={"node_id": node.id, "template": template_name},
+                payload={
+                    "node_id": node.id,
+                    "template": template_name,
+                    "failure_type": failure_type,
+                    "patch_template": template_name,
+                    "affected_nodes": [node.id, *tree.get_downstream_nodes(node.id)],
+                },
             )
             return
         if template_name == "decomposition":
-            self.apply_subtree_replan(node=node, tree=tree, context=context)
+            self.apply_subtree_replan(
+                node=node,
+                tree=tree,
+                context=context,
+                failure_type=failure_type,
+            )
             return
         self._apply_patch_subgraph(target=node, tree=tree, context=context)
 

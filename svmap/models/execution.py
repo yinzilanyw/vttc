@@ -49,6 +49,9 @@ class NodeExecutionRecord:
     task_type: str = "reasoning"
     output_mode: str = "text"
     answer_role: str = "intermediate"
+    failure_type: str = ""
+    repair_hint: str = ""
+    fatal: bool = False
 
 
 @dataclass

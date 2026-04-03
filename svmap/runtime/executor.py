@@ -89,6 +89,7 @@ class ExecutionRuntime:
         attempts = 0
         retry_feedback: List[str] = []
         verification_results = []
+        output: Dict[str, Any] = {}
         candidate_agents = node.candidate_agents()
         active_agent = node.assigned_agent or ""
         if not active_agent:
@@ -147,10 +148,16 @@ class ExecutionRuntime:
                 record.end_ts = time.time()
                 record.intent_status = node.intent_status
                 record.graph_version = tree.version
+                record.failure_type = ""
+                record.repair_hint = ""
+                record.fatal = False
                 return record
 
             retries += 1
             retry_feedback = verify_result.reasons
+            record.failure_type = verify_result.failure_type
+            record.repair_hint = verify_result.repair_hints[0] if verify_result.repair_hints else ""
+            record.fatal = verify_result.fatal
             if retries <= node.max_retry and retries >= 2 and node.fallback_agents:
                 idx = min(retries - 2, len(node.fallback_agents) - 1)
                 active_agent = node.fallback_agents[idx]
@@ -168,6 +175,21 @@ class ExecutionRuntime:
         record.task_type = node.spec.task_type
         record.output_mode = node.spec.output_mode
         record.answer_role = node.spec.answer_role
+        if not record.failure_type:
+            record.failure_type = self.infer_failure_type(record.verification_results)
+        if not record.repair_hint:
+            repair_hints = [x.repair_hint for x in record.verification_results if x.repair_hint]
+            record.repair_hint = repair_hints[0] if repair_hints else ""
+        if not record.fatal:
+            record.fatal = record.failure_type in {
+                "internal_execution_error",
+                "final_answer_missing_structure",
+                "final_query_echo",
+                "echo_retrieval",
+                "empty_extraction",
+                "intent_misalignment",
+                "final_answer_not_grounded",
+            }
         return record
 
     def handle_failure(
@@ -185,6 +207,9 @@ class ExecutionRuntime:
         before_version = tree.version
         self.replanner.apply(decision=decision, tree=tree, context=context)
         after_version = tree.version
+        patch_template = ""
+        if decision.patch and isinstance(decision.patch, dict):
+            patch_template = str(decision.patch.get("template", ""))
         meta = {
             "chosen_action": decision.action,
             "graph_delta": {
@@ -192,6 +217,9 @@ class ExecutionRuntime:
                 "after_version": after_version,
             },
             "saved_downstream_nodes": saved,
+            "failure_type": failure.failure_type,
+            "patch_template": patch_template,
+            "affected_nodes": [node.id, *tree.get_downstream_nodes(node.id)],
         }
         if self.trace_logger:
             self.trace_logger.log_event(
@@ -250,6 +278,16 @@ class ExecutionRuntime:
                     failure_type = "schema"
                 elif "intent" in code:
                     failure_type = "intent_misalignment"
+                elif "internal_execution_error" in code or "runtime_error" in code:
+                    failure_type = "internal_execution_error"
+                elif "final_answer_missing_structure" in code:
+                    failure_type = "final_answer_missing_structure"
+                elif "final_answer_query_echo" in code:
+                    failure_type = "final_query_echo"
+                elif "echo_retrieval" in code:
+                    failure_type = "echo_retrieval"
+                elif "empty_extraction" in code:
+                    failure_type = "empty_extraction"
                 elif "consistency" in code or "cross_node" in code:
                     failure_type = "consistency"
                 elif "evidence" in code or "source" in code or "semantic" in code:
@@ -380,7 +418,7 @@ class ExecutionRuntime:
                 if record.status != "success":
                     failure = NodeFailure(
                         node_id=node.id,
-                        failure_type=self.infer_failure_type(record.verification_results),
+                        failure_type=record.failure_type or self.infer_failure_type(record.verification_results),
                         reasons=record.verify_errors,
                         output_snapshot=record.output,
                         retryable=node.execution_policy.retryable,
@@ -425,7 +463,7 @@ class ExecutionRuntime:
                             final_output=None,
                             node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
                             task_family=str(tree.metadata.get("task_family", "")),
-                            error="Node execution failed before final node succeeded",
+                            error="final_output_not_valid",
                         )
 
             # Continue loop so patched/reassigned nodes can be retried dynamically.
@@ -466,11 +504,61 @@ class ExecutionRuntime:
                 final_output=None,
                 node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
                 task_family=str(tree.metadata.get("task_family", "")),
-                error="Final node not successful",
+                error="final_output_not_valid",
+            )
+        final_record = node_records.get(final_node_id)
+        if final_record is not None and final_record.fatal:
+            return ExecutionReport(
+                success=False,
+                node_records=node_records,
+                total_retries=total_retries,
+                verification_failures=verification_failures,
+                replan_count=replan_count,
+                plan_versions=tree.version,
+                budget_exhausted=budget_exhausted,
+                replan_actions=replan_actions,
+                structural_savings={
+                    "avg_saved_downstream_nodes": (
+                        sum(structural_savings["saved_downstream_nodes"])
+                        / max(len(structural_savings["saved_downstream_nodes"]), 1)
+                    ),
+                    "parallelizable_node_ratio": 0.0,
+                    "avg_cost_saved_vs_full_rerun": 0.0,
+                },
+                final_node_id=final_node_id,
+                final_output=None,
+                node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
+                task_family=str(tree.metadata.get("task_family", "")),
+                error="final_output_not_valid",
             )
         final_output = final_node.outputs or context.node_outputs.get(final_node_id) or {}
         if not isinstance(final_output, dict):
             final_output = {"answer": str(final_output)}
+        final_answer = final_output.get("answer") or final_output.get("final_response")
+        if not isinstance(final_answer, str) or not final_answer.strip():
+            return ExecutionReport(
+                success=False,
+                node_records=node_records,
+                total_retries=total_retries,
+                verification_failures=verification_failures,
+                replan_count=replan_count,
+                plan_versions=tree.version,
+                budget_exhausted=budget_exhausted,
+                replan_actions=replan_actions,
+                structural_savings={
+                    "avg_saved_downstream_nodes": (
+                        sum(structural_savings["saved_downstream_nodes"])
+                        / max(len(structural_savings["saved_downstream_nodes"]), 1)
+                    ),
+                    "parallelizable_node_ratio": 0.0,
+                    "avg_cost_saved_vs_full_rerun": 0.0,
+                },
+                final_node_id=final_node_id,
+                final_output=None,
+                node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
+                task_family=str(tree.metadata.get("task_family", "")),
+                error="final_output_not_valid",
+            )
         success = all(n.status in {"success", "skipped"} for n in tree.nodes.values()) and all(
             n.status != "failed" for n in tree.nodes.values()
         )

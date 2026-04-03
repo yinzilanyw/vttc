@@ -259,7 +259,7 @@ class SummarizeAgent(BaseAgent):
         summary = summary.strip() or "No upstream content available."
 
         output = {
-            "summary": summary[:400],
+            "summary": summary[:2000],
             "coverage_keys": list(dependency_outputs.keys()),
             "source": "summarizer",
         }

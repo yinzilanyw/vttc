@@ -14,6 +14,7 @@ def build_demo_queries() -> Dict[str, str]:
         "compare": "Compare SpaceX and OpenAI in one concise answer.",
         "calculate": "Calculate 25 * 4 + 6.",
         "extract": "Extract founder and company from: 'Elon Musk founded SpaceX'.",
+        "plan": "Design a 7-day learning plan for building a verifiable multi-agent system.",
     }
 
 
@@ -48,6 +49,12 @@ def print_demo_result(result: RunResult) -> None:
         print(" output:", rec.output)
         if rec.verify_errors:
             print(" verify_errors:", rec.verify_errors)
+        if rec.failure_type:
+            print(" failure_type:", rec.failure_type)
+        if rec.repair_hint:
+            print(" repair_hint:", rec.repair_hint)
+        if rec.fatal:
+            print(" fatal:", rec.fatal)
         print()
 
     print("Metrics:")
@@ -59,6 +66,9 @@ def print_demo_result(result: RunResult) -> None:
     print(f" avg_attempts_per_node={metrics['avg_attempts_per_node']:.2f}")
     print(f" final_response_success_rate={metrics['final_response_success_rate']:.2f}")
     print(f" multitask_generalization_score={metrics['multitask_generalization_score']:.2f}")
+    failures = [rec.failure_type for rec in report.node_records.values() if rec.failure_type]
+    if failures:
+        print(" failure_type_breakdown:", failures)
 
 
 def run_demo(query: Optional[str] = None, task_family: Optional[str] = None) -> None:
@@ -115,4 +125,3 @@ def run_demo_collect(
         enable_intent_verifier=enable_intent_verifier,
         export_trace=export_trace,
     )
-

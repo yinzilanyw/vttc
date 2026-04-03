@@ -1,0 +1,197 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775202940.8035703,
+    "payload": {
+      "node_count": 11,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202940.8035703,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202941.9872713,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202941.9872713,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202943.1991627,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202943.1991627,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202943.7510464,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202943.7510464,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202944.5302894,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202944.5302894,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202945.2011552,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202945.2011552,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202945.9549181,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202945.9549181,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202946.5919442,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202946.5919442,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202947.6712804,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202947.6712804,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202948.6838493,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202948.6838493,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202949.934185,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202949.934185,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202951.5393374,
+    "payload": {
+      "node_id": "final_response",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  }
+]

@@ -64,7 +64,7 @@ def summarize_by_task_family(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]
         family_map[str(row.get("task_family", "unknown"))].append(row)
 
     summary: List[Dict[str, Any]] = []
-    for family in ["qa", "summary", "compare", "calculate", "extract"]:
+    for family in ["qa", "summary", "compare", "calculate", "extract", "plan"]:
         family_rows = family_map.get(family, [])
         if not family_rows:
             continue
@@ -244,4 +244,3 @@ if __name__ == "__main__":
         no_replan=args.no_replan,
         no_final_node=args.no_final_node,
     )
-

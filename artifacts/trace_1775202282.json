@@ -1,0 +1,431 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775202231.5884824,
+    "payload": {
+      "node_count": 11,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202231.5884824,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202234.501095,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202234.5040934,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "action": "patch_subgraph",
+      "reason": "factuality-related failure"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202234.5040934,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "analyze_requirements",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 10
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202234.5040934,
+    "payload": {
+      "node_id": "ev_analyze_requirements_v2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202238.1369445,
+    "payload": {
+      "node_id": "ev_analyze_requirements_v2",
+      "status": "failed",
+      "attempts": 2,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202238.1379452,
+    "payload": {
+      "node_id": "ev_analyze_requirements_v2",
+      "action": "patch_subgraph",
+      "reason": "patch_by_failure_type:echo_retrieval"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202238.1379452,
+    "payload": {
+      "before_version": 2,
+      "after_version": 3,
+      "node_id": "ev_analyze_requirements_v2",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 11
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202238.1389441,
+    "payload": {
+      "node_id": "ev_ev_analyze_requirements_v2_v3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202240.94865,
+    "payload": {
+      "node_id": "ev_ev_analyze_requirements_v2_v3",
+      "status": "failed",
+      "attempts": 2,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202240.9506807,
+    "payload": {
+      "node_id": "ev_ev_analyze_requirements_v2_v3",
+      "action": "patch_subgraph",
+      "reason": "patch_by_failure_type:echo_retrieval"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202240.9506807,
+    "payload": {
+      "before_version": 3,
+      "after_version": 4,
+      "node_id": "ev_ev_analyze_requirements_v2_v3",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 12
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202240.9506807,
+    "payload": {
+      "node_id": "ev_ev_ev_analyze_requirements_v2_v3_v4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202244.5004618,
+    "payload": {
+      "node_id": "ev_ev_ev_analyze_requirements_v2_v3_v4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202244.5004618,
+    "payload": {
+      "node_id": "ev_ev_analyze_requirements_v2_v3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202251.5261335,
+    "payload": {
+      "node_id": "ev_ev_analyze_requirements_v2_v3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202251.5261335,
+    "payload": {
+      "node_id": "ev_analyze_requirements_v2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202259.1373873,
+    "payload": {
+      "node_id": "ev_analyze_requirements_v2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202259.1373873,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202262.2760942,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202262.2760942,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "reason": "patch_failed_escalate:rule"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202262.2760942,
+    "payload": {
+      "before_version": 4,
+      "after_version": 5,
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 10
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202262.2760942,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202264.8950114,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202264.8950114,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "reason": "patch_failed_escalate:rule"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202264.8950114,
+    "payload": {
+      "before_version": 5,
+      "after_version": 6,
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202264.8950114,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202270.0865602,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202270.0865602,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "reason": "patch_failed_escalate:rule"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202270.0865602,
+    "payload": {
+      "before_version": 6,
+      "after_version": 7,
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202270.0865602,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202274.4584835,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202274.4584835,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "reason": "patch_failed_escalate:rule"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202274.4584835,
+    "payload": {
+      "before_version": 7,
+      "after_version": 8,
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202274.4584835,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202276.310336,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202276.310336,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "reason": "patch_failed_escalate:rule"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202276.310336,
+    "payload": {
+      "before_version": 8,
+      "after_version": 9,
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202276.310336,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202279.0119743,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202279.0119743,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "reason": "patch_failed_escalate:rule"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202279.0119743,
+    "payload": {
+      "before_version": 9,
+      "after_version": 10,
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202279.0119743,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202282.8433344,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202282.8433344,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "reason": "patch_failed_escalate:rule"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202282.8433344,
+    "payload": {
+      "before_version": 10,
+      "after_version": 11,
+      "node_id": "analyze_requirements",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  }
+]

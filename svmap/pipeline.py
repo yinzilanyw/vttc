@@ -33,8 +33,10 @@ from svmap.verification import (
     CrossNodeGraphVerifier,
     CrossNodeVerifier,
     CustomNodeVerifier,
+    ExtractionVerifier,
     FinalResponseVerifier,
     IntentVerifier,
+    RetrievalVerifier,
     RuleVerifier,
     SchemaVerifier,
     SemanticVerifier,
@@ -351,6 +353,8 @@ def build_runtime(config: RunConfig) -> Dict[str, Any]:
         SchemaVerifier(),
         RuleVerifier(),
         SemanticVerifier(semantic_judge=components["semantic_judge"]),
+        RetrievalVerifier(),
+        ExtractionVerifier(),
         CrossNodeVerifier(),
         CrossNodeGraphVerifier(),
         SummarizationVerifier(),
@@ -399,7 +403,7 @@ def build_runtime(config: RunConfig) -> Dict[str, Any]:
 def _resolve_query_and_family(config: RunConfig, app_config: AppConfig) -> tuple[str, str]:
     query = (config.query or app_config.default_query or DEFAULT_QUERY).strip() or DEFAULT_QUERY
     family = (config.task_family or app_config.default_task_family or "qa").strip().lower() or "qa"
-    if family not in {"qa", "summary", "compare", "calculate", "extract"}:
+    if family not in {"qa", "summary", "compare", "calculate", "extract", "plan"}:
         family = ConstraintAwarePlanner(llm_planner=None).infer_task_family(query)
     return query, family
 
@@ -514,4 +518,3 @@ def run_task_collect(
         assignment_mode=assignment_mode,
     )
     return run_task(config).to_legacy_dict()
-

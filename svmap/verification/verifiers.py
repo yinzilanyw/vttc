@@ -1,12 +1,50 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import difflib
+import re
 from typing import Any, Callable, Dict, List, Optional
 
 from svmap.models import ConstraintResult, TaskNode
 from svmap.models.constraints import ConsistencyConstraint, RequiredFieldsConstraint
 
 from .base import BaseVerifier
+
+
+def _as_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    return str(value).strip()
+
+
+def _normalize_text(text: str) -> str:
+    lowered = _as_text(text).lower()
+    lowered = re.sub(r"\s+", " ", lowered)
+    return lowered.strip()
+
+
+def _similarity(left: str, right: str) -> float:
+    return difflib.SequenceMatcher(None, _normalize_text(left), _normalize_text(right)).ratio()
+
+
+def _is_plan_query(query: str) -> bool:
+    text = _normalize_text(query)
+    keywords = ["plan", "learning plan", "7-day", "daily goals", "deliverables", "metric"]
+    return any(k in text for k in keywords)
+
+
+def _detect_day_count(text: str) -> int:
+    if not text:
+        return 0
+    hits = re.findall(r"\bday\s*([1-9]|10)\b", _normalize_text(text))
+    return len(set(hits))
+
+
+def _contains_plan_sections(text: str) -> bool:
+    lowered = _normalize_text(text)
+    return all(token in lowered for token in ["goal", "deliverable", "metric"])
 
 
 class SchemaVerifier(BaseVerifier):
@@ -54,7 +92,17 @@ class RuleVerifier(BaseVerifier):
         return ["*"]
 
     def supports_constraint_types(self) -> List[str]:
-        return ["required_fields", "non_empty", "field_type", "factuality", "consistency"]
+        return [
+            "required_fields",
+            "non_empty",
+            "field_type",
+            "factuality",
+            "consistency",
+            "final_structure",
+            "non_empty_extraction",
+            "no_internal_error",
+            "non_trivial_transform",
+        ]
 
     def verify(
         self,
@@ -104,8 +152,6 @@ class SemanticVerifier(BaseVerifier):
                 raw_constraints.append(c.constraint_type)
 
         if self.semantic_judge is None:
-            # Dynamic fallback heuristic:
-            # If node requires factuality but no evidence is available upstream, fail semantically.
             if "factuality" in raw_constraints:
                 dep_outputs = context.get("dependency_outputs", {})
                 has_evidence = any("evidence" in (item or {}) for item in dep_outputs.values())
@@ -196,6 +242,22 @@ class IntentVerifier(BaseVerifier):
     def supports_constraint_types(self) -> List[str]:
         return ["intent_alignment"]
 
+    def _intent_family(self, node: TaskNode) -> str:
+        task_type = _normalize_text(node.spec.task_type)
+        goal = _normalize_text(node.spec.intent.goal if node.spec.intent else "")
+        merged = f"{task_type} {goal}"
+        if "plan" in merged:
+            return "plan"
+        if "summary" in merged or "summar" in merged:
+            return "summary"
+        if "compare" in merged:
+            return "compare"
+        if "calculate" in merged:
+            return "calculate"
+        if "extract" in merged:
+            return "extract"
+        return ""
+
     def verify(
         self,
         node: TaskNode,
@@ -216,17 +278,13 @@ class IntentVerifier(BaseVerifier):
             found = False
             for dep_id in node.dependencies:
                 dep_output = dependency_outputs.get(dep_id, {})
-                if not isinstance(dep_output, dict):
-                    continue
-                if dep_output:
+                if isinstance(dep_output, dict) and dep_output:
                     found = True
                     break
             if not found:
                 missing_upstream_intents.append(required_goal)
         if missing_upstream_intents:
-            node.mark_intent_violated(
-                f"missing upstream intents: {missing_upstream_intents}"
-            )
+            node.mark_intent_violated(f"missing upstream intents: {missing_upstream_intents}")
             return [
                 ConstraintResult(
                     passed=False,
@@ -238,9 +296,7 @@ class IntentVerifier(BaseVerifier):
                 )
             ]
         if missing:
-            node.mark_intent_violated(
-                f"intent outputs missing fields: {missing}"
-            )
+            node.mark_intent_violated(f"intent outputs missing fields: {missing}")
             return [
                 ConstraintResult(
                     passed=False,
@@ -251,6 +307,102 @@ class IntentVerifier(BaseVerifier):
                     violation_scope="subtree",
                 )
             ]
+
+        family = self._intent_family(node)
+        query = _as_text(context.get("global_context", {}).get("query"))
+        answer_text = _as_text(output.get("answer") or output.get("final_response") or output.get("summary"))
+        if family == "plan":
+            enforce_plan_structure = node.is_final_response()
+            if not enforce_plan_structure:
+                node.mark_intent_aligned()
+                return []
+            if _similarity(answer_text, query) >= 0.9 and len(answer_text) <= len(query) + 16:
+                node.mark_intent_violated("plan output echoes query")
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="intent_plan_query_echo",
+                        message="Plan-like task output echoes the original query.",
+                        failure_type="intent_misalignment",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                ]
+            if _detect_day_count(answer_text) < 3 and not isinstance(output.get("days"), list):
+                node.mark_intent_violated("plan output missing day structure")
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="intent_plan_structure_missing",
+                        message="Plan-like task output lacks day-by-day structure.",
+                        failure_type="intent_misalignment",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                ]
+        elif family == "summary":
+            summary = _as_text(output.get("summary") or output.get("answer"))
+            if len(summary) < 16:
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="intent_summary_too_short",
+                        message="Summary-like task output is too short.",
+                        failure_type="intent_misalignment",
+                        repair_hint="patch_subgraph",
+                        violation_scope="node",
+                    )
+                ]
+        elif family == "compare":
+            compared = output.get("compared_items")
+            text = _as_text(output.get("comparison") or output.get("answer"))
+            if (not isinstance(compared, list) or len(compared) < 2) and not text:
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="intent_compare_missing",
+                        message="Compare-like task lacks comparable outputs.",
+                        failure_type="intent_misalignment",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                ]
+        elif family == "calculate":
+            if output.get("calculation_error"):
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="intent_calculation_error",
+                        message="Calculation task contains internal error.",
+                        failure_type="intent_misalignment",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                ]
+            if not isinstance(output.get("result"), (int, float)):
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="intent_calculation_missing_result",
+                        message="Calculation task missing numeric result.",
+                        failure_type="intent_misalignment",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                ]
+        elif family == "extract":
+            extracted = output.get("extracted")
+            if not isinstance(extracted, dict) or not any(v not in (None, "", [], {}) for v in extracted.values()):
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="intent_extract_empty",
+                        message="Extract task produced empty extracted content.",
+                        failure_type="intent_misalignment",
+                        repair_hint="patch_subgraph",
+                        violation_scope="node",
+                    )
+                ]
 
         node.mark_intent_aligned()
         return []
@@ -270,8 +422,6 @@ class CrossNodeGraphVerifier(BaseVerifier):
         if not dep_outputs:
             return []
 
-        # Lightweight graph-level sanity: if upstream has "company", downstream output should
-        # not contradict with an empty/None "company" when field exists.
         upstream_company = None
         for dep_output in dep_outputs.values():
             if isinstance(dep_output, dict) and dep_output.get("company"):
@@ -288,6 +438,97 @@ class CrossNodeGraphVerifier(BaseVerifier):
                     repair_hint="apply_normalization_patch",
                 )
             ]
+        return []
+
+
+class RetrievalVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["tool_call", "retrieval"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        query = _as_text(
+            output.get("query")
+            or context.get("node_inputs", {}).get("query")
+            or context.get("global_context", {}).get("query")
+        )
+        evidence = _as_text(output.get("evidence"))
+        source = _as_text(output.get("source")).lower()
+        if not query or not evidence:
+            return []
+
+        novel_fields: List[str] = []
+        for key, value in output.items():
+            if key in {"query", "evidence", "source"}:
+                continue
+            if isinstance(value, str) and value.strip():
+                novel_fields.append(key)
+            elif value not in (None, "", [], {}):
+                novel_fields.append(key)
+
+        sim = _similarity(query, evidence)
+        is_echo = sim >= 0.92 and len(evidence) <= len(query) + 12
+        if not is_echo and source == "bailian_direct" and len(evidence) <= max(24, len(query) + 4):
+            is_echo = True
+        if is_echo and not novel_fields:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="echo_retrieval",
+                    message="Retrieval evidence is near-identical to query.",
+                    failure_type="echo_retrieval",
+                    repair_hint="insert_evidence_patch",
+                    violation_scope="node",
+                    evidence={"similarity": sim},
+                )
+            ]
+        return []
+
+
+class ExtractionVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["extraction"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        extracted = output.get("extracted")
+        if isinstance(extracted, dict):
+            non_empty = [k for k, v in extracted.items() if v not in (None, "", [], {})]
+            if len(non_empty) == 0:
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="empty_extraction",
+                        message="Extraction output is empty.",
+                        failure_type="empty_extraction",
+                        repair_hint="patch_subgraph",
+                        violation_scope="node",
+                    )
+                ]
+
+        if extracted is None:
+            candidates = [
+                value for key, value in output.items() if key not in {"source", "evidence", "query"}
+            ]
+            if not any(v not in (None, "", [], {}) for v in candidates):
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="empty_extraction",
+                        message="No structured extraction fields were produced.",
+                        failure_type="empty_extraction",
+                        repair_hint="patch_subgraph",
+                        violation_scope="node",
+                    )
+                ]
         return []
 
 
@@ -364,12 +605,48 @@ class CalculationVerifier(BaseVerifier):
     def supports_task_types(self) -> List[str]:
         return ["calculation"]
 
+    def _is_valid_expression(self, expression: str) -> bool:
+        text = expression.strip()
+        if not text:
+            return False
+        if re.fullmatch(r"[0-9+\-*/(). ]+", text) is None:
+            return False
+        if re.search(r"[+\-*/]\s*$", text):
+            return False
+        return True
+
     def verify(
         self,
         node: TaskNode,
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> List[ConstraintResult]:
+        err = _as_text(output.get("calculation_error"))
+        if err:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="internal_execution_error",
+                    message=f"Calculation raised internal error: {err}",
+                    failure_type="internal_execution_error",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+
+        expression = _as_text(output.get("expression"))
+        if not self._is_valid_expression(expression):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="calculation_expression_invalid",
+                    message="Calculation expression is missing or invalid.",
+                    failure_type="internal_execution_error",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+
         result = output.get("result")
         if not isinstance(result, (int, float)):
             return [
@@ -377,18 +654,22 @@ class CalculationVerifier(BaseVerifier):
                     passed=False,
                     code="calculation_result_not_numeric",
                     message="Calculation result must be numeric.",
-                    failure_type="schema",
-                    repair_hint="build_calculation_patch",
+                    failure_type="internal_execution_error",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
                 )
             ]
-        trace = output.get("calculation_trace")
-        if trace is None:
+
+        trace = _as_text(output.get("calculation_trace"))
+        if not trace:
             return [
                 ConstraintResult(
                     passed=False,
                     code="calculation_trace_missing",
                     message="Calculation node should provide a trace.",
-                    failure_type="evidence",
+                    failure_type="internal_execution_error",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
                 )
             ]
         return []
@@ -404,8 +685,8 @@ class FinalResponseVerifier(BaseVerifier):
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> List[ConstraintResult]:
-        answer = output.get("answer") or output.get("final_response")
-        if not isinstance(answer, str) or not answer.strip():
+        answer = _as_text(output.get("answer") or output.get("final_response"))
+        if not answer:
             return [
                 ConstraintResult(
                     passed=False,
@@ -416,16 +697,65 @@ class FinalResponseVerifier(BaseVerifier):
                     repair_hint="replan_for_missing_final_response",
                 )
             ]
+
+        query = _as_text(context.get("global_context", {}).get("query"))
+        if query:
+            sim = _similarity(query, answer)
+            if sim >= 0.9 and len(answer) <= len(query) + 16:
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="final_answer_query_echo",
+                        message="Final answer mostly repeats query and adds no useful content.",
+                        failure_type="final_query_echo",
+                        violation_scope="node",
+                        repair_hint="replan_subtree",
+                        evidence={"similarity": sim},
+                    )
+                ]
+
+        if _is_plan_query(query):
+            day_count = _detect_day_count(answer)
+            if day_count < 7 or not _contains_plan_sections(answer):
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="final_answer_missing_structure",
+                        message="Final plan answer must contain 7-day structure with goal/deliverable/metric.",
+                        failure_type="final_answer_missing_structure",
+                        violation_scope="node",
+                        repair_hint="build_final_response_patch",
+                        evidence={"day_count": day_count},
+                    )
+                ]
+
         dependency_outputs = context.get("dependency_outputs", {})
-        if dependency_outputs and not output.get("used_nodes"):
-            return [
-                ConstraintResult(
-                    passed=False,
-                    code="final_answer_not_grounded",
-                    message="Final response should reference upstream nodes via used_nodes.",
-                    failure_type="evidence",
-                    violation_scope="global",
-                    repair_hint="build_final_response_patch",
-                )
-            ]
+        if dependency_outputs:
+            used_nodes = output.get("used_nodes")
+            if not isinstance(used_nodes, list) or not used_nodes:
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="final_answer_not_grounded",
+                        message="Final response should reference upstream nodes via used_nodes.",
+                        failure_type="final_answer_not_grounded",
+                        violation_scope="global",
+                        repair_hint="build_final_response_patch",
+                    )
+                ]
+            dep_ids = set(dependency_outputs.keys())
+            used_ids = set(str(x) for x in used_nodes)
+            coverage = len(dep_ids.intersection(used_ids)) / max(len(dep_ids), 1)
+            if coverage < 0.5:
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="final_answer_not_grounded",
+                        message="Final answer references too few upstream nodes.",
+                        failure_type="final_answer_not_grounded",
+                        violation_scope="global",
+                        repair_hint="build_final_response_patch",
+                        evidence={"coverage": coverage},
+                    )
+                ]
         return []

@@ -1,0 +1,397 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775202081.1074686,
+    "payload": {
+      "node_count": 2,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202081.1074686,
+    "payload": {
+      "node_id": "ceo_agent"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202084.2096167,
+    "payload": {
+      "node_id": "ceo_agent",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202084.2096167,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202085.5658548,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202085.5668533,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:final_answer_missing_structure"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202085.5668533,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202085.5668533,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202088.2043266,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202088.2043266,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:final_answer_missing_structure"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202088.2043266,
+    "payload": {
+      "before_version": 2,
+      "after_version": 3,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202088.2043266,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202090.0614824,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202090.0614824,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:final_answer_missing_structure"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202090.0614824,
+    "payload": {
+      "before_version": 3,
+      "after_version": 4,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202090.0614824,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202094.1531703,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202094.1531703,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:final_answer_missing_structure"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202094.1531703,
+    "payload": {
+      "before_version": 4,
+      "after_version": 5,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202094.1531703,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202095.779035,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202095.779035,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:final_answer_missing_structure"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202095.779035,
+    "payload": {
+      "before_version": 5,
+      "after_version": 6,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202095.779035,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202099.2103617,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202099.2103617,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:final_answer_missing_structure"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202099.2103617,
+    "payload": {
+      "before_version": 6,
+      "after_version": 7,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202099.2103617,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202103.0711746,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202103.0711746,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:final_answer_missing_structure"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202103.0711746,
+    "payload": {
+      "before_version": 7,
+      "after_version": 8,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202103.0711746,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202107.4216893,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202107.4216893,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:final_answer_missing_structure"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202107.4216893,
+    "payload": {
+      "before_version": 8,
+      "after_version": 9,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202107.4216893,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202111.5711167,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202111.5711167,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:final_answer_missing_structure"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202111.5711167,
+    "payload": {
+      "before_version": 9,
+      "after_version": 10,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775202111.5711167,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775202115.5741496,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775202115.5741496,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:final_answer_missing_structure"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775202115.5741496,
+    "payload": {
+      "before_version": 10,
+      "after_version": 11,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0
+    }
+  }
+]

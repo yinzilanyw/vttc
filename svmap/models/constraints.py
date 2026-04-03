@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import difflib
 from dataclasses import dataclass, field
+import re
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -240,6 +242,72 @@ class ConstraintParser:
             elif text.startswith("intent_goal:"):
                 goal = text.split(":", 1)[1].strip()
                 parsed.append(IntentAlignmentConstraint(target_goal=goal))
+            elif text.startswith("final_structure"):
+                required_sections: List[str] = []
+                min_items = 0
+                forbid_query_echo = True
+                if ":" in text:
+                    body = text.split(":", 1)[1].strip()
+                    # Supports both compact and key=value styles:
+                    # final_structure:goal|deliverable|metric
+                    # final_structure:min_items=7,required_sections=goal|deliverable|metric,forbid_query_echo=true
+                    if "=" not in body and body:
+                        required_sections = [x.strip() for x in body.split("|") if x.strip()]
+                    else:
+                        for pair in [x.strip() for x in body.split(",") if x.strip()]:
+                            if "=" not in pair:
+                                continue
+                            k, v = pair.split("=", 1)
+                            key = k.strip().lower()
+                            value = v.strip()
+                            if key == "min_items":
+                                try:
+                                    min_items = int(value)
+                                except ValueError:
+                                    min_items = 0
+                            elif key == "required_sections":
+                                required_sections = [x.strip() for x in value.split("|") if x.strip()]
+                            elif key == "forbid_query_echo":
+                                forbid_query_echo = value.lower() in {"1", "true", "yes", "on"}
+                parsed.append(
+                    FinalStructureConstraint(
+                        required_sections=required_sections,
+                        min_items=min_items,
+                        forbid_query_echo=forbid_query_echo,
+                    )
+                )
+            elif text == "non_empty_extraction":
+                parsed.append(NonEmptyExtractionConstraint())
+            elif text == "no_internal_error":
+                parsed.append(NoInternalErrorConstraint())
+            elif text.startswith("non_trivial_transform"):
+                input_field = "query"
+                output_field = "evidence"
+                similarity_threshold = 0.9
+                if ":" in text:
+                    body = text.split(":", 1)[1].strip()
+                    for pair in [x.strip() for x in body.split(",") if x.strip()]:
+                        if "=" not in pair:
+                            continue
+                        k, v = pair.split("=", 1)
+                        key = k.strip().lower()
+                        value = v.strip()
+                        if key == "input_field" and value:
+                            input_field = value
+                        elif key == "output_field" and value:
+                            output_field = value
+                        elif key == "similarity_threshold":
+                            try:
+                                similarity_threshold = float(value)
+                            except ValueError:
+                                similarity_threshold = 0.9
+                parsed.append(
+                    NonTrivialTransformationConstraint(
+                        input_field=input_field,
+                        output_field=output_field,
+                        similarity_threshold=similarity_threshold,
+                    )
+                )
             else:
                 parsed.append(LegacyStringConstraint(raw=text))
         return parsed
@@ -367,4 +435,237 @@ class EvidenceCoverageConstraint(Constraint):
             passed=True,
             code="evidence_coverage_ok",
             message="Evidence coverage constraint passed.",
+        )
+
+
+@dataclass
+class FinalStructureConstraint(Constraint):
+    required_sections: List[str] = field(default_factory=list)
+    min_items: int = 0
+    forbid_query_echo: bool = True
+    constraint_type: str = "final_structure"
+
+    def _find_day_count(self, answer: Any) -> int:
+        if isinstance(answer, dict):
+            day_keys = [
+                key for key in answer.keys() if re.search(r"\bday\s*[1-9]\b", str(key).lower())
+            ]
+            if day_keys:
+                return len(day_keys)
+            days = answer.get("days")
+            if isinstance(days, list):
+                return len(days)
+        text = str(answer or "")
+        return len(set(re.findall(r"\bday\s*([1-9]|10)\b", text.lower())))
+
+    def _has_sections(self, answer: Any) -> List[str]:
+        required = [x.strip().lower() for x in self.required_sections if x.strip()]
+        if not required:
+            return []
+        text = str(answer or "").lower()
+        missing = [section for section in required if section not in text]
+        return missing
+
+    def _text_similarity(self, left: str, right: str) -> float:
+        if not left and not right:
+            return 1.0
+        return difflib.SequenceMatcher(None, left, right).ratio()
+
+    def validate(
+        self, node: "TaskNode", output: Dict[str, Any], context: Dict[str, Any]
+    ) -> ConstraintResult:
+        answer = output.get("answer") or output.get("final_response") or ""
+        if not isinstance(answer, str):
+            answer = str(answer)
+        answer_text = answer.strip()
+        if not answer_text:
+            return ConstraintResult(
+                passed=False,
+                code="final_answer_missing_structure",
+                message="Final answer is empty.",
+                failure_type="final_answer_missing_structure",
+                repair_hint="replan_subtree",
+                violation_scope="node",
+            )
+
+        query = str(
+            context.get("global_context", {}).get("query")
+            or context.get("node_inputs", {}).get("query")
+            or ""
+        ).strip()
+        if self.forbid_query_echo and query:
+            similarity = self._text_similarity(query.lower(), answer_text.lower())
+            if similarity >= 0.9 and len(answer_text) <= len(query) + 16:
+                return ConstraintResult(
+                    passed=False,
+                    code="final_answer_query_echo",
+                    message="Final answer is too similar to original query.",
+                    failure_type="final_query_echo",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                    evidence={"similarity": similarity},
+                )
+
+        if self.min_items > 0:
+            day_count = self._find_day_count(answer)
+            if day_count < self.min_items:
+                return ConstraintResult(
+                    passed=False,
+                    code="final_answer_missing_structure",
+                    message=f"Expected at least {self.min_items} structured items, got {day_count}.",
+                    failure_type="final_answer_missing_structure",
+                    repair_hint="build_final_response_patch",
+                    violation_scope="node",
+                    evidence={"items_found": day_count},
+                )
+
+        missing_sections = self._has_sections(answer)
+        if missing_sections:
+            return ConstraintResult(
+                passed=False,
+                code="final_answer_missing_structure",
+                message=f"Final answer misses required sections: {missing_sections}",
+                failure_type="final_answer_missing_structure",
+                repair_hint="build_final_response_patch",
+                violation_scope="node",
+                evidence={"missing_sections": missing_sections},
+            )
+
+        return ConstraintResult(
+            passed=True,
+            code="final_structure_ok",
+            message="Final structure constraint passed.",
+        )
+
+
+@dataclass
+class NonEmptyExtractionConstraint(Constraint):
+    target_field: str = "extracted"
+    min_keys: int = 1
+    constraint_type: str = "non_empty_extraction"
+
+    def validate(
+        self, node: "TaskNode", output: Dict[str, Any], context: Dict[str, Any]
+    ) -> ConstraintResult:
+        value = output.get(self.target_field)
+        if not isinstance(value, dict):
+            return ConstraintResult(
+                passed=False,
+                code="empty_extraction",
+                message=f"Extraction field '{self.target_field}' must be dict.",
+                failure_type="empty_extraction",
+                repair_hint="patch_subgraph",
+                violation_scope="node",
+            )
+        non_empty_keys = [k for k, v in value.items() if v not in (None, "", [], {})]
+        if len(non_empty_keys) < self.min_keys:
+            return ConstraintResult(
+                passed=False,
+                code="empty_extraction",
+                message="Extraction result is empty.",
+                failure_type="empty_extraction",
+                repair_hint="patch_subgraph",
+                violation_scope="node",
+            )
+        return ConstraintResult(
+            passed=True,
+            code="non_empty_extraction_ok",
+            message="Extraction contains non-empty keys.",
+        )
+
+
+@dataclass
+class NoInternalErrorConstraint(Constraint):
+    error_fields: List[str] = field(
+        default_factory=lambda: ["error", "calculation_error", "runtime_error"]
+    )
+    constraint_type: str = "no_internal_error"
+
+    def validate(
+        self, node: "TaskNode", output: Dict[str, Any], context: Dict[str, Any]
+    ) -> ConstraintResult:
+        hits: Dict[str, Any] = {}
+        for key in self.error_fields:
+            value = output.get(key)
+            if isinstance(value, str) and value.strip():
+                hits[key] = value.strip()
+            elif value not in (None, "", [], {}):
+                hits[key] = value
+        if hits:
+            return ConstraintResult(
+                passed=False,
+                code="internal_execution_error",
+                message=f"Internal execution error detected: {hits}",
+                failure_type="internal_execution_error",
+                repair_hint="replan_subtree",
+                violation_scope="node",
+                evidence={"error_fields": hits},
+            )
+        return ConstraintResult(
+            passed=True,
+            code="no_internal_error_ok",
+            message="No internal errors reported.",
+        )
+
+
+@dataclass
+class NonTrivialTransformationConstraint(Constraint):
+    input_field: str = "query"
+    output_field: str = "evidence"
+    similarity_threshold: float = 0.9
+    constraint_type: str = "non_trivial_transform"
+
+    def _similarity(self, left: str, right: str) -> float:
+        if not left and not right:
+            return 1.0
+        return difflib.SequenceMatcher(None, left, right).ratio()
+
+    def validate(
+        self, node: "TaskNode", output: Dict[str, Any], context: Dict[str, Any]
+    ) -> ConstraintResult:
+        src = str(
+            output.get(self.input_field)
+            or context.get("node_inputs", {}).get(self.input_field)
+            or context.get("global_context", {}).get(self.input_field)
+            or ""
+        ).strip()
+        dst = str(output.get(self.output_field) or "").strip()
+        if not src or not dst:
+            return ConstraintResult(
+                passed=True,
+                code="non_trivial_transform_skip",
+                message="Skip non-trivial transform check for missing input/output.",
+                severity="warning",
+            )
+        similarity = self._similarity(src.lower(), dst.lower())
+        if similarity >= self.similarity_threshold and len(dst) <= len(src) + 12:
+            novel_fields = []
+            for key, value in output.items():
+                if key in {self.input_field, self.output_field, "source"}:
+                    continue
+                if isinstance(value, str) and value.strip():
+                    novel_fields.append(key)
+                elif value not in (None, "", [], {}):
+                    novel_fields.append(key)
+            if novel_fields:
+                return ConstraintResult(
+                    passed=True,
+                    code="non_trivial_transform_ok_with_novel_fields",
+                    message="Transformation accepted due to additional informative fields.",
+                    severity="warning",
+                    evidence={"novel_fields": novel_fields},
+                )
+            return ConstraintResult(
+                passed=False,
+                code="echo_retrieval",
+                message="Output is too similar to input and lacks transformation.",
+                failure_type="echo_retrieval",
+                repair_hint="insert_evidence_patch",
+                violation_scope="node",
+                evidence={"similarity": similarity},
+            )
+        return ConstraintResult(
+            passed=True,
+            code="non_trivial_transform_ok",
+            message="Transformation is non-trivial.",
         )

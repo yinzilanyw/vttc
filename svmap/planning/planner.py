@@ -7,7 +7,16 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from svmap.models import IntentSpec, TaskNode, TaskTree
+from svmap.models import (
+    FinalStructureConstraint,
+    IntentAlignmentConstraint,
+    IntentSpec,
+    NoInternalErrorConstraint,
+    NonEmptyExtractionConstraint,
+    NonTrivialTransformationConstraint,
+    TaskNode,
+    TaskTree,
+)
 
 
 def _load_openai_client(api_key: str, base_url: str) -> Any:
@@ -318,6 +327,19 @@ class ConstraintAwarePlanner(BasePlanner):
 
     def infer_task_family(self, user_query: str) -> str:
         text = user_query.lower().strip()
+        if any(
+            k in text
+            for k in [
+                "learning plan",
+                "7-day",
+                "daily goals",
+                "deliverables",
+                "metric",
+                "roadmap",
+                "plan",
+            ]
+        ):
+            return "plan"
         if any(k in text for k in ["summarize", "summary", "tl;dr", "概括", "总结"]):
             return "summary"
         if any(k in text for k in ["compare", "difference", "vs", "versus", "对比", "比较"]):
@@ -438,6 +460,88 @@ class ConstraintAwarePlanner(BasePlanner):
     def _default_plan(self, context: PlanningContext) -> Dict[str, Any]:
         family = context.task_family or self.infer_task_family(context.user_query)
         query = context.user_query
+        if family == "plan":
+            day_nodes: List[Dict[str, Any]] = []
+            for day in range(1, 8):
+                day_nodes.append(
+                    {
+                        "id": f"generate_day{day}",
+                        "description": f"Generate day {day} plan entry with goal, deliverable and metric.",
+                        "inputs": {
+                            "text": (
+                                f"Day {day}: goal=Complete step {day}; "
+                                f"deliverable=Artifact {day}; metric=Measure {day}."
+                            )
+                        },
+                        "dependencies": [],
+                        "capability_tag": "summarize",
+                        "candidate_capabilities": ["summarize", "reason"],
+                        "node_type": "summarization",
+                        "task_type": "summarization",
+                        "output_mode": "text",
+                        "answer_role": "intermediate",
+                        "constraint": ["required_keys:summary"],
+                    }
+                )
+            verify_dependencies = ["design_plan_schema"] + [f"generate_day{day}" for day in range(1, 8)]
+            return {
+                "nodes": [
+                    {
+                        "id": "analyze_requirements",
+                        "description": "Analyze requirements and constraints from the user query.",
+                        "inputs": {"text": query},
+                        "dependencies": [],
+                        "capability_tag": "summarize",
+                        "candidate_capabilities": ["summarize", "reason"],
+                        "node_type": "summarization",
+                        "task_type": "summarization",
+                        "output_mode": "text",
+                        "answer_role": "intermediate",
+                        "constraint": ["required_keys:summary"],
+                    },
+                    {
+                        "id": "design_plan_schema",
+                        "description": "Design canonical schema for 7-day plan entries.",
+                        "dependencies": ["analyze_requirements"],
+                        "capability_tag": "summarize",
+                        "candidate_capabilities": ["summarize", "reason"],
+                        "node_type": "summarization",
+                        "task_type": "summarization",
+                        "output_mode": "text",
+                        "answer_role": "intermediate",
+                        "constraint": ["required_keys:summary", "non_empty_values"],
+                    },
+                    *day_nodes,
+                    {
+                        "id": "verify_coverage",
+                        "description": "Verify all 7 days include goal, deliverable, and metric.",
+                        "dependencies": verify_dependencies,
+                        "capability_tag": "summarize",
+                        "candidate_capabilities": ["summarize", "verify", "reason"],
+                        "node_type": "summarization",
+                        "task_type": "summarization",
+                        "output_mode": "text",
+                        "answer_role": "intermediate",
+                        "constraint": ["required_keys:summary", "non_empty_values"],
+                    },
+                    {
+                        "id": "final_response",
+                        "description": "Return final 7-day learning plan.",
+                        "dependencies": ["verify_coverage"],
+                        "capability_tag": "synthesize",
+                        "candidate_capabilities": ["synthesize", "reason"],
+                        "node_type": "final_response",
+                        "task_type": "final_response",
+                        "output_mode": "text",
+                        "answer_role": "final",
+                        "constraint": [
+                            "required_keys:answer",
+                            "non_empty_values",
+                            "final_structure:min_items=7,required_sections=goal|deliverable|metric,forbid_query_echo=true",
+                        ],
+                    },
+                ]
+            }
         if family == "summary":
             return {
                 "nodes": [
@@ -667,6 +771,13 @@ class ConstraintAwarePlanner(BasePlanner):
 
     def plan(self, context: PlanningContext) -> TaskTree:
         context.task_family = context.task_family or self.infer_task_family(context.user_query)
+        if context.task_family == "plan":
+            normalized = self.normalize_planner_output(self._default_plan(context))
+            tree = TaskTree.from_dict(normalized)
+            tree.metadata["task_family"] = context.task_family
+            self.ensure_final_node(tree)
+            return self.attach_intent_specs(tree=tree, context=context)
+
         if self.llm_planner is None:
             normalized = self.normalize_planner_output(self._default_plan(context))
             tree = TaskTree.from_dict(normalized)
@@ -682,6 +793,11 @@ class ConstraintAwarePlanner(BasePlanner):
         else:
             raise TypeError("llm_planner must return a JSON string or dict.")
         normalized = self.normalize_planner_output(data)
+        if context.task_family == "plan":
+            node_ids = [str(node.get("id", "")) for node in normalized.get("nodes", [])]
+            has_day_nodes = any(re.search(r"\bday\s*[1-9]\b", node_id.lower()) for node_id in node_ids)
+            if not has_day_nodes:
+                normalized = self.normalize_planner_output(self._default_plan(context))
         tree = TaskTree.from_dict(normalized)
         tree.metadata["task_family"] = context.task_family
         self.ensure_final_node(tree)
@@ -698,9 +814,47 @@ class ConstraintAwarePlanner(BasePlanner):
                 node.spec.intent = self.infer_intent_from_description(node=node)
             if not node.spec.intent_tags:
                 node.spec.intent_tags = [node.spec.capability_tag, node.spec.task_type]
+        self.attach_auto_constraints(
+            tree=tree,
+            task_family=context.task_family or str(tree.metadata.get("task_family", "")),
+        )
         self.propagate_intents(tree)
         self.ensure_final_node(tree)
         return tree
+
+    def attach_auto_constraints(self, tree: TaskTree, task_family: str = "") -> None:
+        plan_mode = task_family.strip().lower() == "plan"
+        for node in tree.nodes.values():
+            existing_types = {getattr(c, "constraint_type", "") for c in node.spec.constraints}
+
+            if node.is_final_response():
+                if plan_mode and "final_structure" not in existing_types:
+                    node.spec.constraints.append(
+                        FinalStructureConstraint(
+                            required_sections=["goal", "deliverable", "metric"],
+                            min_items=7,
+                            forbid_query_echo=True,
+                        )
+                    )
+                if "intent_alignment" not in existing_types:
+                    node.spec.constraints.append(
+                        IntentAlignmentConstraint(target_goal=node.spec.description)
+                    )
+
+            if node.spec.task_type == "extraction" and "non_empty_extraction" not in existing_types:
+                node.spec.constraints.append(NonEmptyExtractionConstraint())
+
+            if node.spec.task_type == "calculation" and "no_internal_error" not in existing_types:
+                node.spec.constraints.append(NoInternalErrorConstraint())
+
+            if node.spec.task_type in {"tool_call", "retrieval"} and "non_trivial_transform" not in existing_types:
+                node.spec.constraints.append(
+                    NonTrivialTransformationConstraint(
+                        input_field="query",
+                        output_field="evidence",
+                        similarity_threshold=0.9,
+                    )
+                )
 
     def propagate_intents(self, tree: TaskTree) -> None:
         for node in tree.nodes.values():

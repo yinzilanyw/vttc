@@ -1,179 +1,473 @@
-建议按“**统一入口、下沉装配、保留展示层**”三步改。你现在的现状是：根入口 `mvp.py` 直接调用 `svmap.demos.case_study.run_case_study`，而 `run_demo.py` 同时承担了环境加载、在线组件装配、registry 构建、query 选择、执行与打印等多种职责，所以入口链条偏长、职责偏混。与此同时，`run_demo.py` 里已经具备多任务 query、在线 planner/judge、以及多能力 agent registry，这说明**核心能力已经足够，不需要再重构方法层，只要重构入口层**。
+基于你这次暴露出来的失败样例，我建议把工作重点放在“**让现有结构真正承认语义失败**”，而不是再加新架构。因为你仓库里其实已经有大部分骨架：`ConstraintResult` 和 `NodeFailure` 已经支持 `failure_type / repair_hint / violation_scope`，`FinalResponseVerifier`、`IntentVerifier`、`CalculationVerifier` 也都已经存在；`executor` 已经强制单一 final 节点并写入 `final_output`，`replanner` 也已经支持 `patch_subgraph` 和 `replan_subtree`。但这次样例里仍然出现了“最终答案复读问题本身、抽取为空、计算报错却零验证失败、零重规划”的情况，说明问题主要在**规则还不够严格、失败没有真正穿透到 runtime**。 ([GitHub][1])
 
-第一步，先把**唯一启动入口**固定到 `mvp.py`。
-做法是让 `mvp.py` 不再 import `svmap.demos.case_study`，而只调用一个新的统一入口，比如 `svmap.app.main()`。这样根入口只负责启动和异常退出，不再知道 demo、case study、eval 的细节。你现在的 `mvp.py` 只有一行调用 `run_case_study`，改动成本很低。
+下面是按**文件 + 函数级别**整理的 TODO 清单，按优先级执行。
 
-建议直接改成：
+---
 
-```python
-from svmap.app import main
+## P0：先把“假成功”堵住
 
-if __name__ == "__main__":
-    raise SystemExit(main())
-```
+### `svmap/verification/verifiers.py`
 
-第二步，新增一个**应用级统一入口**文件，例如 `svmap/app.py`。
-这个文件只做三件事：读取环境变量或参数、选择运行模式、调用统一 pipeline。建议先支持三个模式：`demo`、`case_study`、`eval`。其中：
+#### 1. 修改 `FinalResponseVerifier.verify(...)`
 
-* `demo`：跑单个 demo query
-* `case_study`：跑预设案例
-* `eval`：跑 `experiments/run_multitask_eval.py` 那类批量任务
+目标：让 final node 不再只要“有字串”就算成功。当前仓库里这个 verifier 已经存在，但这次样例表明它还不够强。([GitHub][2])
 
-建议的函数签名：
+要加的检查：
 
-```python
-def main() -> int: ...
-def run_demo_mode(query: str | None = None, task_family: str | None = None) -> int: ...
-def run_case_study_mode(case_name: str | None = None, query: str | None = None) -> int: ...
-def run_eval_mode(dataset_path: str | None = None) -> int: ...
-```
+* **Query echo 检查**
+  从 `context["global_context"]["query"]` 取原始问题，计算 `answer` 和 `query` 的相似度。若高度重合且没有明显结构增量，返回：
 
-这样做完以后，`demos` 就不再是“系统入口”，而只是“展示入口”。这和你现在 `run_demo.py` 已经拥有完整多任务 registry 与在线组件装配能力的事实是匹配的，只是把调用位置往上提了一层。
-第三步，把 `run_demo.py` 里的“核心执行主链”抽到一个**统一 pipeline** 文件里，例如 `svmap/pipeline.py`。
-现在真正的核心其实不在 `case_study.py`，而在 `run_demo.py`：它负责加载 `.env`、构建百炼 planner/judge、构建多能力 agent registry、选 query，并最终执行。这些逻辑应该成为所有模式共用的一条主链，而不是 demo 私有逻辑。`run_demo.py` 里已经有 `build_demo_queries()`、`build_online_components_from_env()`、`build_multitask_registry()` 这些明显属于“系统装配”的函数，很适合整体下沉到 pipeline 或 builder 层。
+  * `failure_type="final_query_echo"`
+  * `repair_hint="replan_subtree"`
+  * `violation_scope="node"`
 
-建议新增：
+* **结构完整性检查**
+  针对 “7-day learning plan” 这种任务，要求 final answer 至少满足：
 
-```python
-@dataclass
-class RunConfig:
-    mode: str = "demo"
-    task_family: str = "qa"
-    query: str | None = None
-    use_env: bool = True
-    export_trace: bool = True
-    parallel: bool = False
+  * 出现 7 个 day/day1...day7 项
+  * 每天包含 goal / deliverable / metric 三类信息
+  * 如果是 JSON 输出，则检查字段完整性；如果是文本输出，则检查模式匹配
 
-@dataclass
-class RunResult:
-    query: str
-    task_family: str
-    success: bool
-    final_output: dict[str, Any]
-    report: Any
-    metrics: Any
-    trace_path: str | None = None
+* **上游 grounding 检查**
+  final node 必须引用上游 day 节点的产出，而不是仅凭 query 直接生成。可检查：
 
-def build_runtime(config: RunConfig): ...
-def run_task(config: RunConfig) -> RunResult: ...
-def run_batch(config: RunConfig, tasks: list[dict[str, str]]) -> list[RunResult]: ...
-```
+  * `used_nodes` 是否覆盖 `day1_deliverable ... day7_deliverable`
+  * 或 final 文本中是否包含上游节点核心内容的影子
 
-然后把原来 `run_demo_collect()` 的装配与执行逻辑迁到 `run_task()`。
+建议返回的新增 `code`：
 
-第四步，把 `svmap/demos/run_demo.py` 收缩成**纯展示层**。
-它现在不应该再负责 planner、registry、runtime 的装配，只负责：
+* `final_answer_missing_structure`
+* `final_answer_not_grounded`
+* `final_answer_query_echo`
 
-* 提供 demo queries
-* 选择 task family
-* 调用 `pipeline.run_task()`
-* 把结果漂亮地打印出来
+#### 2. 修改 `IntentVerifier.verify(...)`
 
-建议保留的函数：
+目标：让 intent misalignment 真正成为失败，而不只是“字段存在就过”。当前 `IntentVerifier` 已经存在。([GitHub][2])
 
-```python
-def build_demo_queries() -> dict[str, str]: ...
-def print_demo_result(result: RunResult) -> None: ...
-def run_demo(query: str | None = None, task_family: str | None = None) -> None: ...
-```
+要加的检查：
 
-这样 `run_demo.py` 的职责就会非常清晰：它只是一个 demo 前端。你现在文件里既有 demo query，又有环境读取、在线组件装配、registry 构建，这正是最该被拆开的地方。
+* 若 `node.spec.intent.goal` 包含：
 
-第五步，把 `svmap/demos/case_study.py` 改成**案例库/案例展示文件**，不要再当入口。
-目前 `mvp.py` 直接调它，导致它承担了“入口转发”的职责。建议把它改成只保存案例定义：
+  * `plan`
+  * `summary`
+  * `compare`
+  * `calculate`
+  * `extract`
 
-```python
-CASE_STUDIES = {
-    "qa_basic": "Who is the CEO of the company founded by Elon Musk?",
-    "summary_company": "Summarize the key facts about the company founded by Elon Musk.",
-    "compare_orgs": "Compare SpaceX and OpenAI in one concise answer.",
-}
+  则分别做 task-family 级语义检查，而不是只检查 `required_fields`。
 
-def get_case_query(name: str) -> str: ...
-def run_case_study(case_name: str | None = None, query: str | None = None) -> None: ...
-```
+* 对“plan”类任务：
 
-其中 `run_case_study()` 内部只调用 `pipeline.run_task()`，不再转调 `run_demo()`。这样 demo 和 case study 就不会互相套娃。当前 `case_study.py` 作为 demo 子模块存在，本身就更适合承担“预设案例”而不是“总入口”。
+  * 若没有形成步骤化/天级输出，则直接失败
+  * 若只是复述 query，也直接失败
 
-第六步，让 `experiments/run_multitask_eval.py` 走同一条 pipeline。
-这个文件现在应该也不要再自己拼 planner/registry/executor，而是只负责：读取数据集、组织任务列表、调用 `run_batch()`、汇总 metrics。这样 demo、case study、eval 三条路径才能共用同一执行主链，避免实验和 demo 行为不一致。仓库里已经单独有 `experiments/run_multitask_eval.py`，正适合改成“批量任务调度层”。
+建议返回：
 
-建议形式：
+* `failure_type="intent_misalignment"`
+* `repair_hint="replan_subtree"`
 
-```python
-from svmap.pipeline import run_batch, RunConfig
+#### 3. 修改 `CalculationVerifier.verify(...)`
 
-def main():
-    tasks = load_tasks(...)
-    config = RunConfig(mode="eval", export_trace=False)
-    results = run_batch(config, tasks)
-    summarize(results)
-```
+当前仓库里 `CalculationVerifier` 已经存在，但这次 `day1_calculate` 明确有 `calculation_error: invalid syntax`，却没有触发验证失败。 ([GitHub][2])
 
-第七步，统一配置来源，不要把 `.env` 逻辑只留在 demo 文件里。
-现在 `.env` 读取和在线组件配置都在 `run_demo.py`，这会导致 demo 模式和其他模式耦合。建议新增 `svmap/config.py`，把下面这些集中起来：
+要加的检查：
 
-* `.env` 读取
-* `USE_MODEL_API`
-* `DASHSCOPE_API_KEY`
-* planner/judge/retrieve 模型配置
-* 默认 `task_family`
-* 默认 `query`
+* 输出中只要存在 `calculation_error` 且非空，就直接失败
+* `expression` 为空、非法、末尾是运算符，也直接失败
+* `calculation_trace` 缺失时，若任务是 calculation，则给 warning 或直接失败
+* 如果 `result == 0` 只是因为异常兜底，不允许算成功
 
-这样 `app.py` 和 `pipeline.py` 都从 `config.py` 读配置，而不是各自从环境变量拼装。当前 `run_demo.py` 已经明显承担了这部分职责，所以迁移成本不高。
+建议返回：
 
-建议新增：
+* `failure_type="internal_execution_error"`
+* `repair_hint="replan_subtree"`
+
+#### 4. 新增 `ExtractionVerifier`
+
+这次 trace 里多个 `extract` 节点返回 `extracted: {}`，但都被当作成功。
+
+新增一个专门的 verifier，或把它并入现有 rule verifier，至少检查：
+
+* `output.get("extracted") == {}`
+* 所有目标字段为空
+* 没有从 evidence 中抽出任何结构化信息
+
+建议返回：
+
+* `failure_type="empty_extraction"`
+* `repair_hint="patch_subgraph"`
+* `violation_scope="node"`
+
+#### 5. 新增 `RetrievalVerifier`
+
+这次 retrieve 实际上把 query 原样当 evidence 回传，属于“伪检索”。
+
+新增检查：
+
+* `evidence` 与 `query` 近似相同
+* `source == "bailian_direct"` 但没有新增事实
+* evidence 长度、内容变化、关键信息密度都不足
+
+建议返回：
+
+* `failure_type="echo_retrieval"`
+* `repair_hint="insert_evidence_patch"`
+
+---
+
+### `svmap/models/constraints.py`
+
+当前 `ConstraintResult` 已经有你需要的失败语义字段，这是好事；下一步是补几个真正被上面 verifier 用到的约束类。([GitHub][1])
+
+#### 6. 新增 `FinalStructureConstraint`
 
 ```python
 @dataclass
-class AppConfig:
-    use_model_api: bool = True
-    api_key: str = ""
-    base_url: str = ""
-    planner_model: str = "qwen-plus"
-    judge_model: str = "qwen-flash"
-    retrieve_model: str = "qwen-flash"
-    default_task_family: str = "qa"
-    default_query: str = ""
-
-def load_app_config_from_env() -> AppConfig: ...
+class FinalStructureConstraint(Constraint):
+    required_sections: List[str] = field(default_factory=list)
+    min_items: int = 0
+    forbid_query_echo: bool = True
 ```
 
-第八步，顺手把“结果对象”统一。
-现在 demo 打印、case study、eval 汇总很可能各自拿不同结构。建议所有入口都统一返回 `RunResult`，其中包含：
+用途：
 
-* query
-* task_family
-* success
-* final_output
-* report
-* metrics
-* trace_path
+* final_response 节点专用
+* 检查计划类输出是否真的形成结构
 
-这样展示层只负责展示，实验层只负责统计。
+#### 7. 新增 `NonEmptyExtractionConstraint`
 
-最后给你一个最小可执行的改造顺序：
+```python
+@dataclass
+class NonEmptyExtractionConstraint(Constraint):
+    target_field: str = "extracted"
+    min_keys: int = 1
+```
 
-先做 1 到 5，就能明显清爽很多：
+用途：
 
-1. 新增 `svmap/app.py`
-2. 新增 `svmap/pipeline.py`
-3. 修改 `mvp.py` 只调 `svmap.app.main()`
-4. 修改 `svmap/demos/case_study.py` 为案例库/展示层
-5. 修改 `svmap/demos/run_demo.py` 为纯 demo 展示层
+* extraction 节点专用
+* 防止 `{}` 被当成功
 
-然后再做：
+#### 8. 新增 `NoInternalErrorConstraint`
 
-6. 新增 `svmap/config.py`
-7. 修改 `experiments/run_multitask_eval.py` 走 `run_batch()`
+```python
+@dataclass
+class NoInternalErrorConstraint(Constraint):
+    error_fields: List[str] = field(default_factory=lambda: ["error", "calculation_error", "runtime_error"])
+```
 
-这样改完后，你的入口就会变成：
+用途：
+
+* calculation / tool_call / custom 节点
+* 有内部错误就不能过
+
+#### 9. 新增 `NonTrivialTransformationConstraint`
+
+```python
+@dataclass
+class NonTrivialTransformationConstraint(Constraint):
+    input_field: str = "query"
+    output_field: str = "evidence"
+    similarity_threshold: float = 0.9
+```
+
+用途：
+
+* retrieve / summarize / final_response
+* 防止纯回声式输出
+
+#### 10. 修改 `ConstraintParser.parse(...)`
+
+把这些字符串映射接进去，便于 planner 自动挂约束：
+
+* `final_structure:...`
+* `non_empty_extraction`
+* `no_internal_error`
+* `non_trivial_transform`
+
+---
+
+## P1：让失败真正进入 runtime 和 replan
+
+### `svmap/verification/engine.py`
+
+这个文件现在更像聚合器；下一步要把“失败分类”和“作用域”真正产出给 runtime。当前公开页面看不到复杂接口，说明这里还有很大提升空间。([GitHub][3])
+
+#### 11. 修改 `verify(...)`
+
+目标：统一输出一个**已归一化的失败集合**，而不是只给分散的 `ConstraintResult`。
+
+新增逻辑：
+
+* 收集所有 verifier 结果后，按优先级归并：
+
+  1. `internal_execution_error`
+  2. `final_answer_missing_structure`
+  3. `intent_misalignment`
+  4. `echo_retrieval`
+  5. `empty_extraction`
+  6. 其他 rule/schema 错误
+
+* 输出给 runtime 的结果里，明确包含：
+
+  * `failure_type`
+  * `repair_hints`
+  * `violation_scopes`
+
+#### 12. 新增作用域入口
+
+即使先做简化版本，也建议明确暴露：
+
+```python
+def verify_node(...)
+def verify_edge(...)
+def verify_subtree(...)
+def verify_global(...)
+```
+
+当前你的 claim 已经超出纯 node-check 了，所以 engine 层最好把这件事显式化。([GitHub][2])
+
+---
+
+### `svmap/runtime/executor.py`
+
+`executor` 已经会强制单一 final 节点并写出 `final_output`，这是对的；现在要做的是让它**对 verifier 的失败更敏感**。([GitHub][4])
+
+#### 13. 修改 `execute(...)`
+
+新增规则：
+
+* 如果 final node 虽然执行成功，但 `FinalResponseVerifier` 返回 fatal failure，则：
+
+  * `report.success = False`
+  * 不允许把它记为完成任务
+  * 必须进入 replanner 或终止
+
+* 如果某节点被判 `empty_extraction / echo_retrieval / internal_execution_error`：
+
+  * 不要把其输出当正常结果喂给下游
+  * 要么设为 failed，要么标为 blocked，等待 replan
+
+#### 14. 修改 `execute_node(...)`
+
+新增逻辑：
+
+* 在 node record 中保留：
+
+  * 最高优先级 `failure_type`
+  * 主要 `repair_hint`
+  * `fatal: bool`
+
+* 对 calculation 这类节点，若有内部 error，不要再写 `status="success"`
+
+#### 15. 修改 final output 决策
+
+现在 `executor` 已经有 `final_output` 字段；你需要进一步要求：
+
+* 只有 `final_node.status == success`
+* 且 `final node verification` 无 fatal failure
+* 才写入 `report.final_output`
+
+否则：
+
+* `report.final_output = None`
+* `report.error = "final_output_not_valid"`
+
+---
+
+### `svmap/runtime/replanner.py`
+
+仓库里已经有 `decide()`、候选评分、`patch_subgraph`、`replan_subtree` 和 `replace_subtree()` 路径，这很好；下一步是把新 failure type 和动作强绑定。([GitHub][5])
+
+#### 16. 修改 `decide(...)`
+
+把 failure-type 到动作的映射写死一些，不要只靠 `reasons_text` 模糊匹配：
+
+* `echo_retrieval`
+  → `patch_subgraph` with `build_evidence_patch(...)`
+
+* `empty_extraction`
+  → `patch_subgraph` with normalization / extraction patch
+
+* `internal_execution_error`
+  → `replan_subtree`
+
+* `final_answer_missing_structure`
+  → `patch_subgraph` with `build_final_response_patch(...)`；若失败过一次，再 `replan_subtree`
+
+* `intent_misalignment`
+  → 直接 `replan_subtree`
+
+#### 17. 强化升级条件
+
+新增规则：
+
+* final_response / aggregation 节点一旦出现语义失败，不要优先 retry，直接升级到 subtree replan
+* 同一节点若已做过一次 patch 仍失败，下一次直接 subtree replan
+
+#### 18. 为 patch 记录更细 graph delta
+
+每次 patch 或 subtree replace 时，在 `tree.record_graph_delta(...)` 里记：
+
+* `failure_type`
+* `patch_template`
+* `affected_nodes`
+
+这样后续实验能分析“什么错配什么修”。
+
+---
+
+## P2：让 planner 少走错图
+
+### `svmap/planning/planner.py`
+
+这次 query 是“设计 7 天学习计划”，但系统还是按 `qa` 家族拆成了大量 retrieve/extract/verify 的日级链路，这本身就不合理。当前 `infer_task_family` 的规则只显式识别了 compare / calculate / extract，其余默认回到 `qa`。 ([GitHub][6])
+
+#### 19. 修改 `infer_task_family(...)`
+
+新增至少一个 family：
+
+* `plan`
+* 或 `structured_generation`
+
+触发关键词：
+
+* `plan`
+* `learning plan`
+* `7-day`
+* `daily goals`
+* `deliverables`
+* `metric`
+
+#### 20. 修改 `normalize_planner_output(...)`
+
+当 task family 是 `plan` 时，不要生成 day1-day6 的 retrieve/extract 模板链，而应优先生成：
 
 ```text
-mvp.py
-  -> svmap.app.main()
-    -> svmap.pipeline.run_task() / run_batch()
-      -> planner / registry / validator / executor / metrics
+analyze_requirements
+-> design_plan_schema
+-> generate_day1 ... generate_day7
+-> verify_coverage
+-> final_response
 ```
 
-这条链会比现在的 `mvp.py -> case_study -> run_demo -> run_demo_query -> run_demo_collect` 清晰很多，而且不会影响你现有的 SV-MAP 方法实现。
+#### 21. 自动挂约束
+
+在 planner 后处理里自动补：
+
+* `final_response` 节点：
+  `FinalStructureConstraint + IntentAlignmentConstraint`
+
+* `extraction` 节点：
+  `NonEmptyExtractionConstraint`
+
+* `calculation` 节点：
+  `NoInternalErrorConstraint`
+
+* `retrieve/tool_call` 节点：
+  `NonTrivialTransformationConstraint`
+
+#### 22. 缩减不必要节点
+
+对于计划生成任务，若没有真实 retrieval 需求，不要硬插 retrieve/extract/verify 三段；否则系统只会机械展开模板。
+
+---
+
+## P3：把 demo 层也改干净
+
+### `svmap/demos/run_demo.py`
+
+这个文件现在还保留了 `_extract_final_answer(...)` 的中间节点兜底扫描。也就是说，即使 final node 机制已经存在，demo 层仍允许“从中间节点偷答案”。([GitHub][7])
+
+#### 23. 修改 `_extract_final_answer(...)`
+
+改成：
+
+* 只读 `report.final_output`
+* 不再倒序扫描 DAG 节点
+* 如果 `report.final_output` 不存在，就明确返回失败
+
+#### 24. 打印更多失败语义
+
+在输出中增加：
+
+* 主 `failure_type`
+* 触发的 `repair_hint`
+* 是否发生 `echo_retrieval / empty_extraction / final_structure_missing`
+
+这样调试会快很多。
+
+---
+
+## P4：回归测试，专门盯住这次失败模式
+
+### 新增测试文件
+
+#### 25. `tests/test_regression_learning_plan.py`
+
+就用这次 query 做回归样例，断言：
+
+* 最终答案不能与原 query 高度相同
+* final output 必须包含 7 天结构
+* 至少一个 day 节点不为空
+* 若 calculate error 存在，则必须触发失败或 replan
+
+#### 26. `tests/test_final_response_verifier.py`
+
+单测：
+
+* query echo → fail
+* 缺 day structure → fail
+* 缺 deliverable/metric → fail
+* 正确 7-day plan → pass
+
+#### 27. `tests/test_extraction_and_retrieval_failures.py`
+
+单测：
+
+* `{}` extraction → fail
+* evidence=query → fail
+* no_internal_error 约束生效
+
+---
+
+## 最推荐的执行顺序
+
+先做这 5 件，收益最大：
+
+1. `verifiers.py`
+   强化 `FinalResponseVerifier / IntentVerifier / CalculationVerifier`，并补 `ExtractionVerifier / RetrievalVerifier`
+
+2. `constraints.py`
+   加 `FinalStructureConstraint / NonEmptyExtractionConstraint / NoInternalErrorConstraint / NonTrivialTransformationConstraint`
+
+3. `engine.py + executor.py`
+   让 verifier 失败真正能阻止节点成功、阻止 final output 落地
+
+4. `replanner.py`
+   把新 `failure_type` 绑定到 patch / subtree replan
+
+5. `planner.py`
+   给 “7-day plan” 这类 query 一个合理的 task family 和 tree 模板
+
+---
+
+## 你改完后，预期应该看到的变化
+
+用同一条 query 再跑一次，理想结果应该是：
+
+* **第一次运行不再是“Success=True 但胡说八道”**
+* 系统会先识别：
+
+  * `echo_retrieval`
+  * `empty_extraction`
+  * `internal_execution_error`
+  * `final_answer_missing_structure`
+* 然后触发：
+
+  * evidence patch
+  * normalization patch
+  * 或 subtree replan
+* 如果最后仍失败，也应该是“诚实失败”，而不是“假成功”
+
+---
