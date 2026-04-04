@@ -202,6 +202,20 @@ class ExecutionRuntime:
                 node.outputs = output
                 node.status = "success"
                 context.node_outputs[node.id] = output
+                quality_failures = sorted(
+                    {
+                        x.failure_type
+                        for x in verification_results
+                        if not x.passed and x.failure_type in {
+                            "generic_deliverable",
+                            "non_actionable_metric",
+                            "repo_binding_weak",
+                            "generic_plan_output",
+                            "low_information_output",
+                            "plan_topic_drift",
+                        }
+                    }
+                )
                 record.status = "success"
                 record.attempts = attempts
                 record.agent_used = active_agent
@@ -213,6 +227,8 @@ class ExecutionRuntime:
                 record.failure_type = ""
                 record.repair_hint = ""
                 record.fatal = False
+                record.quality_failures = quality_failures
+                record.semantic_passed = len(quality_failures) == 0
                 return record
 
             retries += 1
@@ -254,8 +270,26 @@ class ExecutionRuntime:
                 "final_output_not_valid",
                 "generic_deliverable",
                 "non_actionable_metric",
+                "repo_binding_weak",
+                "schema_semantics_weak",
+                "topic_extraction_noisy",
                 "generic_plan_output",
             }
+        record.quality_failures = sorted(
+            {
+                x.failure_type
+                for x in record.verification_results
+                if not x.passed and x.failure_type in {
+                    "generic_deliverable",
+                    "non_actionable_metric",
+                    "repo_binding_weak",
+                    "generic_plan_output",
+                    "low_information_output",
+                    "plan_topic_drift",
+                }
+            }
+        )
+        record.semantic_passed = len(record.quality_failures) == 0
         return record
 
     def handle_failure(
@@ -364,6 +398,12 @@ class ExecutionRuntime:
                     failure_type = "generic_deliverable"
                 elif "non_actionable_metric" in code:
                     failure_type = "non_actionable_metric"
+                elif "repo_binding_weak" in code or "missing_repo_reference" in code:
+                    failure_type = "repo_binding_weak"
+                elif "schema_semantics_weak" in code:
+                    failure_type = "schema_semantics_weak"
+                elif "topic_extraction_noisy" in code:
+                    failure_type = "topic_extraction_noisy"
                 elif "generic_plan_output" in code:
                     failure_type = "generic_plan_output"
                 elif "final_topic_drift" in code:
@@ -589,29 +629,8 @@ class ExecutionRuntime:
                 if record.status != "success":
                     failure_type = record.failure_type or self.infer_failure_type(record.verification_results)
                     failure_summary[failure_type] = failure_summary.get(failure_type, 0) + 1
-                    if self.trace_logger:
-                        self.trace_logger.log_constraint_violation(
-                            node_id=node.id,
-                            failure_type=failure_type,
-                            reasons=record.verify_errors,
-                        )
-                        if failure_type in {
-                            "final_placeholder_output",
-                            "plan_coverage_incomplete",
-                            "plan_topic_drift",
-                            "final_topic_drift",
-                            "generic_deliverable",
-                            "non_actionable_metric",
-                            "generic_plan_output",
-                            "requirements_analysis_failed",
-                            "schema_design_failed",
-                            "low_information_output",
-                        }:
-                            self.trace_logger.log_plan_quality_failure(
-                                node_id=node.id,
-                                failure_type=failure_type,
-                                reasons=record.verify_errors,
-                            )
+                    failure_repair_hints = [x.repair_hint for x in record.verification_results if x.repair_hint]
+                    failure_scopes = [x.violation_scope for x in record.verification_results if not x.passed and x.violation_scope]
                     failure = NodeFailure(
                         node_id=node.id,
                         failure_type=failure_type,
@@ -619,8 +638,8 @@ class ExecutionRuntime:
                         output_snapshot=record.output,
                         retryable=node.execution_policy.retryable,
                         constraint_failures=[x for x in record.verification_results if not x.passed],
-                        repair_hints=[x.repair_hint for x in record.verification_results if x.repair_hint],
-                        violation_scopes=[x.violation_scope for x in record.verification_results if not x.passed],
+                        repair_hints=failure_repair_hints,
+                        violation_scopes=failure_scopes,
                     )
                     added_replan, recovered, replan_meta = self.handle_failure(
                         node=node,
@@ -638,6 +657,45 @@ class ExecutionRuntime:
                     )
                     record.saved_downstream_nodes = int(replan_meta.get("saved_downstream_nodes", 0))
                     record.replan_action = str(replan_meta.get("chosen_action", ""))
+                    if self.trace_logger:
+                        self.trace_logger.log_constraint_violation(
+                            node_id=node.id,
+                            failure_type=failure_type,
+                            reasons=record.verify_errors,
+                            repair_hint=(failure_repair_hints[0] if failure_repair_hints else ""),
+                            violation_scope=sorted(set(failure_scopes)),
+                            replan_action=record.replan_action,
+                            graph_delta_summary=str(
+                                replan_meta.get("graph_delta_summary")
+                                or replan_meta.get("graph_delta", {}).get("graph_delta_summary", "")
+                            ),
+                        )
+                        if failure_type in {
+                            "final_placeholder_output",
+                            "plan_coverage_incomplete",
+                            "plan_topic_drift",
+                            "final_topic_drift",
+                            "generic_deliverable",
+                            "non_actionable_metric",
+                            "repo_binding_weak",
+                            "generic_plan_output",
+                            "requirements_analysis_failed",
+                            "schema_design_failed",
+                            "schema_semantics_weak",
+                            "topic_extraction_noisy",
+                            "low_information_output",
+                        }:
+                            self.trace_logger.log_plan_quality_failure(
+                                node_id=node.id,
+                                failure_type=failure_type,
+                                reasons=record.verify_errors,
+                                repair_hint=(failure_repair_hints[0] if failure_repair_hints else ""),
+                                replan_action=record.replan_action,
+                                graph_delta_summary=str(
+                                    replan_meta.get("graph_delta_summary")
+                                    or replan_meta.get("graph_delta", {}).get("graph_delta_summary", "")
+                                ),
+                            )
 
                     if self.stop_on_failure and not recovered:
                         failure_summary["replan_failure"] = failure_summary.get("replan_failure", 0) + 1
@@ -737,7 +795,20 @@ class ExecutionRuntime:
             coverage = final_output.get("coverage_verification")
             coverage_ok = isinstance(coverage, dict) and bool(coverage.get("coverage_ok", False))
             semantic_gaps = coverage.get("semantic_gaps", []) if isinstance(coverage, dict) else []
-            if not coverage_ok or (isinstance(semantic_gaps, list) and len(semantic_gaps) > 0):
+            final_quality_failures = final_record.quality_failures if final_record is not None else []
+            has_quality_failure = len(final_quality_failures) > 0 or any(
+                report_count > 0
+                for failure_key, report_count in failure_summary.items()
+                if failure_key in {
+                    "generic_deliverable",
+                    "non_actionable_metric",
+                    "repo_binding_weak",
+                    "generic_plan_output",
+                    "schema_semantics_weak",
+                    "topic_extraction_noisy",
+                }
+            )
+            if not coverage_ok or (isinstance(semantic_gaps, list) and len(semantic_gaps) > 0) or has_quality_failure:
                 failure_summary["plan_semantic_not_valid"] = failure_summary.get("plan_semantic_not_valid", 0) + 1
                 return self._build_report(
                     success=False,

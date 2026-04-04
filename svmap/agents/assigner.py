@@ -21,13 +21,26 @@ class CapabilityBasedAssigner(AssignmentStrategy):
     final_response_weight: float = 1.2
     task_type_preference_bonus: float = 1.5
     plan_task_preference_bonus: float = 1.8
+    node_responsibility_bonus: float = 1.6
+    node_responsibility_penalty: float = 1.2
 
     def _score(self, spec: AgentSpec) -> float:
         cost = max(spec.cost_weight, 1e-6)
         latency = max(spec.latency_weight, 1e-6)
         return spec.reliability / (cost * latency)
 
-    def preferred_agents_for_task_type(self, task_type: str) -> list[str]:
+    def preferred_agents_for_task_type(self, task_type: str, node_id: str = "") -> list[str]:
+        node_key = node_id.lower().strip()
+        if node_key == "analyze_requirements":
+            return ["reason_agent", "synthesize_agent"]
+        if node_key == "design_plan_schema":
+            return ["reason_agent", "verify_agent", "synthesize_agent"]
+        if node_key.startswith("generate_day"):
+            return ["synthesize_agent", "reason_agent"]
+        if node_key == "verify_coverage":
+            return ["verify_agent", "reason_agent", "synthesize_agent"]
+        if node_key == "final_response":
+            return ["synthesize_agent", "reason_agent"]
         mapping = {
             "reasoning": ["reason_agent", "synthesize_agent"],
             "verification": ["verify_agent", "reason_agent"],
@@ -42,7 +55,7 @@ class CapabilityBasedAssigner(AssignmentStrategy):
 
     def _preferred_agents_for_node(self, node: TaskNode, task_family: str) -> list[str]:
         if task_family != "plan":
-            return self.preferred_agents_for_task_type(node.spec.task_type)
+            return self.preferred_agents_for_task_type(node.spec.task_type, node_id=node.id)
         node_id = node.id.lower()
         if node_id == "analyze_requirements":
             return ["reason_agent"]
@@ -54,7 +67,34 @@ class CapabilityBasedAssigner(AssignmentStrategy):
             return ["verify_agent"]
         if node.is_final_response():
             return ["synthesize_agent"]
-        return self.preferred_agents_for_task_type(node.spec.task_type)
+        return self.preferred_agents_for_task_type(node.spec.task_type, node_id=node.id)
+
+    def _node_responsibility_adjustment(self, spec: AgentSpec, node: TaskNode, task_family: str) -> float:
+        if task_family != "plan":
+            return 0.0
+        node_id = node.id.lower()
+        bonus = 0.0
+        if node_id in {"analyze_requirements", "design_plan_schema"}:
+            if spec.name == "reason_agent" or "reason" in spec.capabilities:
+                bonus += self.node_responsibility_bonus
+            if spec.name == "retrieve_agent" or "retrieve" in spec.capabilities:
+                bonus -= self.node_responsibility_penalty
+        elif node_id.startswith("generate_day"):
+            if spec.name == "synthesize_agent" or "synthesize" in spec.capabilities:
+                bonus += self.node_responsibility_bonus
+            if spec.name == "verify_agent" or "verify" in spec.capabilities:
+                bonus -= self.node_responsibility_penalty * 0.6
+        elif node_id == "verify_coverage":
+            if spec.name == "verify_agent" or "verify" in spec.capabilities:
+                bonus += self.node_responsibility_bonus
+            if spec.name == "synthesize_agent" or "synthesize" in spec.capabilities:
+                bonus -= self.node_responsibility_penalty
+        elif node.is_final_response():
+            if spec.name == "synthesize_agent" or "synthesize" in spec.capabilities:
+                bonus += self.node_responsibility_bonus
+            if spec.name == "verify_agent" or "verify" in spec.capabilities:
+                bonus -= self.node_responsibility_penalty * 0.5
+        return bonus
 
     def _score_for_node(self, spec: AgentSpec, node: TaskNode, task_family: str = "") -> float:
         base = self._score(spec)
@@ -73,7 +113,17 @@ class CapabilityBasedAssigner(AssignmentStrategy):
             rank = preferred.index(spec.name)
             bonus = self.plan_task_preference_bonus if task_family == "plan" else self.task_type_preference_bonus
             pref_bonus = bonus * (1.0 - rank / max(len(preferred), 1))
-        return base + intent_bonus + hist_bonus + task_type_bonus + output_mode_bonus + final_bonus + pref_bonus
+        responsibility_bonus = self._node_responsibility_adjustment(spec=spec, node=node, task_family=task_family)
+        return (
+            base
+            + intent_bonus
+            + hist_bonus
+            + task_type_bonus
+            + output_mode_bonus
+            + final_bonus
+            + pref_bonus
+            + responsibility_bonus
+        )
 
     def assign(self, tree: TaskTree, registry: AgentRegistry) -> TaskTree:
         return self.assign_by_capability(tree=tree, registry=registry)

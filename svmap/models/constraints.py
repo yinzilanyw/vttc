@@ -788,11 +788,17 @@ class PlanTopicCoverageConstraint(Constraint):
 
         dependency_outputs = context.get("dependency_outputs", {})
         day_payloads: List[str] = []
+        core_field_hits = 0
+        field_check_total = 0
+        required_topics: List[str] = []
         for dep_id, dep_output in dependency_outputs.items():
             if not str(dep_id).startswith("generate_day"):
                 continue
             if not isinstance(dep_output, dict):
                 continue
+            query_text = str(context.get("global_context", {}).get("query", "")).lower()
+            if not required_topics:
+                required_topics = [t for t in ["multi-agent", "workflow", "verifiable", "task tree", "task trees"] if t in query_text]
             merged = " ".join(
                 [
                     str(dep_output.get("goal") or ""),
@@ -802,6 +808,16 @@ class PlanTopicCoverageConstraint(Constraint):
             ).strip()
             if merged:
                 day_payloads.append(merged.lower())
+            goal = str(dep_output.get("goal") or "").lower()
+            deliverable = str(dep_output.get("deliverable") or "").lower()
+            metric = str(dep_output.get("metric") or "").lower()
+            for field_text in [goal, deliverable]:
+                field_check_total += 1
+                if required_topics and any(topic in field_text for topic in required_topics):
+                    core_field_hits += 1
+            if required_topics and any(topic in metric for topic in required_topics):
+                # Mentioning topics only in metric is weak; do not count as dominant coverage.
+                pass
 
         if len(day_payloads) < 7:
             return ConstraintResult(
@@ -837,6 +853,18 @@ class PlanTopicCoverageConstraint(Constraint):
                 violation_scope="subtree",
                 evidence={"anchor_hits": anchor_hits},
             )
+        if required_topics and field_check_total > 0:
+            dominance = core_field_hits / max(field_check_total, 1)
+            if dominance < 0.35:
+                return ConstraintResult(
+                    passed=False,
+                    code="plan_topic_coverage_core_position_weak",
+                    message="Query topics are mentioned, but not in dominant goal/deliverable positions.",
+                    failure_type="plan_topic_drift",
+                    repair_hint="replan_subtree",
+                    violation_scope="subtree",
+                    evidence={"core_field_hit_rate": dominance},
+                )
 
         return ConstraintResult(
             passed=True,
@@ -860,7 +888,19 @@ class SchemaSpecificityConstraint(Constraint):
                 severity="warning",
             )
 
+        topic_allocation = output.get("topic_allocation")
         quality = output.get("quality_criteria")
+        deliverable_template = output.get("deliverable_template")
+        metric_template = output.get("metric_template")
+        if not isinstance(topic_allocation, dict) or len(topic_allocation) < 7:
+            return ConstraintResult(
+                passed=False,
+                code="schema_topic_allocation_missing",
+                message="Plan schema must include 7-day topic_allocation.",
+                failure_type="schema_design_failed",
+                repair_hint="build_schema_patch",
+                violation_scope="node",
+            )
         if not isinstance(quality, dict):
             return ConstraintResult(
                 passed=False,
@@ -885,6 +925,36 @@ class SchemaSpecificityConstraint(Constraint):
                 repair_hint="build_schema_patch",
                 violation_scope="node",
             )
+        if not isinstance(deliverable_template, dict) or not isinstance(metric_template, dict):
+            return ConstraintResult(
+                passed=False,
+                code="schema_template_missing",
+                message="Plan schema must include deliverable_template and metric_template.",
+                failure_type="schema_design_failed",
+                repair_hint="build_schema_patch",
+                violation_scope="node",
+            )
+        required_deliverable_template = {
+            "must_include_file_or_module",
+            "must_include_test_or_trace",
+            "must_include_validation_artifact",
+        }
+        required_metric_template = {
+            "must_be_numeric_or_thresholded",
+            "must_measure_task_completion",
+            "must_not_only_check_field_presence",
+        }
+        if any(k not in deliverable_template for k in required_deliverable_template) or any(
+            k not in metric_template for k in required_metric_template
+        ):
+            return ConstraintResult(
+                passed=False,
+                code="schema_template_incomplete",
+                message="Plan schema templates are incomplete for deliverable/metric quality.",
+                failure_type="schema_design_failed",
+                repair_hint="build_schema_patch",
+                violation_scope="node",
+            )
         progression = output.get("progression")
         if isinstance(progression, list):
             generic_terms = {"foundation", "core", "general", "overview", "patterns", "principles"}
@@ -897,7 +967,7 @@ class SchemaSpecificityConstraint(Constraint):
                     passed=False,
                     code="schema_progression_too_generic",
                     message="Plan schema progression is too generic.",
-                    failure_type="schema_design_failed",
+                    failure_type="schema_semantics_weak",
                     repair_hint="build_schema_patch",
                     violation_scope="node",
                 )
@@ -927,6 +997,7 @@ class SpecificDeliverableConstraint(Constraint):
             )
         artifact_tokens = [
             "code",
+            "file",
             "module",
             "unit test",
             "integration test",
@@ -943,11 +1014,23 @@ class SpecificDeliverableConstraint(Constraint):
             "dataset",
         ]
         generic_tokens = ["concrete artifact", "some artifact", "output", "deliverable"]
+        weak_tokens = ["implementation notes", "short validation log", "generic artifact"]
         if not any(tok in deliverable for tok in artifact_tokens):
             return ConstraintResult(
                 passed=False,
                 code="generic_deliverable",
                 message="Deliverable lacks concrete artifact type.",
+                failure_type="generic_deliverable",
+                repair_hint="build_schema_patch",
+                violation_scope="node",
+            )
+        if any(tok in deliverable for tok in weak_tokens) and not any(
+            tok in deliverable for tok in ["file", "module", "test", "trace", "experiment report", "report"]
+        ):
+            return ConstraintResult(
+                passed=False,
+                code="generic_deliverable_weak_artifact",
+                message="Deliverable is too generic and not grounded to concrete repo artifact.",
                 failure_type="generic_deliverable",
                 repair_hint="build_schema_patch",
                 violation_scope="node",
@@ -1004,6 +1087,16 @@ class MeasurableMetricConstraint(Constraint):
             "hours",
         ]
         has_digit = bool(re.search(r"\d", metric))
+        pseudo_metric_tokens = ["includes fields", "passes verification", "looks complete", "field presence"]
+        if any(tok in metric for tok in pseudo_metric_tokens) and not has_digit:
+            return ConstraintResult(
+                passed=False,
+                code="non_actionable_metric_pseudo",
+                message="Metric is pseudo-measurement without numeric completion criterion.",
+                failure_type="non_actionable_metric",
+                repair_hint="build_metric_patch",
+                violation_scope="node",
+            )
         if not has_digit and not any(tok in metric for tok in measurable_tokens):
             return ConstraintResult(
                 passed=False,
@@ -1049,6 +1142,19 @@ class NoGenericPlanConstraint(Constraint):
                 repair_hint="replan_subtree",
                 violation_scope="node",
             )
+        day_lines = re.findall(r"day\s*(?:[1-9]|10)\s*:\s*([^\n]+)", merged)
+        if day_lines:
+            norm = [re.sub(r"\bday\s*[1-9]\b", "day", re.sub(r"\s+", " ", x)).strip() for x in day_lines]
+            diversity = len(set(norm)) / max(len(norm), 1)
+            if diversity < 0.55:
+                return ConstraintResult(
+                    passed=False,
+                    code="generic_plan_repetition",
+                    message="Plan day entries are overly repetitive and template-like.",
+                    failure_type="generic_plan_output",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
         return ConstraintResult(
             passed=True,
             code="no_generic_plan_ok",

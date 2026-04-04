@@ -44,6 +44,8 @@ class MetricsSummary:
     repair_success_rate_by_failure_type: Dict[str, float] = field(default_factory=dict)
     deliverable_specificity_rate: float = 0.0
     metric_measurability_rate: float = 0.0
+    repo_binding_rate: float = 0.0
+    plan_repair_trigger_rate: float = 0.0
 
 
 class MetricsCollector:
@@ -62,11 +64,20 @@ class MetricsCollector:
             "test case",
             "validator",
             "experiment",
+            "file",
+            "patch",
+            ".py",
+            ".md",
         ]
+        if "implementation notes" in lowered and not any(tok in lowered for tok in ["file", "module", "test", "trace"]):
+            return False
         return any(token in lowered for token in tokens)
 
     def _is_measurable_metric(self, text: str) -> bool:
         lowered = str(text or "").lower()
+        pseudo_tokens = ["includes fields", "passes verification", "looks complete", "field presence"]
+        if any(tok in lowered for tok in pseudo_tokens) and not any(ch.isdigit() for ch in lowered):
+            return False
         if any(ch.isdigit() for ch in lowered):
             return True
         tokens = ["%", "<=", ">=", "at least", "within", "pass rate", "accuracy", "latency", "count"]
@@ -162,8 +173,17 @@ class MetricsCollector:
         measurable_metric_hits = sum(
             1 for rec in day_records if self._is_measurable_metric(str(rec.output.get("metric", "")))
         )
+        repo_binding_hits = sum(
+            1
+            for rec in day_records
+            if any(
+                token in str(rec.output.get("deliverable", "")).lower()
+                for token in ["modified file", "file path", "commit", "patch", "diff", "repo", "repository", ".py", ".md"]
+            )
+        )
         deliverable_specificity_rate = specific_deliverable_hits / max(len(day_records), 1) if day_records else 0.0
         metric_measurability_rate = measurable_metric_hits / max(len(day_records), 1) if day_records else 0.0
+        repo_binding_rate = repo_binding_hits / max(len(day_records), 1) if day_records else 0.0
 
         return MetricsSummary(
             task_success=report.success,
@@ -231,6 +251,8 @@ class MetricsCollector:
             repair_success_rate_by_failure_type=repair_success_by_failure,
             deliverable_specificity_rate=deliverable_specificity_rate,
             metric_measurability_rate=metric_measurability_rate,
+            repo_binding_rate=repo_binding_rate,
+            plan_repair_trigger_rate=(repair_trigger_rate if family == "plan" else 0.0),
         )
 
     def collect_verification_quality(self, traces: List[Dict[str, Any]]) -> Dict[str, float]:
@@ -280,4 +302,16 @@ class MetricsCollector:
                 "avg_replan_count": avg_replans,
                 "avg_retry_count": avg_retries,
             }
+            if family == "plan":
+                metric_summaries = [self.summarize(item) for item in items]
+                summary[family].update(
+                    {
+                        "plan_structure_success_rate": sum(x.structure_success_rate for x in metric_summaries) / max(len(metric_summaries), 1),
+                        "plan_semantic_success_rate": sum(x.semantic_success_rate for x in metric_summaries) / max(len(metric_summaries), 1),
+                        "deliverable_specificity_rate": sum(x.deliverable_specificity_rate for x in metric_summaries) / max(len(metric_summaries), 1),
+                        "metric_measurability_rate": sum(x.metric_measurability_rate for x in metric_summaries) / max(len(metric_summaries), 1),
+                        "repo_binding_rate": sum(x.repo_binding_rate for x in metric_summaries) / max(len(metric_summaries), 1),
+                        "plan_repair_trigger_rate": sum(x.plan_repair_trigger_rate for x in metric_summaries) / max(len(metric_summaries), 1),
+                    }
+                )
         return summary

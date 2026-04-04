@@ -44,6 +44,7 @@ from svmap.verification import (
     NoPlaceholderVerifier,
     PlanCoverageVerifier,
     PlanSchemaVerifier,
+    RepoBindingVerifier,
     RequirementsAnalysisVerifier,
     RetrievalVerifier,
     RuleVerifier,
@@ -69,6 +70,7 @@ class RunConfig:
     stop_on_failure: Optional[bool] = None
     enable_replan: bool = True
     enable_intent_verifier: bool = True
+    enable_quality_verifier: bool = True
     enable_plan_coverage_verifier: bool = True
     assignment_mode: Optional[str] = None
     max_runtime_steps: int = 200
@@ -364,12 +366,6 @@ def build_runtime(config: RunConfig) -> Dict[str, Any]:
         SchemaVerifier(),
         RuleVerifier(),
         SemanticVerifier(semantic_judge=components["semantic_judge"]),
-        RequirementsAnalysisVerifier(),
-        PlanSchemaVerifier(),
-        *( [PlanCoverageVerifier()] if config.enable_plan_coverage_verifier else [] ),
-        LowInformationOutputVerifier(),
-        GenericOutputVerifier(),
-        NoPlaceholderVerifier(),
         RetrievalVerifier(),
         ExtractionVerifier(),
         CrossNodeVerifier(),
@@ -379,9 +375,19 @@ def build_runtime(config: RunConfig) -> Dict[str, Any]:
         SummarizationVerifier(),
         ComparisonVerifier(),
         CalculationVerifier(),
-        FinalResponseVerifier(),
         CustomNodeVerifier(),
     ]
+    if config.enable_quality_verifier:
+        verifiers[3:3] = [
+            RequirementsAnalysisVerifier(),
+            PlanSchemaVerifier(),
+            *( [PlanCoverageVerifier()] if config.enable_plan_coverage_verifier else [] ),
+            RepoBindingVerifier(),
+            LowInformationOutputVerifier(),
+            GenericOutputVerifier(),
+            NoPlaceholderVerifier(),
+            FinalResponseVerifier(),
+        ]
     if config.enable_intent_verifier:
         verifiers.insert(5, IntentVerifier())
     verifier_engine = VerifierEngine(verifiers=verifiers)

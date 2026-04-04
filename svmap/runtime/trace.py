@@ -37,23 +37,47 @@ class TraceLogger:
             },
         )
 
-    def log_constraint_violation(self, node_id: str, failure_type: str, reasons: List[str]) -> None:
+    def log_constraint_violation(
+        self,
+        node_id: str,
+        failure_type: str,
+        reasons: List[str],
+        repair_hint: str = "",
+        violation_scope: List[str] | None = None,
+        replan_action: str = "",
+        graph_delta_summary: str = "",
+    ) -> None:
         self.log_event(
             "constraint_violation",
             {
                 "node_id": node_id,
                 "failure_type": failure_type,
                 "reasons": reasons,
+                "repair_hint": repair_hint,
+                "violation_scope": violation_scope or [],
+                "replan_action": replan_action,
+                "graph_delta_summary": graph_delta_summary,
             },
         )
 
-    def log_plan_quality_failure(self, node_id: str, failure_type: str, reasons: List[str]) -> None:
+    def log_plan_quality_failure(
+        self,
+        node_id: str,
+        failure_type: str,
+        reasons: List[str],
+        repair_hint: str = "",
+        replan_action: str = "",
+        graph_delta_summary: str = "",
+    ) -> None:
         self.log_event(
             "plan_quality_failure",
             {
                 "node_id": node_id,
                 "failure_type": failure_type,
                 "reasons": reasons,
+                "repair_hint": repair_hint,
+                "replan_action": replan_action,
+                "graph_delta_summary": graph_delta_summary,
             },
         )
 

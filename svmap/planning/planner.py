@@ -1,6 +1,7 @@
 ﻿
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 import re
 from abc import ABC, abstractmethod
@@ -382,16 +383,22 @@ class ConstraintAwarePlanner(BasePlanner):
 
     def infer_plan_focus(self, user_query: str) -> str:
         text = user_query.lower().strip()
-        planning_signals = ["learning plan", "7-day", "daily goals", "deliverables", "metric"]
-        svmap_signals = ["multi-agent", "workflow", "verifiable task tree", "verifiable task trees"]
+        planning_signals = ["learning plan", "7-day", "daily goals", "deliverables", "metric", "roadmap", "plan"]
+        svmap_signals = ["multi-agent", "workflow", "verifiable task tree", "verifiable task trees", "task trees"]
+        verification_signals = ["planning", "verification", "replanning"]
         experiment_signals = ["ablation", "benchmark", "experiment", "evaluation", "metrics comparison"]
         implementation_signals = ["implement", "build", "coding", "refactor", "module", "repository"]
-        if any(x in text for x in planning_signals) and any(x in text for x in svmap_signals):
-            return "learning_plan_svmap"
-        if any(x in text for x in planning_signals) and any(x in text for x in experiment_signals):
+        has_planning = any(x in text for x in planning_signals)
+        has_svmap = any(x in text for x in svmap_signals)
+        has_verification = any(x in text for x in verification_signals)
+        if has_svmap and has_verification and "multi-agent" in text and "workflow" in text:
+            return "svmap_system_improvement"
+        if has_planning and any(x in text for x in experiment_signals):
             return "experiment_plan"
-        if any(x in text for x in planning_signals) and any(x in text for x in implementation_signals):
-            return "implementation_plan"
+        if has_planning and any(x in text for x in implementation_signals):
+            return "learning_plan"
+        if has_planning and has_svmap:
+            return "learning_plan"
         if self.infer_task_family(user_query) == "plan":
             return "general_plan"
         return ""
@@ -446,6 +453,13 @@ class ConstraintAwarePlanner(BasePlanner):
                 if topic_text not in must_cover:
                     must_cover.append(topic_text)
             normalized["must_cover_topics"] = must_cover[:5]
+        quality_targets = normalized.get("quality_targets")
+        if not isinstance(quality_targets, dict):
+            quality_targets = {}
+        quality_targets.setdefault("deliverable_specificity", True)
+        quality_targets.setdefault("metric_measurability", True)
+        quality_targets.setdefault("repo_binding_required", True)
+        normalized["quality_targets"] = quality_targets
         return normalized
 
     def enrich_plan_schema(
@@ -462,6 +476,26 @@ class ConstraintAwarePlanner(BasePlanner):
         quality.setdefault("avoid_generic_templates", True)
         quality.setdefault("must_reference_repo_changes", True)
         enriched["quality_criteria"] = quality
+        quality_targets = requirements_output.get("quality_targets")
+        if isinstance(quality_targets, dict):
+            quality["deliverable_must_be_specific"] = bool(quality_targets.get("deliverable_specificity", True))
+            quality["metric_must_be_measurable"] = bool(quality_targets.get("metric_measurability", True))
+            quality["must_reference_repo_changes"] = bool(quality_targets.get("repo_binding_required", True))
+            enriched["quality_criteria"] = quality
+        deliverable_template = enriched.get("deliverable_template")
+        if not isinstance(deliverable_template, dict):
+            deliverable_template = {}
+        deliverable_template.setdefault("must_include_file_or_module", True)
+        deliverable_template.setdefault("must_include_test_or_trace", True)
+        deliverable_template.setdefault("must_include_validation_artifact", True)
+        enriched["deliverable_template"] = deliverable_template
+        metric_template = enriched.get("metric_template")
+        if not isinstance(metric_template, dict):
+            metric_template = {}
+        metric_template.setdefault("must_be_numeric_or_thresholded", True)
+        metric_template.setdefault("must_measure_task_completion", True)
+        metric_template.setdefault("must_not_only_check_field_presence", True)
+        enriched["metric_template"] = metric_template
         required_fields = requirements_output.get("required_fields")
         if isinstance(required_fields, list) and required_fields:
             enriched["required_fields"] = required_fields
@@ -631,7 +665,7 @@ class ConstraintAwarePlanner(BasePlanner):
                         "constraint": [
                             (
                                 "required_keys:primary_domain,secondary_focus,task_form,topics,"
-                                "must_cover_topics,forbidden_topic_drift,constraints,required_fields,duration_days"
+                                "must_cover_topics,forbidden_topic_drift,constraints,required_fields,duration_days,quality_targets"
                             ),
                             "non_empty_values",
                         ],
@@ -646,6 +680,7 @@ class ConstraintAwarePlanner(BasePlanner):
                                 {"name": "constraints", "field_type": "list[string]", "required": True},
                                 {"name": "required_fields", "field_type": "list[string]", "required": True},
                                 {"name": "duration_days", "field_type": "number", "required": True},
+                                {"name": "quality_targets", "field_type": "json", "required": True},
                             ]
                         },
                     },
@@ -660,7 +695,10 @@ class ConstraintAwarePlanner(BasePlanner):
                         "output_mode": "json",
                         "answer_role": "intermediate",
                         "constraint": [
-                            "required_keys:day_template,progression,topic_allocation,required_fields,quality_criteria",
+                            (
+                                "required_keys:day_template,progression,topic_allocation,required_fields,"
+                                "quality_criteria,deliverable_template,metric_template"
+                            ),
                             "non_empty_values",
                             "schema_specificity",
                             "no_generic_plan",
@@ -672,6 +710,8 @@ class ConstraintAwarePlanner(BasePlanner):
                                 {"name": "topic_allocation", "field_type": "json", "required": True},
                                 {"name": "required_fields", "field_type": "list[string]", "required": True},
                                 {"name": "quality_criteria", "field_type": "json", "required": True},
+                                {"name": "deliverable_template", "field_type": "json", "required": True},
+                                {"name": "metric_template", "field_type": "json", "required": True},
                             ]
                         },
                     },
@@ -687,7 +727,10 @@ class ConstraintAwarePlanner(BasePlanner):
                         "output_mode": "json",
                         "answer_role": "intermediate",
                         "constraint": [
-                            "required_keys:coverage_ok,missing_days,missing_fields,semantic_gaps,grounded_nodes",
+                            (
+                                "required_keys:coverage_ok,missing_days,missing_fields,semantic_gaps,grounded_nodes,"
+                                "generic_content_flags,missing_specificity_days,repo_binding_score"
+                            ),
                             "coverage_constraint",
                             "all_days_present",
                             "plan_topic_coverage",
@@ -701,6 +744,9 @@ class ConstraintAwarePlanner(BasePlanner):
                                 {"name": "missing_fields", "field_type": "json", "required": True},
                                 {"name": "semantic_gaps", "field_type": "json", "required": True},
                                 {"name": "grounded_nodes", "field_type": "json", "required": True},
+                                {"name": "generic_content_flags", "field_type": "json", "required": True},
+                                {"name": "missing_specificity_days", "field_type": "json", "required": True},
+                                {"name": "repo_binding_score", "field_type": "number", "required": True},
                             ]
                         },
                     },
@@ -1208,6 +1254,26 @@ class ConstraintAwarePlanner(BasePlanner):
                     criterion = f"include_section_{section}"
                     if criterion not in intent.child_completion_criteria:
                         intent.child_completion_criteria.append(criterion)
+                quality_targets = {
+                    "deliverable_specificity": True,
+                    "metric_measurability": True,
+                    "repo_binding_required": True,
+                }
+                node.metadata.setdefault("quality_targets", dict(quality_targets))
+                for dep_id in node.dependencies:
+                    dep = tree.nodes.get(dep_id)
+                    if dep is None:
+                        continue
+                    dep.metadata.setdefault("quality_targets", dict(quality_targets))
+                    if dep.spec.intent is None:
+                        continue
+                    for criterion in [
+                        "quality_deliverable_specificity",
+                        "quality_metric_measurability",
+                        "quality_repo_binding_required",
+                    ]:
+                        if criterion not in dep.spec.intent.child_completion_criteria:
+                            dep.spec.intent.child_completion_criteria.append(criterion)
 
     def ensure_final_node(self, tree: TaskTree) -> None:
         sink_ids = tree.get_sink_nodes()
@@ -1315,20 +1381,66 @@ class ConstraintAwarePlanner(BasePlanner):
         if failed_node_id not in tree.nodes:
             return []
 
-        source = tree.nodes[failed_node_id]
-        replacement = TaskNode(
-            id=source.id,
-            spec=source.spec,
-            dependencies=list(source.dependencies),
-            assigned_agent=source.assigned_agent,
-            fallback_agents=list(source.fallback_agents),
-            status="pending",
-            inputs=dict(source.inputs),
-            outputs={},
-            execution_policy=source.execution_policy,
-            metadata={**source.metadata, "replanned": True},
-            parent_intent_ids=list(source.parent_intent_ids),
-            intent_status="unknown",
-            repair_history=list(source.repair_history),
-        )
-        return [replacement]
+        failure_context = context.failure_context or {}
+        failure_type = str(failure_context.get("failure_type", "")).strip().lower()
+        if not failure_type:
+            reasons = failure_context.get("reasons", [])
+            if isinstance(reasons, list):
+                failure_type = " ".join(str(x).strip().lower() for x in reasons if str(x).strip())
+
+        task_family = (context.task_family or str(tree.metadata.get("task_family", ""))).strip().lower()
+        topo_order = tree.topo_sort()
+        day_ids = [node_id for node_id in topo_order if node_id.startswith("generate_day")]
+        plan_tail_ids = [*day_ids, "verify_coverage", "final_response"]
+        plan_full_ids = ["analyze_requirements", "design_plan_schema", *plan_tail_ids]
+        plan_schema_ids = ["design_plan_schema", *plan_tail_ids]
+
+        target_ids: List[str] = []
+        if task_family == "plan":
+            if failed_node_id == "analyze_requirements" or failure_type in {
+                "requirements_analysis_failed",
+                "topic_extraction_noisy",
+            }:
+                target_ids = plan_full_ids
+            elif failed_node_id == "design_plan_schema" or failure_type in {
+                "schema_design_failed",
+                "schema_semantics_weak",
+            }:
+                target_ids = plan_schema_ids
+            elif (
+                failed_node_id.startswith("generate_day")
+                or failed_node_id in {"verify_coverage", "final_response"}
+                or failure_type in {
+                    "generic_deliverable",
+                    "non_actionable_metric",
+                    "repo_binding_weak",
+                    "plan_topic_drift",
+                    "generic_plan_output",
+                    "low_information_output",
+                }
+            ):
+                target_ids = plan_tail_ids
+
+        if not target_ids:
+            subtree_ids = [failed_node_id, *tree.get_downstream_nodes(failed_node_id)]
+            target_ids = [node_id for node_id in topo_order if node_id in subtree_ids]
+        else:
+            target_ids = [node_id for node_id in topo_order if node_id in set(target_ids)]
+
+        replacements: List[TaskNode] = []
+        for node_id in target_ids:
+            source = tree.nodes.get(node_id)
+            if source is None:
+                continue
+            replacement = deepcopy(source)
+            replacement.status = "pending"
+            replacement.outputs = {}
+            replacement.intent_status = "unknown"
+            replacement.metadata = {
+                **replacement.metadata,
+                "replanned": True,
+                "replan_source": failed_node_id,
+                "replan_failure_type": failure_type,
+            }
+            replacements.append(replacement)
+        return replacements

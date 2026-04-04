@@ -52,6 +52,8 @@ class NodeExecutionRecord:
     failure_type: str = ""
     repair_hint: str = ""
     fatal: bool = False
+    quality_failures: List[str] = field(default_factory=list)
+    semantic_passed: bool = True
 
 
 @dataclass

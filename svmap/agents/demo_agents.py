@@ -210,10 +210,19 @@ def _is_specific_deliverable(text: str) -> bool:
 
 def _is_measurable_metric(text: str) -> bool:
     lowered = _safe_str(text).lower()
+    pseudo_tokens = ["includes fields", "passes verification", "looks complete", "field presence"]
+    if any(tok in lowered for tok in pseudo_tokens) and not re.search(r"\d", lowered):
+        return False
     if re.search(r"\d", lowered):
         return True
     measurable_tokens = ["%", "<=", ">=", "at least", "within", "pass rate", "accuracy", "latency", "count"]
     return any(token in lowered for token in measurable_tokens)
+
+
+def _is_repo_bound_text(text: str) -> bool:
+    lowered = _safe_str(text).lower()
+    repo_ref_tokens = ["modified file", "file path", "commit", "patch", "diff", "repo", "repository", ".py", ".md"]
+    return any(tok in lowered for tok in repo_ref_tokens)
 
 
 def _parse_day_index(node_id: str) -> Optional[int]:
@@ -533,6 +542,15 @@ class SynthesizeAgent(BaseAgent):
             quality_criteria = schema_output.get("quality_criteria", {})
             if not isinstance(quality_criteria, dict):
                 quality_criteria = {}
+            quality_targets = requirements_output.get("quality_targets", {})
+            if not isinstance(quality_targets, dict):
+                quality_targets = {}
+            deliverable_template = schema_output.get("deliverable_template", {})
+            if not isinstance(deliverable_template, dict):
+                deliverable_template = {}
+            metric_template = schema_output.get("metric_template", {})
+            if not isinstance(metric_template, dict):
+                metric_template = {}
 
             day_key = f"day{day_idx}"
             assigned_topic = _safe_str(topic_allocation.get(day_key))
@@ -547,12 +565,30 @@ class SynthesizeAgent(BaseAgent):
             )
             deliverable = _build_specific_deliverable(day_idx=day_idx, assigned_topic=assigned_topic)
             metric = _build_measurable_metric(day_idx=day_idx)
-            if quality_criteria.get("must_reference_repo_changes", False):
+            if quality_criteria.get("must_reference_repo_changes", False) or quality_targets.get("repo_binding_required", False):
                 deliverable += " Include modified file paths in the daily artifact note."
-            if quality_criteria.get("deliverable_must_be_specific", False) and not _is_specific_deliverable(deliverable):
+            if (
+                quality_criteria.get("deliverable_must_be_specific", False)
+                or quality_targets.get("deliverable_specificity", False)
+            ) and not _is_specific_deliverable(deliverable):
                 deliverable = f"Create a code module and unit test bundle for {assigned_topic}."
-            if quality_criteria.get("metric_must_be_measurable", False) and not _is_measurable_metric(metric):
+            if deliverable_template.get("must_include_file_or_module", False) and not any(
+                tok in deliverable.lower() for tok in ["file", "module", "script", ".py"]
+            ):
+                deliverable += " Add at least one module/file path reference."
+            if deliverable_template.get("must_include_test_or_trace", False) and not any(
+                tok in deliverable.lower() for tok in ["test", "trace"]
+            ):
+                deliverable += " Add corresponding test or trace artifact."
+            if (
+                quality_criteria.get("metric_must_be_measurable", False)
+                or quality_targets.get("metric_measurability", False)
+                or metric_template.get("must_be_numeric_or_thresholded", False)
+            ) and not _is_measurable_metric(metric):
                 metric = "Define a numeric threshold (>=90% pass) and verify it in execution logs."
+            if metric_template.get("must_not_only_check_field_presence", False):
+                if any(tok in metric.lower() for tok in ["includes fields", "passes verification", "looks complete"]):
+                    metric = "Set measurable completion target: >=90% pass rate across >=10 test cases."
             output = {
                 "day": day_idx,
                 "goal": goal,
@@ -691,6 +727,11 @@ class ReasonAgent(BaseAgent):
                 "constraints": constraints or ["respond_to_user_query"],
                 "required_fields": ["goal", "deliverable", "metric"],
                 "duration_days": 7,
+                "quality_targets": {
+                    "deliverable_specificity": True,
+                    "metric_measurability": True,
+                    "repo_binding_required": True,
+                },
                 "source": "reason_agent",
             }
             return _ensure_required_fields(node=node, output=output)
@@ -772,6 +813,16 @@ class ReasonAgent(BaseAgent):
                     "avoid_generic_templates": True,
                     "must_reference_repo_changes": True,
                 },
+                "deliverable_template": {
+                    "must_include_file_or_module": True,
+                    "must_include_test_or_trace": True,
+                    "must_include_validation_artifact": True,
+                },
+                "metric_template": {
+                    "must_be_numeric_or_thresholded": True,
+                    "must_measure_task_completion": True,
+                    "must_not_only_check_field_presence": True,
+                },
                 "source": "reason_agent",
             }
             return _ensure_required_fields(node=node, output=output)
@@ -804,6 +855,7 @@ class VerifyAgent(BaseAgent):
         if node.id == "verify_coverage":
             day_objects: Dict[int, Dict[str, Any]] = {}
             grounded_nodes: List[str] = []
+            quality_criteria: Dict[str, Any] = {}
             for dep_id, dep_output in dependency_outputs.items():
                 if not isinstance(dep_output, dict):
                     continue
@@ -811,13 +863,19 @@ class VerifyAgent(BaseAgent):
                 if isinstance(day_val, int):
                     day_objects[day_val] = dep_output
                     grounded_nodes.append(dep_id)
+                if isinstance(dep_output.get("quality_criteria"), dict):
+                    quality_criteria = dep_output.get("quality_criteria", {})
 
             missing_days = [d for d in range(1, 8) if d not in day_objects]
             missing_fields: List[str] = []
             semantic_gaps: List[str] = []
+            generic_content_flags: List[str] = []
+            missing_specificity_days: List[int] = []
             anchor_terms = ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
             require_anchor_topics = any(token in query.lower() for token in anchor_terms)
+            require_repo_refs = bool(quality_criteria.get("must_reference_repo_changes", False))
             anchor_days = 0
+            repo_binding_hits = 0
             for day, item in day_objects.items():
                 for field in ["goal", "deliverable", "metric"]:
                     value = _safe_str(item.get(field))
@@ -827,13 +885,23 @@ class VerifyAgent(BaseAgent):
                 metric_text = _safe_str(item.get("metric"))
                 if deliverable_text and not _is_specific_deliverable(deliverable_text):
                     semantic_gaps.append(f"day{day}:generic_deliverable")
+                    missing_specificity_days.append(day)
+                    generic_content_flags.append(f"day{day}:generic_deliverable")
+                if require_repo_refs and deliverable_text:
+                    lowered_deliverable = deliverable_text.lower()
+                    if not _is_repo_bound_text(lowered_deliverable):
+                        semantic_gaps.append(f"day{day}:missing_repo_reference")
+                    else:
+                        repo_binding_hits += 1
                 if metric_text and not _is_measurable_metric(metric_text):
                     semantic_gaps.append(f"day{day}:non_actionable_metric")
+                    generic_content_flags.append(f"day{day}:non_actionable_metric")
                 merged = " ".join(
                     [_safe_str(item.get("goal")), _safe_str(item.get("deliverable")), _safe_str(item.get("metric"))]
                 ).lower()
                 if _is_placeholder_text(merged):
                     semantic_gaps.append(f"day{day}:placeholder_pattern")
+                    generic_content_flags.append(f"day{day}:placeholder_pattern")
                 if topics and not any(topic in merged for topic in topics):
                     semantic_gaps.append(f"day{day}:topic_not_aligned")
                 if any(anchor in merged for anchor in anchor_terms):
@@ -843,6 +911,7 @@ class VerifyAgent(BaseAgent):
                         semantic_gaps.append(f"day{day}:topic_drift_to_runtime")
                 if "concrete artifact" in merged and not _is_specific_deliverable(merged):
                     semantic_gaps.append(f"day{day}:generic_plan_template")
+                    generic_content_flags.append(f"day{day}:generic_plan_template")
 
             normalized_templates: List[str] = []
             for day in sorted(day_objects):
@@ -859,13 +928,18 @@ class VerifyAgent(BaseAgent):
                     semantic_gaps.append("plan_repetition_template_detected")
             if require_anchor_topics and anchor_days < 3:
                 semantic_gaps.append("plan_anchor_coverage_below_threshold")
+                generic_content_flags.append("plan_anchor_coverage_below_threshold")
 
+            repo_binding_score = repo_binding_hits / max(len(day_objects), 1) if day_objects else 0.0
             coverage_ok = len(missing_days) == 0 and len(missing_fields) == 0 and len(semantic_gaps) == 0
             output = {
                 "coverage_ok": coverage_ok,
                 "missing_days": missing_days,
                 "missing_fields": missing_fields,
                 "semantic_gaps": semantic_gaps,
+                "generic_content_flags": sorted(set(generic_content_flags)),
+                "missing_specificity_days": sorted(set(missing_specificity_days)),
+                "repo_binding_score": repo_binding_score,
                 "grounded_nodes": grounded_nodes,
                 "source": "verify_agent",
             }

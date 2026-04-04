@@ -153,7 +153,15 @@ class ConstraintAwareReplanner(BaseReplanner):
         patch_count: int,
     ) -> bool:
         failure_type = failure.failure_type.strip().lower()
-        if failure_type in {"intent_misalignment", "internal_execution_error"}:
+        if failure_type in {
+            "intent_misalignment",
+            "internal_execution_error",
+            "generic_deliverable",
+            "non_actionable_metric",
+            "repo_binding_weak",
+            "schema_semantics_weak",
+            "topic_extraction_noisy",
+        }:
             return True
         if patch_count >= 2:
             return True
@@ -162,6 +170,8 @@ class ConstraintAwareReplanner(BaseReplanner):
     def should_escalate_to_global(self, failure: NodeFailure, subtree_fail_count: int) -> bool:
         failure_type = failure.failure_type.strip().lower()
         if failure_type in {"global_violation", "final_output_not_valid"}:
+            return True
+        if subtree_fail_count >= 1 and failure_type in {"plan_topic_drift", "repo_binding_weak"}:
             return True
         return subtree_fail_count >= 2
 
@@ -174,17 +184,23 @@ class ConstraintAwareReplanner(BaseReplanner):
             return self.build_normalization_patch(node.id)
         if failure_type == "schema_design_failed":
             return self.build_schema_patch(node.id)
+        if failure_type in {"schema_semantics_weak"}:
+            return self.build_schema_patch(node.id)
         if failure_type in {"plan_topic_drift"}:
             return self.build_schema_patch(node.id)
         if failure_type in {"generic_deliverable"}:
             return self.build_schema_patch(node.id)
         if failure_type in {"non_actionable_metric"}:
             return self.build_metric_patch(node.id)
+        if failure_type in {"repo_binding_weak"}:
+            return build_decomposition_patch(node.id)
         if failure_type in {"generic_plan_output"}:
             return build_decomposition_patch(node.id)
         if failure_type in {"low_information_output"}:
             return build_decomposition_patch(node.id)
         if failure_type in {"requirements_analysis_failed", "plan_coverage_incomplete", "final_placeholder_output"}:
+            return build_decomposition_patch(node.id)
+        if failure_type in {"topic_extraction_noisy"}:
             return build_decomposition_patch(node.id)
         if failure_type in {"final_topic_drift"}:
             return build_decomposition_patch(node.id)
@@ -306,20 +322,20 @@ class ConstraintAwareReplanner(BaseReplanner):
         subtree_fail_count = int(node.metadata.get("subtree_replan_count", 0))
         has_evidence_dep = any(dep.startswith("ev_") for dep in node.dependencies)
 
-        if failure_type in {"requirements_analysis_failed"}:
+        if failure_type in {"requirements_analysis_failed", "topic_extraction_noisy"}:
             return ReplanDecision(
                 action="replan_subtree",
                 target_node_id=node.id,
                 patch=build_decomposition_patch(node.id),
-                reason="requirements_analysis_failed",
+                reason=failure_type,
                 failure_type=failure.failure_type,
             )
-        if failure_type in {"schema_design_failed"}:
+        if failure_type in {"schema_design_failed", "schema_semantics_weak"}:
             return ReplanDecision(
                 action="patch_subgraph",
                 target_node_id=node.id,
                 patch=build_schema_patch(node.id),
-                reason="schema_design_failed",
+                reason=failure_type,
                 failure_type=failure.failure_type,
             )
         if failure_type in {"generic_deliverable"}:
@@ -336,6 +352,14 @@ class ConstraintAwareReplanner(BaseReplanner):
                 target_node_id=node.id,
                 patch=build_metric_patch_template(node.id),
                 reason="non_actionable_metric",
+                failure_type=failure.failure_type,
+            )
+        if failure_type in {"repo_binding_weak"}:
+            return ReplanDecision(
+                action="replan_subtree",
+                target_node_id=node.id,
+                patch=build_decomposition_patch(node.id),
+                reason="repo_binding_weak",
                 failure_type=failure.failure_type,
             )
         if failure_type in {"generic_plan_output"}:
@@ -668,6 +692,7 @@ class ConstraintAwareReplanner(BaseReplanner):
                     "plan_topic_drift",
                     "generic_deliverable",
                     "non_actionable_metric",
+                    "repo_binding_weak",
                     "generic_plan_output",
                     "low_information_output",
                     "final_topic_drift",

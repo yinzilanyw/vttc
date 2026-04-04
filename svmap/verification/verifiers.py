@@ -217,15 +217,29 @@ def _deliverables_are_specific(answer: str) -> bool:
         "dataset",
         "benchmark",
     ]
+    weak_tokens = ["implementation notes", "short validation log", "generic artifact"]
+    if any(token in lowered for token in weak_tokens) and not any(
+        token in lowered for token in ["file", "module", "test", "trace", "experiment report"]
+    ):
+        return False
     return any(token in lowered for token in artifact_tokens)
 
 
 def _metrics_are_measurable(answer: str) -> bool:
     lowered = _normalize_text(answer)
+    pseudo_metric_tokens = ["includes fields", "passes verification", "looks complete", "field presence"]
+    if any(token in lowered for token in pseudo_metric_tokens) and not re.search(r"\d", lowered):
+        return False
     if re.search(r"\d", lowered):
         return True
     measurable_tokens = ["%", "<=", ">=", "at least", "within", "pass rate", "accuracy", "latency", "count"]
     return any(token in lowered for token in measurable_tokens)
+
+
+def _is_repo_bound_text(text: str) -> bool:
+    lowered = _normalize_text(text)
+    repo_ref_tokens = ["modified file", "file path", "commit", "patch", "diff", "repo", "repository", ".py", ".md"]
+    return any(tok in lowered for tok in repo_ref_tokens)
 
 
 def _is_grounded_in_all_days(output: Dict[str, Any]) -> bool:
@@ -966,6 +980,7 @@ class RequirementsAnalysisVerifier(BaseVerifier):
         secondary_focus = _as_text(output.get("secondary_focus"))
         must_cover_topics = output.get("must_cover_topics")
         forbidden_topic_drift = output.get("forbidden_topic_drift")
+        quality_targets = output.get("quality_targets")
 
         if not isinstance(topics, list) or len(topics) < 3:
             results.append(
@@ -1073,8 +1088,33 @@ class RequirementsAnalysisVerifier(BaseVerifier):
                 results.append(
                     ConstraintResult(
                         passed=False,
-                        code="requirements_topics_noisy",
+                        code="topic_extraction_noisy",
                         message=f"Requirements topics contain noisy tokens: {noisy}",
+                        failure_type="topic_extraction_noisy",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                )
+        if not isinstance(quality_targets, dict):
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_quality_targets_missing",
+                    message="quality_targets must exist in requirements output.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            )
+        else:
+            required_quality_targets = {"deliverable_specificity", "metric_measurability", "repo_binding_required"}
+            missing_quality_targets = [x for x in required_quality_targets if x not in quality_targets]
+            if missing_quality_targets:
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="requirements_quality_targets_incomplete",
+                        message=f"quality_targets missing fields: {missing_quality_targets}",
                         failure_type="requirements_analysis_failed",
                         repair_hint="replan_subtree",
                         violation_scope="node",
@@ -1104,6 +1144,19 @@ class RequirementsAnalysisVerifier(BaseVerifier):
                         violation_scope="node",
                     )
                 )
+        if "system" in _normalize_text(query) and "improvement" in _normalize_text(query):
+            joined_focus = " ".join([primary_domain, secondary_focus, joined]).lower()
+            if not any(tok in joined_focus for tok in ["multi-agent", "task tree", "verification", "replanning"]):
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="requirements_system_improvement_misaligned",
+                        message="Requirements do not clearly bind to current system improvement goals.",
+                        failure_type="requirements_analysis_failed",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                )
         return results
 
 
@@ -1125,6 +1178,8 @@ class PlanSchemaVerifier(BaseVerifier):
         topic_allocation = output.get("topic_allocation")
         required_fields = output.get("required_fields")
         quality_criteria = output.get("quality_criteria")
+        deliverable_template = output.get("deliverable_template")
+        metric_template = output.get("metric_template")
         if not isinstance(day_template, dict):
             results.append(
                 ConstraintResult(
@@ -1171,6 +1226,41 @@ class PlanSchemaVerifier(BaseVerifier):
                     violation_scope="node",
                 )
             )
+        if not isinstance(deliverable_template, dict) or not isinstance(metric_template, dict):
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="schema_templates_missing",
+                    message="Plan schema must include deliverable_template and metric_template.",
+                    failure_type="schema_design_failed",
+                    repair_hint="build_schema_patch",
+                    violation_scope="node",
+                )
+            )
+        else:
+            required_deliverable_template = {
+                "must_include_file_or_module",
+                "must_include_test_or_trace",
+                "must_include_validation_artifact",
+            }
+            required_metric_template = {
+                "must_be_numeric_or_thresholded",
+                "must_measure_task_completion",
+                "must_not_only_check_field_presence",
+            }
+            missing_d = [x for x in required_deliverable_template if x not in deliverable_template]
+            missing_m = [x for x in required_metric_template if x not in metric_template]
+            if missing_d or missing_m:
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="schema_templates_incomplete",
+                        message=f"schema template fields missing: deliverable={missing_d}, metric={missing_m}",
+                        failure_type="schema_semantics_weak",
+                        repair_hint="build_schema_patch",
+                        violation_scope="node",
+                    )
+                )
         if not isinstance(required_fields, list) or not {"goal", "deliverable", "metric"}.issubset(set(required_fields)):
             results.append(
                 ConstraintResult(
@@ -1224,7 +1314,7 @@ class PlanSchemaVerifier(BaseVerifier):
                         passed=False,
                         code="schema_progression_too_generic",
                         message="Plan schema progression is too generic.",
-                        failure_type="schema_design_failed",
+                        failure_type="schema_semantics_weak",
                         repair_hint="build_schema_patch",
                         violation_scope="node",
                     )
@@ -1268,6 +1358,9 @@ class PlanCoverageVerifier(BaseVerifier):
         missing_fields = output.get("missing_fields")
         semantic_gaps = output.get("semantic_gaps")
         grounded_nodes = output.get("grounded_nodes")
+        generic_content_flags = output.get("generic_content_flags")
+        missing_specificity_days = output.get("missing_specificity_days")
+        repo_binding_score = output.get("repo_binding_score")
         if not isinstance(missing_days, list) or not isinstance(missing_fields, list) or not isinstance(semantic_gaps, list):
             return [
                 ConstraintResult(
@@ -1275,6 +1368,50 @@ class PlanCoverageVerifier(BaseVerifier):
                     code="plan_coverage_structure_invalid",
                     message="verify_coverage output must include missing_days/missing_fields/semantic_gaps arrays.",
                     failure_type="plan_coverage_incomplete",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        if not isinstance(generic_content_flags, list):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="plan_coverage_generic_flags_missing",
+                    message="verify_coverage must include generic_content_flags list.",
+                    failure_type="plan_coverage_incomplete",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        if not isinstance(missing_specificity_days, list):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="plan_coverage_specificity_days_missing",
+                    message="verify_coverage must include missing_specificity_days list.",
+                    failure_type="plan_coverage_incomplete",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        if not isinstance(repo_binding_score, (int, float)):
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="plan_coverage_repo_binding_score_missing",
+                    message="verify_coverage must include numeric repo_binding_score.",
+                    failure_type="plan_coverage_incomplete",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
+        if generic_content_flags:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="plan_coverage_generic_flags_non_empty",
+                    message=f"Coverage generic content flags detected: {generic_content_flags}",
+                    failure_type="low_information_output",
                     repair_hint="replan_subtree",
                     violation_scope="node",
                 )
@@ -1325,6 +1462,12 @@ class PlanCoverageVerifier(BaseVerifier):
             ]
         dep_outputs = context.get("dependency_outputs", {})
         day_entries: List[str] = []
+        quality_criteria: Dict[str, Any] = {}
+        for dep_output in dep_outputs.values():
+            if isinstance(dep_output, dict) and isinstance(dep_output.get("quality_criteria"), dict):
+                quality_criteria = dep_output.get("quality_criteria", {})
+                break
+        require_repo_refs = bool(quality_criteria.get("must_reference_repo_changes", False))
         for dep_id, dep_output in dep_outputs.items():
             if not isinstance(dep_output, dict):
                 continue
@@ -1343,6 +1486,19 @@ class PlanCoverageVerifier(BaseVerifier):
                         violation_scope="node",
                     )
                 ]
+            if require_repo_refs and deliverable:
+                lowered_deliverable = _normalize_text(deliverable)
+                if not _is_repo_bound_text(lowered_deliverable):
+                    return [
+                        ConstraintResult(
+                            passed=False,
+                            code="missing_repo_reference",
+                            message=f"{dep_id} deliverable does not reference repo-level changes.",
+                            failure_type="repo_binding_weak",
+                            repair_hint="replan_subtree",
+                            violation_scope="node",
+                        )
+                    ]
             if metric and not _metrics_are_measurable(metric):
                 return [
                     ConstraintResult(
@@ -1416,6 +1572,17 @@ class PlanCoverageVerifier(BaseVerifier):
                     violation_scope="node",
                 )
             ]
+        if require_repo_refs and float(repo_binding_score) < 0.7:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="repo_binding_weak",
+                    message=f"repo_binding_score is too low: {repo_binding_score}",
+                    failure_type="repo_binding_weak",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
         return []
 
 
@@ -1453,7 +1620,7 @@ class NoPlaceholderVerifier(BaseVerifier):
 
 class LowInformationOutputVerifier(BaseVerifier):
     def supports_task_types(self) -> List[str]:
-        return ["aggregation", "summarization", "final_response", "reasoning"]
+        return ["aggregation", "summarization", "final_response", "reasoning", "comparison", "extraction", "calculation", "verification"]
 
     def verify(
         self,
@@ -1496,7 +1663,7 @@ class LowInformationOutputVerifier(BaseVerifier):
 
 class GenericOutputVerifier(BaseVerifier):
     def supports_task_types(self) -> List[str]:
-        return ["aggregation", "final_response", "verification", "reasoning"]
+        return ["aggregation", "final_response", "verification", "reasoning", "summarization", "comparison", "extraction", "calculation"]
 
     def verify(
         self,
@@ -1523,6 +1690,51 @@ class GenericOutputVerifier(BaseVerifier):
                     violation_scope="node",
                 )
             ]
+        return []
+
+
+class RepoBindingVerifier(BaseVerifier):
+    def supports_task_types(self) -> List[str]:
+        return ["verification", "final_response", "aggregation"]
+
+    def verify(
+        self,
+        node: TaskNode,
+        output: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> List[ConstraintResult]:
+        if node.id == "verify_coverage":
+            score = output.get("repo_binding_score")
+            if isinstance(score, (int, float)) and float(score) < 0.7:
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="repo_binding_weak",
+                        message=f"repo_binding_score={score} is below threshold.",
+                        failure_type="repo_binding_weak",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                ]
+            return []
+        if not node.is_final_response():
+            return []
+        answer = _as_text(output.get("answer") or output.get("final_response"))
+        if not answer:
+            return []
+        query = _as_text(context.get("global_context", {}).get("query"))
+        if _is_plan_query(query) and ("repo" in _normalize_text(query) or "system" in _normalize_text(query)):
+            if not _is_repo_bound_text(answer):
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="repo_binding_weak",
+                        message="Final answer lacks repo-level artifact references.",
+                        failure_type="repo_binding_weak",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                ]
         return []
 
 
@@ -1796,6 +2008,18 @@ class FinalResponseVerifier(BaseVerifier):
                         repair_hint="build_metric_patch",
                     )
                 )
+            if "repo" in _normalize_text(query) or "system" in _normalize_text(query) or "implementation" in _normalize_text(query):
+                if not _is_repo_bound_text(answer):
+                    results.append(
+                        ConstraintResult(
+                            passed=False,
+                            code="final_repo_binding_weak",
+                            message="Final plan output is weakly bound to repo-level artifacts.",
+                            failure_type="repo_binding_weak",
+                            violation_scope="node",
+                            repair_hint="replan_subtree",
+                        )
+                    )
             required_topics = _extract_required_topics_from_query(query)
             if not _covers_query_core_topics(answer, query, required_topics):
                 results.append(
@@ -1848,7 +2072,8 @@ class FinalResponseVerifier(BaseVerifier):
             dep_ids = set(dependency_outputs.keys())
             used_ids = set(str(x) for x in used_nodes)
             coverage = len(dep_ids.intersection(used_ids)) / max(len(dep_ids), 1)
-            if coverage < 0.5:
+            coverage_threshold = 1.0 if _is_plan_query(query) else 0.5
+            if coverage < coverage_threshold:
                 results.append(
                     ConstraintResult(
                         passed=False,

@@ -99,6 +99,9 @@ def summarize_plan_family(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
             "plan_structure_success_rate": 0.0,
             "plan_semantic_success_rate": 0.0,
             "plan_repair_success_rate": 0.0,
+            "deliverable_specificity_rate": 0.0,
+            "metric_measurability_rate": 0.0,
+            "repo_binding_rate": 0.0,
         }
     count = len(plan_rows)
     semantic_alignment_rate = sum(float(r.get("semantic_alignment_rate", 0.0)) for r in plan_rows) / max(count, 1)
@@ -111,6 +114,9 @@ def summarize_plan_family(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         sum(1 for r in plan_rows if int(r.get("replans", 0)) > 0),
         1,
     )
+    deliverable_specificity_rate = sum(float(r.get("deliverable_specificity_rate", 0.0)) for r in plan_rows) / max(count, 1)
+    metric_measurability_rate = sum(float(r.get("metric_measurability_rate", 0.0)) for r in plan_rows) / max(count, 1)
+    repo_binding_rate = sum(float(r.get("repo_binding_rate", 0.0)) for r in plan_rows) / max(count, 1)
     return {
         "plan_semantic_alignment_rate": semantic_alignment_rate,
         "plan_topic_coverage_rate": topic_coverage_rate,
@@ -119,6 +125,9 @@ def summarize_plan_family(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "plan_structure_success_rate": structure_success_rate,
         "plan_semantic_success_rate": semantic_success_rate,
         "plan_repair_success_rate": repair_success_rate,
+        "deliverable_specificity_rate": deliverable_specificity_rate,
+        "metric_measurability_rate": metric_measurability_rate,
+        "repo_binding_rate": repo_binding_rate,
     }
 
 
@@ -129,6 +138,7 @@ def _build_mode_label(
     no_structural_repair: bool,
     no_final_node: bool,
     no_plan_coverage: bool,
+    no_quality_verifier: bool,
 ) -> str:
     if no_tree:
         return "no_tree"
@@ -141,6 +151,8 @@ def _build_mode_label(
         parts.append("no_final_node")
     if no_plan_coverage:
         parts.append("no_plan_coverage")
+    if no_quality_verifier:
+        parts.append("no_quality")
     return "+".join(parts)
 
 
@@ -154,6 +166,7 @@ def run_multitask_eval(
     no_structural_repair: bool = False,
     no_final_node: bool = False,
     no_plan_coverage: bool = False,
+    no_quality_verifier: bool = False,
 ) -> Dict[str, Any]:
     samples = load_dataset(dataset_path, max_samples=max_samples)
     rows: List[Dict[str, Any]] = []
@@ -164,6 +177,7 @@ def run_multitask_eval(
         no_structural_repair=no_structural_repair,
         no_final_node=no_final_node,
         no_plan_coverage=no_plan_coverage,
+        no_quality_verifier=no_quality_verifier,
     )
 
     if no_tree:
@@ -188,6 +202,9 @@ def run_multitask_eval(
                     "structure_success_rate": float(result.get("structure_success_rate", 0.0)),
                     "semantic_success_rate": float(result.get("semantic_success_rate", 0.0)),
                     "repair_trigger_rate": float(result.get("repair_trigger_rate", 0.0)),
+                    "deliverable_specificity_rate": float(result.get("deliverable_specificity_rate", 0.0)),
+                    "metric_measurability_rate": float(result.get("metric_measurability_rate", 0.0)),
+                    "repo_binding_rate": float(result.get("repo_binding_rate", 0.0)),
                 }
             )
     else:
@@ -199,6 +216,7 @@ def run_multitask_eval(
             mode="eval",
             export_trace=False,
             enable_intent_verifier=not no_intent,
+            enable_quality_verifier=not no_quality_verifier,
             enable_replan=not disable_structural_repair,
             enable_plan_coverage_verifier=not no_plan_coverage,
             stop_on_failure=True if disable_structural_repair else None,
@@ -230,6 +248,9 @@ def run_multitask_eval(
                     "structure_success_rate": float(result.metrics.get("structure_success_rate", 0.0)),
                     "semantic_success_rate": float(result.metrics.get("semantic_success_rate", 0.0)),
                     "repair_trigger_rate": float(result.metrics.get("repair_trigger_rate", 0.0)),
+                    "deliverable_specificity_rate": float(result.metrics.get("deliverable_specificity_rate", 0.0)),
+                    "metric_measurability_rate": float(result.metrics.get("metric_measurability_rate", 0.0)),
+                    "repo_binding_rate": float(result.metrics.get("repo_binding_rate", 0.0)),
                 }
             )
 
@@ -258,6 +279,7 @@ def run_multitask_eval(
             "no_structural_repair": no_structural_repair,
             "no_final_node": no_final_node,
             "no_plan_coverage": no_plan_coverage,
+            "no_quality_verifier": no_quality_verifier,
         },
         "samples": rows,
         "summary": summary_rows,
@@ -286,6 +308,9 @@ def run_multitask_eval(
                 "structure_success_rate",
                 "semantic_success_rate",
                 "repair_trigger_rate",
+                "deliverable_specificity_rate",
+                "metric_measurability_rate",
+                "repo_binding_rate",
             ]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
@@ -311,6 +336,7 @@ if __name__ == "__main__":
     parser.add_argument("--no_structural_repair", action="store_true")
     parser.add_argument("--no_final_node", action="store_true")
     parser.add_argument("--no_plan_coverage", action="store_true")
+    parser.add_argument("--no_quality_verifier", action="store_true")
     args = parser.parse_args()
     run_multitask_eval(
         dataset_path=args.dataset,
@@ -322,4 +348,5 @@ if __name__ == "__main__":
         no_structural_repair=args.no_structural_repair,
         no_final_node=args.no_final_node,
         no_plan_coverage=args.no_plan_coverage,
+        no_quality_verifier=args.no_quality_verifier,
     )

@@ -69,6 +69,7 @@ class VerifierEngine:
         elif node_id == "verify_coverage":
             route_names = [
                 "PlanCoverageVerifier",
+                "RepoBindingVerifier",
                 "LowInformationOutputVerifier",
                 "GenericOutputVerifier",
                 "IntentVerifier",
@@ -78,6 +79,7 @@ class VerifierEngine:
         elif node.is_final_response():
             route_names = [
                 "FinalResponseVerifier",
+                "RepoBindingVerifier",
                 "LowInformationOutputVerifier",
                 "GenericOutputVerifier",
                 "IntentVerifier",
@@ -105,6 +107,12 @@ class VerifierEngine:
             return "generic_deliverable"
         if "non_actionable_metric" in code:
             return "non_actionable_metric"
+        if "repo_binding_weak" in code or "missing_repo_reference" in code or "repo_binding" in code:
+            return "repo_binding_weak"
+        if "schema_semantics_weak" in code:
+            return "schema_semantics_weak"
+        if "topic_extraction_noisy" in code:
+            return "topic_extraction_noisy"
         if "final_topic_drift" in code:
             return "final_topic_drift"
         if "final_placeholder_output" in code:
@@ -145,6 +153,9 @@ class VerifierEngine:
             "plan_topic_drift",
             "generic_deliverable",
             "non_actionable_metric",
+            "repo_binding_weak",
+            "schema_semantics_weak",
+            "topic_extraction_noisy",
             "generic_plan_output",
             "final_answer_missing_structure",
             "final_topic_drift",
@@ -201,6 +212,9 @@ class VerifierEngine:
             "plan_topic_drift",
             "generic_deliverable",
             "non_actionable_metric",
+            "repo_binding_weak",
+            "schema_semantics_weak",
+            "topic_extraction_noisy",
             "generic_plan_output",
             "echo_retrieval",
             "empty_extraction",
