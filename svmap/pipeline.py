@@ -57,6 +57,23 @@ from svmap.verification import (
 
 
 DEFAULT_QUERY = "Who is the CEO of the company founded by Elon Musk?"
+SEMANTIC_FAILURE_TYPES = {
+    "requirements_analysis_failed",
+    "topic_extraction_noisy",
+    "schema_design_failed",
+    "schema_semantics_weak",
+    "plan_topic_drift",
+    "final_topic_drift",
+    "plan_coverage_incomplete",
+    "generic_deliverable",
+    "non_actionable_metric",
+    "repo_binding_weak",
+    "generic_plan_output",
+    "low_information_output",
+    "final_answer_missing_structure",
+    "final_placeholder_output",
+    "plan_semantic_not_valid",
+}
 
 
 @dataclass
@@ -86,6 +103,8 @@ class RunResult:
     final_output: Dict[str, Any]
     report: Any
     metrics: Dict[str, Any]
+    structure_success: bool = False
+    semantic_success: bool = False
     trace_path: Optional[str] = None
     mode: str = ""
     dag_order: List[str] = field(default_factory=list)
@@ -96,6 +115,10 @@ class RunResult:
     budget_exhausted: bool = False
     elapsed_sec: float = 0.0
     task_tree: Optional[TaskTree] = None
+    primary_failure_type: str = ""
+    repair_action: str = ""
+    repair_success: bool = False
+    semantic_gaps: List[str] = field(default_factory=list)
 
     def final_answer(self) -> str:
         answer = self.final_output.get("answer") or self.final_output.get("final_response")
@@ -112,6 +135,8 @@ class RunResult:
             "query": self.query,
             "dag_order": self.dag_order,
             "success": self.success,
+            "structure_success": self.structure_success,
+            "semantic_success": self.semantic_success,
             "total_retries": self.total_retries,
             "verification_failures": self.verification_failures,
             "replan_count": self.replan_count,
@@ -124,7 +149,92 @@ class RunResult:
             "task_tree": self.task_tree,
             "final_output": self.final_output,
             "final_answer": self.final_answer(),
+            "primary_failure_type": self.primary_failure_type,
+            "repair_action": self.repair_action,
+            "repair_success": self.repair_success,
+            "semantic_gaps": list(self.semantic_gaps),
         }
+
+    def to_eval_record(self, record_id: str = "") -> Dict[str, Any]:
+        return {
+            "id": record_id,
+            "mode": self.mode,
+            "query": self.query,
+            "task_family": self.task_family,
+            "success": bool(self.success),
+            "structure_success": bool(self.structure_success),
+            "semantic_success": bool(self.semantic_success),
+            "retries": int(self.total_retries),
+            "replans": int(self.replan_count),
+            "verification_failures": int(self.verification_failures),
+            "primary_failure_type": self.primary_failure_type,
+            "repair_action": self.repair_action,
+            "repair_success": bool(self.repair_success),
+            "semantic_gaps": list(self.semantic_gaps),
+            "final_answer": self.final_answer(),
+            "trace_path": self.trace_path or "",
+            "elapsed_sec": float(self.elapsed_sec),
+            "metrics": dict(self.metrics),
+        }
+
+
+def _pick_primary_failure_type(report: Any) -> str:
+    summary = report.failure_summary if isinstance(report.failure_summary, dict) else {}
+    ranked = [(str(k), int(v)) for k, v in summary.items() if int(v) > 0 and str(k).strip()]
+    if ranked:
+        ranked.sort(key=lambda item: (-item[1], item[0]))
+        return ranked[0][0]
+    for record in report.node_records.values():
+        if record.failure_type:
+            return str(record.failure_type)
+    return ""
+
+
+def _extract_semantic_gaps(report: Any, final_output: Dict[str, Any]) -> List[str]:
+    coverage = final_output.get("coverage_verification")
+    if isinstance(coverage, dict) and isinstance(coverage.get("semantic_gaps"), list):
+        return [str(x) for x in coverage.get("semantic_gaps", [])]
+    verify_record = report.node_records.get("verify_coverage")
+    if verify_record is not None and isinstance(verify_record.output, dict):
+        gaps = verify_record.output.get("semantic_gaps")
+        if isinstance(gaps, list):
+            return [str(x) for x in gaps]
+    return []
+
+
+def _compute_structure_success(report: Any, final_output: Dict[str, Any]) -> bool:
+    final_node_id = report.final_node_id
+    if not final_node_id:
+        return False
+    final_record = report.node_records.get(final_node_id)
+    if final_record is None or final_record.status != "success":
+        return False
+    answer = final_output.get("answer") or final_output.get("final_response")
+    if not isinstance(answer, str) or not answer.strip():
+        return False
+    if str(report.error or "") in {
+        "no_final_response_node",
+        "multiple_sink_nodes",
+        "sink_not_final_response",
+        "final_output_not_valid",
+    }:
+        return False
+    return True
+
+
+def _compute_semantic_success(report: Any, structure_success: bool, semantic_gaps: List[str]) -> bool:
+    if not structure_success:
+        return False
+    summary = report.failure_summary if isinstance(report.failure_summary, dict) else {}
+    for failure_type, count in summary.items():
+        if int(count) > 0 and str(failure_type) in SEMANTIC_FAILURE_TYPES:
+            return False
+    if semantic_gaps:
+        return False
+    for record in report.node_records.values():
+        if getattr(record, "quality_failures", None):
+            return False
+    return True
 
 
 def build_online_components(app_config: AppConfig) -> Dict[str, Any]:
@@ -500,11 +610,23 @@ def run_task(config: RunConfig) -> RunResult:
     metrics = MetricsCollector().summarize(report)
     final_output = report.final_output if isinstance(report.final_output, dict) else {}
     dag_order = task_tree.topo_sort()
+    structure_success = _compute_structure_success(report=report, final_output=final_output)
+    semantic_gaps = _extract_semantic_gaps(report=report, final_output=final_output)
+    semantic_success = _compute_semantic_success(
+        report=report,
+        structure_success=structure_success,
+        semantic_gaps=semantic_gaps,
+    )
+    primary_failure_type = _pick_primary_failure_type(report=report)
+    repair_action = report.replan_actions[-1] if report.replan_actions else ""
+    repair_success = report.replan_count > 0 and semantic_success
 
     return RunResult(
         query=user_query,
         task_family=family,
         success=bool(report.success),
+        structure_success=structure_success,
+        semantic_success=semantic_success,
         final_output=final_output,
         report=report,
         metrics=metrics.__dict__,
@@ -518,6 +640,10 @@ def run_task(config: RunConfig) -> RunResult:
         budget_exhausted=report.budget_exhausted,
         elapsed_sec=time.time() - start_ts,
         task_tree=task_tree,
+        primary_failure_type=primary_failure_type,
+        repair_action=repair_action,
+        repair_success=repair_success,
+        semantic_gaps=semantic_gaps,
     )
 
 

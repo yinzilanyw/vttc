@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Optional
 
-from svmap.config import load_app_config_from_env
+from svmap.config import load_app_config_from_env, load_env_file
 from svmap.pipeline import DEFAULT_QUERY, RunConfig, RunResult, run_task
 
 
-def _env_flag(name: str, default: bool) -> bool:
+def _env_flag(name: str, default: bool = False) -> bool:
     raw = os.getenv(name)
     if raw is None:
         return default
@@ -29,34 +30,39 @@ def _env_optional_bool(name: str) -> Optional[bool]:
     raw = os.getenv(name)
     if raw is None:
         return None
-    text = raw.strip().lower()
-    if not text:
-        return None
-    if text in {"1", "true", "yes", "on"}:
+    lowered = raw.strip().lower()
+    if lowered in {"1", "true", "yes", "on"}:
         return True
-    if text in {"0", "false", "no", "off"}:
+    if lowered in {"0", "false", "no", "off"}:
         return False
     return None
 
 
-def _print_single_result(result: RunResult) -> None:
-    report = result.report
-    metrics = result.metrics
-
-    print("=== Structured Verifiable Multi-Agent Planning (Single Run) ===")
+def print_single_summary(result: RunResult) -> None:
+    print("=== SVMAP Single Validation ===")
     print("Mode:", result.mode)
     print("Task family:", result.task_family)
     print("Query:", result.query)
-    print("DAG order:", " -> ".join(result.dag_order))
+    print("Structure success:", result.structure_success)
+    print("Semantic success:", result.semantic_success)
     print("Success:", result.success)
+    print("Retries:", result.total_retries)
+    print("Replans:", result.replan_count)
+    print("Verification failures:", result.verification_failures)
+    print("Primary failure type:", result.primary_failure_type or "none")
+    print("Repair action:", result.repair_action or "none")
+    print("Repair success:", result.repair_success)
+    print("Semantic gaps:", result.semantic_gaps if result.semantic_gaps else [])
     print("Final answer:", result.final_answer())
-    print("Total retries:", result.total_retries)
-    print("Verification failures detected:", result.verification_failures)
-    print("Replan count:", result.replan_count)
-    print("Plan versions:", result.plan_versions)
-    print("Trace path:", result.trace_path)
-    print()
+    print("Trace path:", result.trace_path or "")
 
+
+def print_single_verbose(result: RunResult) -> None:
+    report = result.report
+    print_single_summary(result)
+    print("DAG order:", " -> ".join(result.dag_order))
+    print("Plan versions:", result.plan_versions)
+    print()
     for node_id in result.dag_order:
         rec = report.node_records.get(node_id)
         if rec is None:
@@ -78,57 +84,35 @@ def _print_single_result(result: RunResult) -> None:
             print(" fatal:", rec.fatal)
         print()
 
-    print("Metrics:")
-    print(f" task_success={metrics['task_success']}")
-    print(f" node_success_rate={metrics['node_success_rate']:.2f}")
-    print(f" verification_failure_count={metrics['verification_failure_count']}")
-    print(f" retry_count={metrics['retry_count']}")
-    print(f" replan_count={metrics['replan_count']}")
-    print(f" avg_attempts_per_node={metrics['avg_attempts_per_node']:.2f}")
-    print(f" final_response_success_rate={metrics['final_response_success_rate']:.2f}")
-    print(f" multitask_generalization_score={metrics['multitask_generalization_score']:.2f}")
 
-
-def _result_to_json(result: RunResult) -> Dict[str, Any]:
-    return {
-        "mode": result.mode,
-        "query": result.query,
-        "task_family": result.task_family,
-        "success": result.success,
-        "dag_order": result.dag_order,
-        "total_retries": result.total_retries,
-        "verification_failures": result.verification_failures,
-        "replan_count": result.replan_count,
-        "plan_versions": result.plan_versions,
-        "budget_exhausted": result.budget_exhausted,
-        "elapsed_sec": result.elapsed_sec,
-        "final_output": result.final_output,
-        "final_answer": result.final_answer(),
-        "metrics": result.metrics,
-        "trace_path": result.trace_path,
-    }
-
-
-def run_single_from_env(env_path: str = ".env") -> RunResult:
-    app_config = load_app_config_from_env(env_path=env_path)
+def _build_single_run_config(args: argparse.Namespace) -> tuple[RunConfig, str, bool]:
+    app_cfg = load_app_config_from_env(".env")
     query = (
-        os.getenv("SINGLE_QUERY")
+        args.query
+        or os.getenv("SINGLE_QUERY")
         or os.getenv("DEFAULT_QUERY")
-        or app_config.default_query
+        or app_cfg.default_query
         or DEFAULT_QUERY
     ).strip() or DEFAULT_QUERY
-    task_family_raw = (
-        os.getenv("SINGLE_TASK_FAMILY")
+    task_family_text = (
+        args.task_family
+        or os.getenv("SINGLE_TASK_FAMILY")
         or os.getenv("DEFAULT_TASK_FAMILY")
-        or app_config.default_task_family
+        or app_cfg.default_task_family
         or ""
     ).strip().lower()
-    task_family = task_family_raw or None
+    task_family = task_family_text or None
 
+    save_trace = args.save_trace
+    if save_trace is None:
+        save_trace = _env_flag("SINGLE_EXPORT_TRACE", True)
+    verbose = bool(args.verbose or _env_flag("SINGLE_VERBOSE", False))
+
+    stop_on_failure = _env_optional_bool("SINGLE_STOP_ON_FAILURE")
     assignment_mode = (
         os.getenv("SINGLE_ASSIGNMENT_MODE")
         or os.getenv("ASSIGNMENT_MODE")
-        or app_config.assignment_mode
+        or app_cfg.assignment_mode
         or ""
     ).strip().lower() or None
 
@@ -136,32 +120,87 @@ def run_single_from_env(env_path: str = ".env") -> RunResult:
         mode="single",
         query=query,
         task_family=task_family,
-        export_trace=_env_flag("SINGLE_EXPORT_TRACE", True),
+        export_trace=bool(save_trace),
         enable_replan=_env_flag("SINGLE_ENABLE_REPLAN", True),
         enable_intent_verifier=_env_flag("SINGLE_ENABLE_INTENT_VERIFIER", True),
         enable_quality_verifier=_env_flag("SINGLE_ENABLE_QUALITY_VERIFIER", True),
         enable_plan_coverage_verifier=_env_flag("SINGLE_ENABLE_PLAN_COVERAGE_VERIFIER", True),
-        stop_on_failure=_env_optional_bool("SINGLE_STOP_ON_FAILURE"),
+        stop_on_failure=stop_on_failure,
         assignment_mode=assignment_mode,
         max_runtime_steps=_env_int("SINGLE_MAX_RUNTIME_STEPS", 200),
         max_total_attempts=_env_int("SINGLE_MAX_TOTAL_ATTEMPTS", 40),
         max_total_replans=_env_int("SINGLE_MAX_TOTAL_REPLANS", 10),
     )
-    result = run_task(config)
-    _print_single_result(result)
+    output_path = (
+        args.output
+        or os.getenv("SINGLE_OUTPUT_JSON")
+        or ""
+    ).strip()
+    return config, output_path, verbose
 
-    output_json = (os.getenv("SINGLE_OUTPUT_JSON") or "").strip()
-    if output_json:
-        output_dir = os.path.dirname(output_json)
+
+def run_single_from_env(env_path: str = ".env", args: Optional[argparse.Namespace] = None) -> RunResult:
+    load_env_file(env_path)
+    ns = args or argparse.Namespace(
+        query=None,
+        task_family=None,
+        output=None,
+        save_trace=None,
+        verbose=False,
+    )
+    config, output_path, verbose = _build_single_run_config(ns)
+    result = run_task(config)
+    if verbose:
+        print_single_verbose(result)
+    else:
+        print_single_summary(result)
+
+    if output_path:
+        output_dir = os.path.dirname(output_path)
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
-        with open(output_json, "w", encoding="utf-8") as f:
-            json.dump(_result_to_json(result), f, ensure_ascii=False, indent=2)
-        print("Saved:", output_json)
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(result.to_eval_record(), f, ensure_ascii=False, indent=2)
+        print("Saved:", output_path)
     return result
 
 
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Run one SVMAP validation task.")
+    parser.add_argument("--query", type=str, default=None, help="Single query to execute.")
+    parser.add_argument(
+        "--task-family",
+        type=str,
+        default=None,
+        help="Optional task family override, e.g. plan/qa/summary/compare.",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Optional JSON output path for machine-readable result.",
+    )
+    parser.add_argument(
+        "--save-trace",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Whether to export trace file for this run.",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print per-node details in addition to summary.",
+    )
+    return parser
+
+
 def main() -> int:
-    run_single_from_env(".env")
+    parser = _build_parser()
+    args = parser.parse_args()
+    run_single_from_env(".env", args=args)
     return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
 
