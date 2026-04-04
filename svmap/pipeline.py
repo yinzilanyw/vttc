@@ -73,6 +73,7 @@ SEMANTIC_FAILURE_TYPES = {
     "final_answer_missing_structure",
     "final_placeholder_output",
     "plan_semantic_not_valid",
+    "semantic_not_valid",
 }
 
 

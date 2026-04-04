@@ -161,34 +161,74 @@ def _normalize_topics_for_plan(topics: List[str]) -> List[str]:
     return merged[:8]
 
 
+REPO_BINDING_HINTS = [
+    "svmap/",
+    "planner.py",
+    "verifiers.py",
+    "engine.py",
+    "executor.py",
+    "replanner.py",
+    "metrics.py",
+    "run_multitask_eval.py",
+    "task_tree.py",
+    "task_node.py",
+]
+
+GENERIC_DELIVERABLE_PATTERNS = [
+    r"commit code/doc changes",
+    r"attach a short validation log",
+    r"include modified file paths",
+    r"add corresponding test or trace artifact",
+    r"implementation notes",
+]
+
+GENERIC_METRIC_PATTERNS = [
+    r"all required fields parsed",
+    r"passes coverage verification",
+    r"includes explicit goal/deliverable/metric fields",
+]
+
+
+def _contains_repo_binding_hint(text: str) -> bool:
+    lowered = _safe_str(text).lower()
+    return any(x.lower() in lowered for x in REPO_BINDING_HINTS)
+
+
+def _matches_generic_deliverable(text: str) -> bool:
+    lowered = _safe_str(text).lower()
+    return any(re.search(p, lowered) for p in GENERIC_DELIVERABLE_PATTERNS)
+
+
+def _matches_generic_metric(text: str) -> bool:
+    lowered = _safe_str(text).lower()
+    return any(re.search(p, lowered) for p in GENERIC_METRIC_PATTERNS)
+
+
 def _build_specific_deliverable(day_idx: int, assigned_topic: str) -> str:
     artifacts = {
-        1: "a requirement spec document and task-tree draft",
-        2: "an orchestration module plus runnable workflow script",
-        3: "a typed task-node schema file and DAG validator unit tests",
-        4: "a verifier module covering node/edge/subtree/global checks",
-        5: "a constraint mapping table and intent-alignment test cases",
-        6: "a replanner patch implementation with graph-delta trace output",
-        7: "an experiment report with ablation table and case-study notes",
+        1: "update svmap/planning/planner.py and write artifacts/day1_requirements.md task-tree draft note",
+        2: "implement runnable orchestration updates in svmap/pipeline.py and svmap/runtime/executor.py with artifacts/day2_trace.json",
+        3: "update svmap/models/task_node.py and svmap/models/task_tree.py and add DAG validator unit tests",
+        4: "extend svmap/verification/verifiers.py and svmap/verification/engine.py with injected-error verification tests",
+        5: "update svmap/models/constraints.py and add intent-alignment test cases under experiments",
+        6: "update svmap/runtime/replanner.py to output graph-delta traces and demonstrate subtree/global replan",
+        7: "generate ablation report from experiments/run_multitask_eval.py outputs with case-study tables",
     }
-    artifact = artifacts.get(day_idx, "a concrete code artifact with tests")
-    return (
-        f"Implement {artifact} for {assigned_topic}; commit code/doc changes and "
-        "attach a short validation log."
-    )
+    artifact = artifacts.get(day_idx, f"update repository code and tests for {assigned_topic}")
+    return f"Implement {artifact} for {assigned_topic}."
 
 
 def _build_measurable_metric(day_idx: int) -> str:
     metrics = {
-        1: "All required fields parsed; schema validation pass rate >= 95%.",
-        2: "Workflow executes end-to-end with <= 1 manual fix in 3 runs.",
-        3: "Task-node schema tests: at least 10 cases and 100% pass.",
-        4: "Verification catches injected errors in >= 3/3 scenarios.",
-        5: "Intent/constraint checks reduce topic drift to 0 in eval sample.",
-        6: "At least one subtree replan and one graph delta are logged.",
-        7: "Ablation script outputs full/no_replan/no_tree rows automatically.",
+        1: "Requirements extraction keeps >= 5 core topics with 0 obvious noise terms across 5 sample queries.",
+        2: "Workflow executes end-to-end in 3/3 runs with <= 1 manual intervention.",
+        3: "Task-tree/schema validation covers >= 10 cases with 100% pass rate.",
+        4: "Verifier catches injected node/edge/subtree/global failures in >= 4/4 scenarios.",
+        5: "Intent/constraint checks reduce topic drift failures to 0 on the plan subset.",
+        6: "At least one subtree replan and one graph-delta trace are produced on a failing case.",
+        7: "Ablation report contains full/no_quality_verifier/no_repair variants with all tables generated.",
     }
-    return metrics.get(day_idx, "Define a numeric threshold and pass/fail target.")
+    return metrics.get(day_idx, "Define a numeric threshold and verify it with logs or tests.")
 
 
 def _is_specific_deliverable(text: str) -> bool:
@@ -205,18 +245,19 @@ def _is_specific_deliverable(text: str) -> bool:
         "spec",
         "validator",
     ]
-    return any(token in lowered for token in artifact_tokens)
+    has_artifact_type = any(token in lowered for token in artifact_tokens)
+    has_repo_binding = _contains_repo_binding_hint(lowered)
+    too_generic = _matches_generic_deliverable(lowered)
+    return has_artifact_type and (has_repo_binding or not too_generic)
 
 
 def _is_measurable_metric(text: str) -> bool:
     lowered = _safe_str(text).lower()
-    pseudo_tokens = ["includes fields", "passes verification", "looks complete", "field presence"]
-    if any(tok in lowered for tok in pseudo_tokens) and not re.search(r"\d", lowered):
-        return False
-    if re.search(r"\d", lowered):
-        return True
-    measurable_tokens = ["%", "<=", ">=", "at least", "within", "pass rate", "accuracy", "latency", "count"]
-    return any(token in lowered for token in measurable_tokens)
+    has_numeric_signal = bool(
+        re.search(r"\d+|>=|<=|%|pass rate|latency|count|cases?|runs?", lowered)
+    )
+    too_generic = _matches_generic_metric(lowered)
+    return has_numeric_signal and not too_generic
 
 
 def _is_repo_bound_text(text: str) -> bool:

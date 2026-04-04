@@ -194,6 +194,49 @@ def _looks_like_generic_plan(answer: str) -> bool:
     return any(re.search(pattern, lowered) for pattern in generic_patterns)
 
 
+REPO_BINDING_HINTS = [
+    "svmap/",
+    "planner.py",
+    "verifiers.py",
+    "engine.py",
+    "executor.py",
+    "replanner.py",
+    "metrics.py",
+    "run_multitask_eval.py",
+    "task_tree.py",
+    "task_node.py",
+]
+
+GENERIC_DELIVERABLE_PATTERNS = [
+    r"commit code/doc changes",
+    r"attach a short validation log",
+    r"include modified file paths",
+    r"add corresponding test or trace artifact",
+    r"implementation notes",
+]
+
+GENERIC_METRIC_PATTERNS = [
+    r"all required fields parsed",
+    r"passes coverage verification",
+    r"includes explicit goal/deliverable/metric fields",
+]
+
+
+def _contains_repo_binding_hint(text: str) -> bool:
+    lowered = _normalize_text(text)
+    return any(x.lower() in lowered for x in REPO_BINDING_HINTS)
+
+
+def _matches_generic_deliverable(text: str) -> bool:
+    lowered = _normalize_text(text)
+    return any(re.search(pattern, lowered) for pattern in GENERIC_DELIVERABLE_PATTERNS)
+
+
+def _matches_generic_metric(text: str) -> bool:
+    lowered = _normalize_text(text)
+    return any(re.search(pattern, lowered) for pattern in GENERIC_METRIC_PATTERNS)
+
+
 def _deliverables_are_specific(answer: str) -> bool:
     lowered = _normalize_text(answer)
     artifact_tokens = [
@@ -216,30 +259,34 @@ def _deliverables_are_specific(answer: str) -> bool:
         "experiment",
         "dataset",
         "benchmark",
+        "jsonl",
     ]
-    weak_tokens = ["implementation notes", "short validation log", "generic artifact"]
-    if any(token in lowered for token in weak_tokens) and not any(
-        token in lowered for token in ["file", "module", "test", "trace", "experiment report"]
-    ):
-        return False
-    return any(token in lowered for token in artifact_tokens)
+    has_artifact_type = any(token in lowered for token in artifact_tokens)
+    has_repo_binding = _contains_repo_binding_hint(lowered)
+    too_generic = _matches_generic_deliverable(lowered)
+    return has_artifact_type and (has_repo_binding or not too_generic)
 
 
 def _metrics_are_measurable(answer: str) -> bool:
     lowered = _normalize_text(answer)
-    pseudo_metric_tokens = ["includes fields", "passes verification", "looks complete", "field presence"]
-    if any(token in lowered for token in pseudo_metric_tokens) and not re.search(r"\d", lowered):
-        return False
-    if re.search(r"\d", lowered):
-        return True
-    measurable_tokens = ["%", "<=", ">=", "at least", "within", "pass rate", "accuracy", "latency", "count"]
-    return any(token in lowered for token in measurable_tokens)
+    has_numeric_signal = bool(
+        re.search(r"\d+|>=|<=|%|pass rate|latency|count|cases?|runs?", lowered)
+    )
+    too_generic = _matches_generic_metric(lowered)
+    return has_numeric_signal and not too_generic
 
 
 def _is_repo_bound_text(text: str) -> bool:
     lowered = _normalize_text(text)
     repo_ref_tokens = ["modified file", "file path", "commit", "patch", "diff", "repo", "repository", ".py", ".md"]
-    return any(tok in lowered for tok in repo_ref_tokens)
+    return _contains_repo_binding_hint(lowered) or any(tok in lowered for tok in repo_ref_tokens)
+
+
+def _is_repo_bound_plan(answer: str, query: str) -> bool:
+    query_norm = _normalize_text(query)
+    if any(token in query_norm for token in ["current", "系统", "当前", "repository", "repo", "implementation"]):
+        return _is_repo_bound_text(answer)
+    return True
 
 
 def _is_grounded_in_all_days(output: Dict[str, Any]) -> bool:
@@ -1354,12 +1401,14 @@ class PlanCoverageVerifier(BaseVerifier):
     ) -> List[ConstraintResult]:
         if node.id != "verify_coverage":
             return []
-        missing_days = output.get("missing_days")
-        missing_fields = output.get("missing_fields")
-        semantic_gaps = output.get("semantic_gaps")
-        grounded_nodes = output.get("grounded_nodes")
-        generic_content_flags = output.get("generic_content_flags")
-        missing_specificity_days = output.get("missing_specificity_days")
+        results: List[ConstraintResult] = []
+        coverage_ok = bool(output.get("coverage_ok", True))
+        missing_days = output.get("missing_days", [])
+        missing_fields = output.get("missing_fields", [])
+        semantic_gaps = list(output.get("semantic_gaps", [])) if isinstance(output.get("semantic_gaps"), list) else []
+        grounded_nodes = output.get("grounded_nodes", [])
+        generic_content_flags = output.get("generic_content_flags", [])
+        missing_specificity_days = output.get("missing_specificity_days", [])
         repo_binding_score = output.get("repo_binding_score")
         if not isinstance(missing_days, list) or not isinstance(missing_fields, list) or not isinstance(semantic_gaps, list):
             return [
@@ -1369,7 +1418,7 @@ class PlanCoverageVerifier(BaseVerifier):
                     message="verify_coverage output must include missing_days/missing_fields/semantic_gaps arrays.",
                     failure_type="plan_coverage_incomplete",
                     repair_hint="replan_subtree",
-                    violation_scope="node",
+                    violation_scope="subtree",
                 )
             ]
         if not isinstance(generic_content_flags, list):
@@ -1380,7 +1429,7 @@ class PlanCoverageVerifier(BaseVerifier):
                     message="verify_coverage must include generic_content_flags list.",
                     failure_type="plan_coverage_incomplete",
                     repair_hint="replan_subtree",
-                    violation_scope="node",
+                    violation_scope="subtree",
                 )
             ]
         if not isinstance(missing_specificity_days, list):
@@ -1391,7 +1440,7 @@ class PlanCoverageVerifier(BaseVerifier):
                     message="verify_coverage must include missing_specificity_days list.",
                     failure_type="plan_coverage_incomplete",
                     repair_hint="replan_subtree",
-                    violation_scope="node",
+                    violation_scope="subtree",
                 )
             ]
         if not isinstance(repo_binding_score, (int, float)):
@@ -1402,188 +1451,152 @@ class PlanCoverageVerifier(BaseVerifier):
                     message="verify_coverage must include numeric repo_binding_score.",
                     failure_type="plan_coverage_incomplete",
                     repair_hint="replan_subtree",
-                    violation_scope="node",
+                    violation_scope="subtree",
                 )
             ]
+
+        if not coverage_ok or missing_days or missing_fields:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="plan_coverage_incomplete",
+                    message=f"missing_days={missing_days}, missing_fields={missing_fields}",
+                    failure_type="plan_coverage_incomplete",
+                    repair_hint="replan_subtree",
+                    violation_scope="subtree",
+                )
+            )
         if generic_content_flags:
-            return [
+            semantic_gaps.append(f"generic_content_flags:{generic_content_flags}")
+            results.append(
                 ConstraintResult(
                     passed=False,
                     code="plan_coverage_generic_flags_non_empty",
                     message=f"Coverage generic content flags detected: {generic_content_flags}",
                     failure_type="low_information_output",
                     repair_hint="replan_subtree",
-                    violation_scope="node",
+                    violation_scope="subtree",
                 )
-            ]
-        if missing_days:
-            return [
-                ConstraintResult(
-                    passed=False,
-                    code="plan_coverage_missing_days",
-                    message=f"Coverage reports missing days: {missing_days}",
-                    failure_type="plan_coverage_incomplete",
-                    repair_hint="replan_subtree",
-                    violation_scope="node",
-                )
-            ]
-        if missing_fields:
-            return [
-                ConstraintResult(
-                    passed=False,
-                    code="plan_coverage_missing_fields",
-                    message=f"Coverage reports missing fields: {missing_fields}",
-                    failure_type="plan_coverage_incomplete",
-                    repair_hint="replan_subtree",
-                    violation_scope="node",
-                )
-            ]
+            )
         if semantic_gaps:
-            return [
+            results.append(
                 ConstraintResult(
                     passed=False,
                     code="plan_coverage_semantic_gaps",
-                    message=f"Coverage reports semantic gaps: {semantic_gaps}",
+                    message=str(semantic_gaps),
                     failure_type="plan_topic_drift",
                     repair_hint="replan_subtree",
-                    violation_scope="node",
+                    violation_scope="subtree",
                 )
-            ]
-        if not isinstance(grounded_nodes, list) or len([x for x in grounded_nodes if "generate_day" in str(x)]) < 7:
-            return [
+            )
+        if not isinstance(grounded_nodes, list) or len(set([x for x in grounded_nodes if "generate_day" in str(x)])) < 7:
+            results.append(
                 ConstraintResult(
                     passed=False,
-                    code="plan_coverage_grounding_weak",
-                    message="Coverage verification must ground against all generate_day nodes.",
+                    code="plan_grounding_weak",
+                    message="verify_coverage did not ground all day nodes.",
                     failure_type="plan_coverage_incomplete",
                     repair_hint="replan_subtree",
-                    violation_scope="node",
+                    violation_scope="subtree",
                 )
-            ]
+            )
+
         dep_outputs = context.get("dependency_outputs", {})
-        day_entries: List[str] = []
-        quality_criteria: Dict[str, Any] = {}
-        for dep_output in dep_outputs.values():
-            if isinstance(dep_output, dict) and isinstance(dep_output.get("quality_criteria"), dict):
-                quality_criteria = dep_output.get("quality_criteria", {})
-                break
-        require_repo_refs = bool(quality_criteria.get("must_reference_repo_changes", False))
+        day_outputs: List[Dict[str, Any]] = []
         for dep_id, dep_output in dep_outputs.items():
-            if not isinstance(dep_output, dict):
-                continue
-            if not dep_id.startswith("generate_day"):
-                continue
-            deliverable = _as_text(dep_output.get("deliverable"))
-            metric = _as_text(dep_output.get("metric"))
+            if dep_id.startswith("generate_day") and isinstance(dep_output, dict):
+                day_outputs.append(dep_output)
+        if not day_outputs:
+            fallback_day_outputs = context.get("global_context", {}).get("day_outputs", [])
+            if isinstance(fallback_day_outputs, list):
+                day_outputs = [x for x in fallback_day_outputs if isinstance(x, dict)]
+
+        missing_specificity_days_detected: List[Any] = []
+        non_actionable_metric_days: List[Any] = []
+        weak_repo_binding_days: List[Any] = []
+        day_entries: List[str] = []
+        for day in day_outputs:
+            day_idx = day.get("day")
+            goal = _as_text(day.get("goal"))
+            deliverable = _as_text(day.get("deliverable"))
+            metric = _as_text(day.get("metric"))
             if deliverable and not _deliverables_are_specific(deliverable):
-                return [
-                    ConstraintResult(
-                        passed=False,
-                        code="generic_deliverable",
-                        message=f"{dep_id} deliverable is too generic.",
-                        failure_type="generic_deliverable",
-                        repair_hint="build_schema_patch",
-                        violation_scope="node",
-                    )
-                ]
-            if require_repo_refs and deliverable:
-                lowered_deliverable = _normalize_text(deliverable)
-                if not _is_repo_bound_text(lowered_deliverable):
-                    return [
-                        ConstraintResult(
-                            passed=False,
-                            code="missing_repo_reference",
-                            message=f"{dep_id} deliverable does not reference repo-level changes.",
-                            failure_type="repo_binding_weak",
-                            repair_hint="replan_subtree",
-                            violation_scope="node",
-                        )
-                    ]
+                missing_specificity_days_detected.append(day_idx)
             if metric and not _metrics_are_measurable(metric):
-                return [
-                    ConstraintResult(
-                        passed=False,
-                        code="non_actionable_metric",
-                        message=f"{dep_id} metric is not measurable.",
-                        failure_type="non_actionable_metric",
-                        repair_hint="build_metric_patch",
-                        violation_scope="node",
-                    )
-                ]
-            merged = " ".join(
-                [
-                    _as_text(dep_output.get("goal")),
-                    _as_text(dep_output.get("deliverable")),
-                    _as_text(dep_output.get("metric")),
-                ]
-            ).lower()
+                non_actionable_metric_days.append(day_idx)
+            if not (_contains_repo_binding_hint(deliverable) or _contains_repo_binding_hint(goal)):
+                weak_repo_binding_days.append(day_idx)
+
+            merged = " ".join([goal, deliverable, metric]).lower().strip()
             merged = re.sub(r"\bday\s*[1-9]\b", "day", merged)
             merged = re.sub(r"\s+", " ", merged).strip()
             if merged:
                 day_entries.append(merged)
-        if day_entries:
-            diversity = len(set(day_entries)) / max(len(day_entries), 1)
-            if diversity < 0.6:
-                return [
-                    ConstraintResult(
-                        passed=False,
-                        code="plan_coverage_repetition_detected",
-                        message="Generated day entries are too repetitive and likely template-driven.",
-                        failure_type="low_information_output",
-                        repair_hint="replan_subtree",
-                        violation_scope="node",
-                        evidence={"diversity": diversity},
-                    )
-                ]
-        query = _as_text(context.get("global_context", {}).get("query"))
-        required_topics = _extract_required_topics_from_query(query)
-        require_anchor_topics = any(
-            token in _normalize_text(query)
-            for token in ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
-        )
-        anchor_terms = ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
-        anchor_days = 0
-        aligned_days = 0
-        for entry in day_entries:
-            if any(x in entry for x in anchor_terms):
-                anchor_days += 1
-            if required_topics and any(x in entry for x in required_topics):
-                aligned_days += 1
-        if required_topics and aligned_days < 7:
-            return [
+
+        if missing_specificity_days_detected:
+            semantic_gaps.append(f"generic_deliverable:{missing_specificity_days_detected}")
+            results.append(
                 ConstraintResult(
                     passed=False,
-                    code="plan_coverage_query_misalignment",
-                    message="Coverage found day entries not aligned with query core topics.",
-                    failure_type="plan_topic_drift",
-                    repair_hint="replan_subtree",
-                    violation_scope="node",
-                    evidence={"aligned_days": aligned_days},
+                    code="generic_deliverable",
+                    message=f"days with generic deliverables: {missing_specificity_days_detected}",
+                    failure_type="generic_deliverable",
+                    repair_hint="patch_subgraph",
+                    violation_scope="subtree",
                 )
-            ]
-        if require_anchor_topics and anchor_days < 3:
-            return [
+            )
+        if non_actionable_metric_days:
+            semantic_gaps.append(f"non_actionable_metric:{non_actionable_metric_days}")
+            results.append(
                 ConstraintResult(
                     passed=False,
-                    code="plan_coverage_anchor_days_too_low",
-                    message="Plan should reference multi-agent/workflow/verifiable task tree topics in >=3 days.",
-                    failure_type="plan_topic_drift",
-                    repair_hint="replan_subtree",
-                    violation_scope="node",
+                    code="non_actionable_metric",
+                    message=f"days with weak metrics: {non_actionable_metric_days}",
+                    failure_type="non_actionable_metric",
+                    repair_hint="patch_subgraph",
+                    violation_scope="subtree",
                 )
-            ]
-        if require_repo_refs and float(repo_binding_score) < 0.7:
-            return [
+            )
+        if weak_repo_binding_days and len(weak_repo_binding_days) >= 3:
+            semantic_gaps.append(f"repo_binding_weak:{weak_repo_binding_days}")
+            results.append(
                 ConstraintResult(
                     passed=False,
                     code="repo_binding_weak",
+                    message=f"repo binding weak on days: {weak_repo_binding_days}",
+                    failure_type="repo_binding_weak",
+                    repair_hint="replan_subtree",
+                    violation_scope="subtree",
+                )
+            )
+        if float(repo_binding_score) < 0.7:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="repo_binding_weak_score",
                     message=f"repo_binding_score is too low: {repo_binding_score}",
                     failure_type="repo_binding_weak",
                     repair_hint="replan_subtree",
-                    violation_scope="node",
+                    violation_scope="subtree",
                 )
-            ]
-        return []
+            )
+        if day_entries:
+            diversity = len(set(day_entries)) / max(len(day_entries), 1)
+            if diversity < 0.6:
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="plan_coverage_repetition_detected",
+                        message="Generated day entries are too repetitive and template-driven.",
+                        failure_type="low_information_output",
+                        repair_hint="replan_subtree",
+                        violation_scope="subtree",
+                        evidence={"diversity": diversity},
+                    )
+                )
+        if semantic_gaps:
+            output["semantic_gaps"] = semantic_gaps
+        return results
 
 
 class NoPlaceholderVerifier(BaseVerifier):
@@ -1922,19 +1935,21 @@ class FinalResponseVerifier(BaseVerifier):
     ) -> List[ConstraintResult]:
         results: List[ConstraintResult] = []
         answer = _as_text(output.get("answer") or output.get("final_response"))
+        query = _as_text(context.get("global_context", {}).get("query"))
+        used_nodes = output.get("used_nodes", [])
+        coverage_verification = output.get("coverage_verification", {}) or {}
         if not answer:
             return [
                 ConstraintResult(
                     passed=False,
-                    code="final_answer_missing",
-                    message="Final response node must output 'answer'.",
-                    failure_type="final_topic_drift",
-                    violation_scope="global",
+                    code="final_answer_empty",
+                    message="Final answer is empty.",
+                    failure_type="final_answer_missing",
+                    violation_scope="node",
                     repair_hint="replan_subtree",
                 )
             ]
 
-        query = _as_text(context.get("global_context", {}).get("query"))
         if query:
             sim = _similarity(query, answer)
             if sim >= 0.9 and len(answer) <= len(query) + 16:
@@ -1949,6 +1964,18 @@ class FinalResponseVerifier(BaseVerifier):
                         evidence={"similarity": sim},
                     )
                 )
+
+        if isinstance(coverage_verification, dict) and coverage_verification.get("semantic_gaps"):
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="coverage_semantic_gaps_propagated",
+                    message=str(coverage_verification.get("semantic_gaps")),
+                    failure_type="plan_topic_drift",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            )
 
         if _is_plan_query(query):
             day_count = _detect_day_count(answer)
@@ -1990,36 +2017,35 @@ class FinalResponseVerifier(BaseVerifier):
                 results.append(
                     ConstraintResult(
                         passed=False,
-                        code="generic_deliverable",
-                        message="Final plan deliverables are not specific enough.",
+                        code="final_generic_deliverable",
+                        message="Final answer contains weak deliverables.",
                         failure_type="generic_deliverable",
                         violation_scope="node",
-                        repair_hint="build_schema_patch",
+                        repair_hint="patch_subgraph",
                     )
                 )
             if not _metrics_are_measurable(answer):
                 results.append(
                     ConstraintResult(
                         passed=False,
-                        code="non_actionable_metric",
-                        message="Final plan metrics are not measurable.",
+                        code="final_non_actionable_metric",
+                        message="Final answer contains weak metrics.",
                         failure_type="non_actionable_metric",
                         violation_scope="node",
-                        repair_hint="build_metric_patch",
+                        repair_hint="patch_subgraph",
                     )
                 )
-            if "repo" in _normalize_text(query) or "system" in _normalize_text(query) or "implementation" in _normalize_text(query):
-                if not _is_repo_bound_text(answer):
-                    results.append(
-                        ConstraintResult(
-                            passed=False,
-                            code="final_repo_binding_weak",
-                            message="Final plan output is weakly bound to repo-level artifacts.",
-                            failure_type="repo_binding_weak",
-                            violation_scope="node",
-                            repair_hint="replan_subtree",
-                        )
+            if not _is_repo_bound_plan(answer, query):
+                results.append(
+                    ConstraintResult(
+                        passed=False,
+                        code="final_repo_binding_weak",
+                        message="Final plan is weakly bound to repo/system changes.",
+                        failure_type="repo_binding_weak",
+                        violation_scope="node",
+                        repair_hint="replan_subtree",
                     )
+                )
             required_topics = _extract_required_topics_from_query(query)
             if not _covers_query_core_topics(answer, query, required_topics):
                 results.append(
@@ -2043,21 +2069,9 @@ class FinalResponseVerifier(BaseVerifier):
                         repair_hint="replan_subtree",
                     )
                 )
-            if not _is_grounded_in_all_days(output):
-                results.append(
-                    ConstraintResult(
-                        passed=False,
-                        code="final_grounding_missing_all_days",
-                        message="Final plan output is not grounded in all generated day nodes.",
-                        failure_type="final_topic_drift",
-                        violation_scope="global",
-                        repair_hint="replan_subtree",
-                    )
-                )
 
         dependency_outputs = context.get("dependency_outputs", {})
         if dependency_outputs:
-            used_nodes = output.get("used_nodes")
             if not isinstance(used_nodes, list) or not used_nodes:
                 results.append(
                     ConstraintResult(
@@ -2070,7 +2084,7 @@ class FinalResponseVerifier(BaseVerifier):
                     )
                 )
             dep_ids = set(dependency_outputs.keys())
-            used_ids = set(str(x) for x in used_nodes)
+            used_ids = set(str(x) for x in used_nodes if x is not None)
             coverage = len(dep_ids.intersection(used_ids)) / max(len(dep_ids), 1)
             coverage_threshold = 1.0 if _is_plan_query(query) else 0.5
             if coverage < coverage_threshold:
@@ -2085,4 +2099,17 @@ class FinalResponseVerifier(BaseVerifier):
                         evidence={"coverage": coverage},
                     )
                 )
+
+        used_day_nodes = [x for x in used_nodes if str(x).startswith("generate_day")]
+        if _is_plan_query(query) and len(set(used_day_nodes)) < 7:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="final_grounding_incomplete",
+                    message="Final response is not grounded in all generated day nodes.",
+                    failure_type="final_grounding_weak",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            )
         return results

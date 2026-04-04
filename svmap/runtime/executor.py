@@ -213,6 +213,10 @@ class ExecutionRuntime:
                             "generic_plan_output",
                             "low_information_output",
                             "plan_topic_drift",
+                            "requirements_analysis_failed",
+                            "schema_design_failed",
+                            "schema_semantics_weak",
+                            "topic_extraction_noisy",
                         }
                     }
                 )
@@ -228,7 +232,7 @@ class ExecutionRuntime:
                 record.repair_hint = ""
                 record.fatal = False
                 record.quality_failures = quality_failures
-                record.semantic_passed = len(quality_failures) == 0
+                record.semantic_passed = bool(verify_result.passed)
                 return record
 
             retries += 1
@@ -286,10 +290,14 @@ class ExecutionRuntime:
                     "generic_plan_output",
                     "low_information_output",
                     "plan_topic_drift",
+                    "requirements_analysis_failed",
+                    "schema_design_failed",
+                    "schema_semantics_weak",
+                    "topic_extraction_noisy",
                 }
             }
         )
-        record.semantic_passed = len(record.quality_failures) == 0
+        record.semantic_passed = False
         return record
 
     def handle_failure(
@@ -826,6 +834,30 @@ class ExecutionRuntime:
                     stalled_node_ids=stalled_node_ids,
                     failure_summary=failure_summary,
                 )
+
+        coverage = final_output.get("coverage_verification")
+        semantic_gaps = coverage.get("semantic_gaps", []) if isinstance(coverage, dict) else []
+        quality_failures: List[str] = []
+        for rec in node_records.values():
+            quality_failures.extend(getattr(rec, "quality_failures", []) or [])
+        if semantic_gaps or quality_failures:
+            failure_summary["semantic_not_valid"] = failure_summary.get("semantic_not_valid", 0) + 1
+            return self._build_report(
+                success=False,
+                node_records=node_records,
+                total_retries=total_retries,
+                verification_failures=verification_failures,
+                replan_count=replan_count,
+                tree=tree,
+                final_node_id=final_node_id,
+                final_output=final_output,
+                replan_actions=replan_actions,
+                structural_savings=structural_savings,
+                budget_exhausted=budget_exhausted,
+                error="semantic_not_valid",
+                stalled_node_ids=stalled_node_ids,
+                failure_summary=failure_summary,
+            )
 
         success = all(n.status in {"success", "skipped"} for n in tree.nodes.values()) and all(
             n.status != "failed" for n in tree.nodes.values()

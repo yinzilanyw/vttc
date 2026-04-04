@@ -154,14 +154,24 @@ class MetricsCollector:
                 "intent_misalignment",
             ]
         )
-        structure_success_rate = 1.0 if plan_structure_fail == 0 else 0.0
-        semantic_success_rate = 1.0 if semantic_failure_count == 0 else 0.0
-        repair_trigger_rate = report.replan_count / max(total_nodes, 1)
+        structure_success_rate = 1.0 if report.final_output else 0.0
+        semantic_success_rate = 1.0 if report.success else 0.0
+        repair_trigger_rate = 1.0 if report.replan_count > 0 else 0.0
         repair_success_by_failure: Dict[str, float] = {}
         for failure_type, count in report.failure_summary.items():
             if count <= 0:
                 continue
             repair_success_by_failure[failure_type] = 1.0 if report.success else 0.0
+
+        has_generic_failure = False
+        for rec in report.node_records.values():
+            quality_failures = list(getattr(rec, "quality_failures", []) or [])
+            if any(
+                ("generic_" in str(x)) or str(x) in {"low_information_output", "non_actionable_metric"}
+                for x in quality_failures
+            ):
+                has_generic_failure = True
+                break
 
         day_records = [
             rec for rec in report.node_records.values()
@@ -246,7 +256,7 @@ class MetricsCollector:
             ),
             structure_success_rate=structure_success_rate,
             semantic_success_rate=semantic_success_rate,
-            generic_output_rate=generic_failures / total_nodes,
+            generic_output_rate=(1.0 if has_generic_failure else (generic_failures / total_nodes)),
             repair_trigger_rate=repair_trigger_rate,
             repair_success_rate_by_failure_type=repair_success_by_failure,
             deliverable_specificity_rate=deliverable_specificity_rate,

@@ -1,0 +1,2144 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775302053.821072,
+    "payload": {
+      "node_count": 11,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302053.821072,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302060.7397075,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302060.7397075,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302065.0057442,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302065.0057442,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302067.373205,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302067.373205,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302073.2328181,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302073.2328181,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302077.7927258,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302077.7927258,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302080.6932058,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302080.6932058,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302083.1763334,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302083.1763334,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302085.637293,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302085.637293,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302088.7020035,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302088.7020035,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302098.6512353,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775302098.6512353,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775302098.6512353,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775302098.6512353,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include day1, day4, and day5 missing repo reference — required per quality criteria.; repo_binding_score is 0.5714285714285714 (i.e., ~4/7 days have repo references), but constraints require all_days_present and must_reference_repo_changes.; missing_days is empty, but semantic gaps indicate specific days lack repo references — this contradicts 'all_days_present' if the days are present but deficient in grounding.; no_generic_plan constraint not violated since no generic plan is detected; however, generic_content_flags is empty, which is acceptable.; no_template_placeholder constraint not violated since no placeholder content is found."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775302098.6512353,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include day1, day4, and day5 missing repo reference — required per quality criteria.; repo_binding_score is 0.5714285714285714 (i.e., ~4/7 days have repo references), but constraints require all_days_present and must_reference_repo_changes.; missing_days is empty, but semantic gaps indicate specific days lack repo references — this contradicts 'all_days_present' if the days are present but deficient in grounding.; no_generic_plan constraint not violated since no generic plan is detected; however, generic_content_flags is empty, which is acceptable.; no_template_placeholder constraint not violated since no placeholder content is found."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302098.6512353,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302100.744243,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302100.744243,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302103.792517,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302103.792517,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302107.9414883,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302107.9414883,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302111.3095813,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302111.3095813,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302114.11116,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302114.11116,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302117.7553513,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302117.7553513,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302120.680771,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302120.680771,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302135.7953417,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775302135.7953417,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775302135.7953417,
+    "payload": {
+      "before_version": 2,
+      "after_version": 3,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775302135.7953417,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include day1, day4, and day5 missing repo reference — required by quality criteria: 'must_reference_repo_changes'.; repo_binding_score is 0.5714285714285714, which is below the ideal threshold (likely 1.0), indicating weak repo binding for days 1, 4, and 5.; missing_days is empty, but semantic gaps show actual missing references for specific days, so 'all_days_present' constraint is not sufficient without correct repo references.; required_keys are present, but the presence of semantic_gaps and low repo_binding_score violates deeper constraints like 'must_reference_repo_changes' and 'no_generic_plan' (though no generic plan detected, repo issues still violate grounding)."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775302135.7953417,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include day1, day4, and day5 missing repo reference — required by quality criteria: 'must_reference_repo_changes'.; repo_binding_score is 0.5714285714285714, which is below the ideal threshold (likely 1.0), indicating weak repo binding for days 1, 4, and 5.; missing_days is empty, but semantic gaps show actual missing references for specific days, so 'all_days_present' constraint is not sufficient without correct repo references.; required_keys are present, but the presence of semantic_gaps and low repo_binding_score violates deeper constraints like 'must_reference_repo_changes' and 'no_generic_plan' (though no generic plan detected, repo issues still violate grounding)."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302135.7953417,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302140.3294737,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302140.3294737,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302143.7345834,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302143.7345834,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302147.2570827,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302147.2570827,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302150.5229645,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302150.5229645,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302152.7059515,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302152.7059515,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302155.3236465,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302155.3236465,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302158.9565303,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302158.95753,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302167.8662915,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775302167.8662915,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775302167.8662915,
+    "payload": {
+      "before_version": 3,
+      "after_version": 4,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775302167.8662915,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include missing repo references for day1, day4, and day5.; repo_binding_score is 0.5714285714285714, which is below the required threshold for full binding (implying insufficient repository reference grounding).; required_fields are present in all days, but the quality criteria 'must_reference_repo_changes' are not satisfied for days 1, 4, and 5.; no generic plan or template placeholder detected — this constraint is satisfied.; all_days_present is satisfied as all 7 days are included in grounded_nodes."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775302167.8662915,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include missing repo references for day1, day4, and day5.; repo_binding_score is 0.5714285714285714, which is below the required threshold for full binding (implying insufficient repository reference grounding).; required_fields are present in all days, but the quality criteria 'must_reference_repo_changes' are not satisfied for days 1, 4, and 5.; no generic plan or template placeholder detected — this constraint is satisfied.; all_days_present is satisfied as all 7 days are included in grounded_nodes."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302167.8662915,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302170.4514544,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302170.4514544,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302173.636763,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302173.636763,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302178.195673,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302178.195673,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302182.5295403,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302182.5295403,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302185.3519478,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302185.3519478,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302188.8351452,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302188.8351452,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302192.2793615,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302192.2793615,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302201.8025906,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775302201.8025906,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775302201.8025906,
+    "payload": {
+      "before_version": 4,
+      "after_version": 5,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775302201.8025906,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include missing repo references for day1, day4, and day5.; repo_binding_score is 0.5714285714285714, which is below the required threshold for full binding (implied by 'must_reference_repo_changes' in quality_criteria).; missing_days is empty, but days 1, 4, and 5 have semantic gaps related to missing repo reference — this violates 'all_days_present' and 'required_keys:coverage_ok,missing_days,missing_fields,semantic_gaps,grounded_nodes,generic_content_flags,missing_specificity_days,repo_binding_score' as the presence of semantic gaps implies incomplete coverage.; The output includes 'missing_fields', but no fields are explicitly missing per context; however, the presence of semantic gaps with repo reference issues suggests field completeness may be compromised."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775302201.8025906,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include missing repo references for day1, day4, and day5.; repo_binding_score is 0.5714285714285714, which is below the required threshold for full binding (implied by 'must_reference_repo_changes' in quality_criteria).; missing_days is empty, but days 1, 4, and 5 have semantic gaps related to missing repo reference — this violates 'all_days_present' and 'required_keys:coverage_ok,missing_days,missing_fields,semantic_gaps,grounded_nodes,generic_content_flags,missing_specificity_days,repo_binding_score' as the presence of semantic gaps implies incomplete coverage.; The output includes 'missing_fields', but no fields are explicitly missing per context; however, the presence of semantic gaps with repo reference issues suggests field completeness may be compromised."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302201.8025906,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302204.383313,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302204.383313,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302207.380165,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302207.380165,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302211.5283601,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302211.5283601,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302214.315864,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302214.315864,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302217.911167,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302217.911167,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302221.230357,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302221.230357,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302224.2123122,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302224.2123122,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302234.223451,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775302234.223451,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775302234.223451,
+    "payload": {
+      "before_version": 5,
+      "after_version": 6,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775302234.223451,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include missing repo references for day1, day4, and day5, which violates the constraint 'must_reference_repo_changes'.; repo_binding_score is 0.5714285714285714, which is below the implied threshold (likely >0.6 or 0.7) for full binding, indicating weak repository integration.; missing_days is empty, but semantic gaps indicate specific days lack required repo references — this implies coverage is incomplete despite no explicit missing days.; required_fields are present in all days per context, so missing_fields is not a direct issue, but the absence of repo references invalidates the 'must_reference_repo_changes' quality criterion."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775302234.223451,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include missing repo references for day1, day4, and day5, which violates the constraint 'must_reference_repo_changes'.; repo_binding_score is 0.5714285714285714, which is below the implied threshold (likely >0.6 or 0.7) for full binding, indicating weak repository integration.; missing_days is empty, but semantic gaps indicate specific days lack required repo references — this implies coverage is incomplete despite no explicit missing days.; required_fields are present in all days per context, so missing_fields is not a direct issue, but the absence of repo references invalidates the 'must_reference_repo_changes' quality criterion."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302234.223451,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302237.1087065,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302237.1087065,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302239.7464204,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302239.7464204,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302242.3633194,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302242.3633194,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302245.4638271,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302245.4638271,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302248.1992218,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302248.1992218,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302253.7145064,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302253.7145064,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302257.7805142,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302257.7805142,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302267.0303977,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775302267.0303977,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775302267.0303977,
+    "payload": {
+      "before_version": 6,
+      "after_version": 7,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775302267.0303977,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include missing repo references for day1, day4, and day5.; repo_binding_score is 0.5714285714285714, which is below the ideal 1.0, indicating weak repository binding for days 1, 4, and 5.; missing_days is empty, but semantic gaps indicate missing repo references in specific days (1, 4, 5).; required_keys are present but not sufficient due to semantic gaps and low repo binding score."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775302267.0303977,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include missing repo references for day1, day4, and day5.; repo_binding_score is 0.5714285714285714, which is below the ideal 1.0, indicating weak repository binding for days 1, 4, and 5.; missing_days is empty, but semantic gaps indicate missing repo references in specific days (1, 4, 5).; required_keys are present but not sufficient due to semantic gaps and low repo binding score."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302267.0303977,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302271.4998918,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302271.4998918,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302274.0580668,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302274.0580668,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302276.9339373,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302276.9339373,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302282.1531804,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302282.1531804,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302285.9660335,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302285.9660335,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302289.4889822,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302289.4889822,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302293.3029802,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302293.3029802,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302304.6685562,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775302304.6685562,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775302304.6685562,
+    "payload": {
+      "before_version": 7,
+      "after_version": 8,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775302304.6685562,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; missing_days is empty, but semantic_gaps indicate missing repo references for days 1, 4, and 5.; semantic_gaps include 'day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference', and 'repo_binding_weak:[1, 4, 5]', meaning the required repo changes are not properly referenced in those days.; repo_binding_score is 0.5714285714285714 (i.e., 4/7), which falls below the expected threshold for full repo binding (likely 1.0 or ≥6/7).; required_fields (goal, deliverable, metric) are present per day, but the quality criteria require 'must_reference_repo_changes' — this is violated for days 1, 4, and 5 as shown in semantic_gaps.; no_generic_plan constraint is satisfied since no template placeholders or generic plan content were found."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775302304.6685562,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; missing_days is empty, but semantic_gaps indicate missing repo references for days 1, 4, and 5.; semantic_gaps include 'day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference', and 'repo_binding_weak:[1, 4, 5]', meaning the required repo changes are not properly referenced in those days.; repo_binding_score is 0.5714285714285714 (i.e., 4/7), which falls below the expected threshold for full repo binding (likely 1.0 or ≥6/7).; required_fields (goal, deliverable, metric) are present per day, but the quality criteria require 'must_reference_repo_changes' — this is violated for days 1, 4, and 5 as shown in semantic_gaps.; no_generic_plan constraint is satisfied since no template placeholders or generic plan content were found."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302304.6695447,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302307.3208299,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302307.3208299,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302311.4041414,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302311.4041414,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302314.4976501,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302314.4976501,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302317.0850532,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302317.0850532,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302319.7465954,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302319.7465954,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302323.5123107,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302323.5123107,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302327.3262074,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302327.3262074,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302336.0390592,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775302336.0390592,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775302336.0390592,
+    "payload": {
+      "before_version": 8,
+      "after_version": 9,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775302336.0390592,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include day1, day4, and day5 missing repo reference — required by quality criteria.; repo_binding_score is 0.5714285714285714 (i.e., ~4/7 days have repo references), but constraints require all_days_present and must_reference_repo_changes.; missing_days is empty, but semantic gaps indicate missing repo references for specific days — this implies not all days are fully grounded in repo changes.; no_generic_plan constraint violated: deliverables use generic templates (e.g., 'Create a code module and unit test bundle') without sufficient specificity per design_plan_schema."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775302336.0390592,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include day1, day4, and day5 missing repo reference — required by quality criteria.; repo_binding_score is 0.5714285714285714 (i.e., ~4/7 days have repo references), but constraints require all_days_present and must_reference_repo_changes.; missing_days is empty, but semantic gaps indicate missing repo references for specific days — this implies not all days are fully grounded in repo changes.; no_generic_plan constraint violated: deliverables use generic templates (e.g., 'Create a code module and unit test bundle') without sufficient specificity per design_plan_schema."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302336.0390592,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302338.8064158,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302338.8064158,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302341.545933,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302341.545933,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302345.0314035,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302345.0314035,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302347.3146696,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302347.3146696,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302350.0463672,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302350.0463672,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302353.704122,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302353.704122,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302356.91729,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302356.91729,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302366.7512126,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775302366.7512126,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775302366.7512126,
+    "payload": {
+      "before_version": 9,
+      "after_version": 10,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775302366.7512126,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include missing repo references for days 1, 4, and 5, which violates the constraint 'must_reference_repo_changes'.; repo_binding_score is 0.5714285714285714, which is below the implied threshold of 1 (full binding), indicating weak repository alignment for days 1, 4, and 5.; missing_days is empty but semantic gaps indicate missing repo references for specific days, implying incomplete day coverage despite presence in grounded_nodes."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775302366.7512126,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include missing repo references for days 1, 4, and 5, which violates the constraint 'must_reference_repo_changes'.; repo_binding_score is 0.5714285714285714, which is below the implied threshold of 1 (full binding), indicating weak repository alignment for days 1, 4, and 5.; missing_days is empty but semantic gaps indicate missing repo references for specific days, implying incomplete day coverage despite presence in grounded_nodes."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302366.7512126,
+    "payload": {
+      "node_id": "generate_day1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302369.3889349,
+    "payload": {
+      "node_id": "generate_day1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302369.3889349,
+    "payload": {
+      "node_id": "generate_day2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302375.2034657,
+    "payload": {
+      "node_id": "generate_day2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302375.2034657,
+    "payload": {
+      "node_id": "generate_day3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302377.6400013,
+    "payload": {
+      "node_id": "generate_day3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302377.6400013,
+    "payload": {
+      "node_id": "generate_day4"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302381.3509796,
+    "payload": {
+      "node_id": "generate_day4",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302381.3509796,
+    "payload": {
+      "node_id": "generate_day5"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302383.7409852,
+    "payload": {
+      "node_id": "generate_day5",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302383.7409852,
+    "payload": {
+      "node_id": "generate_day6"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302386.4791484,
+    "payload": {
+      "node_id": "generate_day6",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302386.4791484,
+    "payload": {
+      "node_id": "generate_day7"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302389.8630462,
+    "payload": {
+      "node_id": "generate_day7",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775302389.8630462,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302400.1266844,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775302400.1266844,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775302400.1266844,
+    "payload": {
+      "before_version": 10,
+      "after_version": 11,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v10->v11"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775302400.1266844,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include missing repo references for day1, day4, and day5, which violates the constraint 'must_reference_repo_changes'.; repo_binding_score is 0.5714285714285714, which is below the implied threshold of 1.0 (since all days should have strong repo binding per constraints).; missing_days is empty but semantic gaps indicate specific days (1, 4, 5) lack required repo references — this implies a mismatch between 'missing_days' and actual gaps.; The output does not contain 'required_keys' in the expected format — though the schema doesn't require it to be present in the output, the constraint 'required_keys:coverage_ok,missing_days,missing_fields,semantic_gaps,grounded_nodes,generic_content_flags,missing_specificity_days,repo_binding_score' suggests these fields must exist and be valid."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v10->v11"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775302400.1266844,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_days=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['day1:missing_repo_reference', 'day4:missing_repo_reference', 'day5:missing_repo_reference']",
+        "repo_binding_weak:repo binding weak on days: [1, 4, 5]",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.5714285714285714",
+        "repo_binding_weak:repo_binding_score=0.5714285714285714 is below threshold.",
+        "semantic_check_failed:coverage_ok is false, indicating overall coverage failure.; semantic_gaps include missing repo references for day1, day4, and day5, which violates the constraint 'must_reference_repo_changes'.; repo_binding_score is 0.5714285714285714, which is below the implied threshold of 1.0 (since all days should have strong repo binding per constraints).; missing_days is empty but semantic gaps indicate specific days (1, 4, 5) lack required repo references — this implies a mismatch between 'missing_days' and actual gaps.; The output does not contain 'required_keys' in the expected format — though the schema doesn't require it to be present in the output, the constraint 'required_keys:coverage_ok,missing_days,missing_fields,semantic_gaps,grounded_nodes,generic_content_flags,missing_specificity_days,repo_binding_score' suggests these fields must exist and be valid."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v10->v11"
+    }
+  }
+]

@@ -1,0 +1,78 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775301994.4285438,
+    "payload": {
+      "node_count": 4,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775301994.4285438,
+    "payload": {
+      "node_id": "retrieve_harbin_inst_info"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775301998.8852918,
+    "payload": {
+      "node_id": "retrieve_harbin_inst_info",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775301998.8852918,
+    "payload": {
+      "node_id": "extract_key_facts"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775301999.8628893,
+    "payload": {
+      "node_id": "extract_key_facts",
+      "status": "success",
+      "attempts": 1,
+      "agent": "extract_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775301999.8628893,
+    "payload": {
+      "node_id": "summarize_overview"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775301999.8648877,
+    "payload": {
+      "node_id": "summarize_overview",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775301999.8648877,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775302001.5932288,
+    "payload": {
+      "node_id": "final_response",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  }
+]

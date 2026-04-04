@@ -93,6 +93,15 @@ class BaseReplanner(ABC):
 
 
 class ConstraintAwareReplanner(BaseReplanner):
+    FAILURE_TO_ACTION: Dict[str, str] = {
+        "requirements_analysis_failed": "replan_subtree",
+        "schema_design_failed": "patch_subgraph",
+        "generic_deliverable": "patch_subgraph",
+        "non_actionable_metric": "patch_subgraph",
+        "repo_binding_weak": "replan_subtree",
+        "low_information_output": "replan_subtree",
+    }
+
     def __init__(
         self,
         planner: Optional[BasePlanner] = None,
@@ -141,10 +150,33 @@ class ConstraintAwareReplanner(BaseReplanner):
         return build_normalization_patch(node_id)
 
     def build_schema_patch(self, node_id: str) -> Dict[str, Any]:
-        return build_schema_patch(node_id)
+        patch = build_schema_patch(node_id)
+        patch.update(
+            {
+                "description": "Refine plan schema to improve deliverable specificity and repository binding.",
+                "expected_outputs": [
+                    "topic_allocation",
+                    "quality_criteria",
+                    "deliverable_template",
+                    "metric_template",
+                ],
+            }
+        )
+        return patch
 
     def build_metric_patch(self, node_id: str) -> Dict[str, Any]:
-        return build_metric_patch_template(node_id)
+        patch = build_metric_patch_template(node_id)
+        patch.update(
+            {
+                "description": "Refine metrics so they become measurable and tied to task completion.",
+                "expected_outputs": [
+                    "metric_template",
+                    "numeric_thresholds",
+                    "validation_conditions",
+                ],
+            }
+        )
+        return patch
 
     def should_escalate_to_subtree(
         self,
@@ -350,7 +382,7 @@ class ConstraintAwareReplanner(BaseReplanner):
             return ReplanDecision(
                 action="patch_subgraph",
                 target_node_id=node.id,
-                patch=build_metric_patch_template(node.id),
+                patch=self.build_metric_patch(node.id),
                 reason="non_actionable_metric",
                 failure_type=failure.failure_type,
             )
