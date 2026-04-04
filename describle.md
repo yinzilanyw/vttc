@@ -1,102 +1,363 @@
-你的系统现在已经基本具备论文四个创新点的**框架实现**：
+> 你现在的系统已经把四个创新点的**主框架**都搭起来了，但离“完成论文要求”还差一步：
+> **把质量问题正式定义为 failure，并让 failure 真正驱动结构修复和实验指标。**
 
-* 显式 `TaskTree` 作为计算图；
-* verifier 已经嵌入节点和部分图关系；
-* `IntentSpec`、约束对象和 plan-family 已经进入结构；
-* `patch_subgraph / replan_subtree / global_replan_requested` 这条修复链也已经有了。
+从最近一次运行结果看，系统已经能：
 
-但离“**真正完成 SV-MAP 及其创新点**”还差三类问题：
+* 正确识别 `plan`
+* 生成合理 DAG
+* 产出结构化 requirements / schema / day outputs / coverage / final response
+* 用不同 agent 承担不同节点职责
 
-1. **质量型失败没有被充分定义**，很多“结构对但内容一般”的输出仍算成功。
-2. **replan 触发条件过弱**，导致第四个创新点很难在实验里真正体现。
-3. **实验指标偏结构成功，不够反映语义成功。**
+但它仍然把很多“结构对、内容一般”的结果判成成功，表现为：
 
-下面按文件展开。
+* `task_success=True`
+* `verification_failure_count=0`
+* `replan_count=0` 
+
+下面按**文件 + 函数**给你列 TODO。
 
 ---
 
-# 1. `svmap/verification/verifiers.py`
+# 1. `svmap/planning/planner.py`
 
-这是现在最值得优先补强的文件。
+## `ConstraintAwarePlanner.infer_plan_focus`
 
-## TODO 1.1：强化 `RequirementsAnalysisVerifier.verify(...)`
+### TODO
 
-你已经有这个类，但从最新结果看，`analyze_requirements` 虽然能提取 `primary_domain / secondary_focus / must_cover_topics`，仍然可能把 query 中的非核心词带进 topics。
+把当前 `plan` 再细分成更具体的 focus。
 
-### 要加的检查
+### 建议
 
-在现有 `verify(...)` 里补：
+保留现有逻辑，但增加：
 
-* `topics` 去噪检查
-  检查 topics 中是否包含明显低价值词或过碎片词。
-* `must_cover_topics` 覆盖度检查
-  必须包含与 query 核心目标直接相关的主题，而不是只有泛化系统工程词。
-* `quality_targets` 存在性检查
-  如果 planner 后续会加 `deliverable_specificity / metric_measurability / repo_binding_required`，这里要检查是否存在。
+* `svmap_system_improvement`
+* `learning_plan`
+* `experiment_plan`
+
+### 触发条件
+
+如果 query 同时出现：
+
+* multi-agent
+* workflow
+* verifiable task trees
+* planning / verification / replanning
+
+就返回：
+
+```python
+"svmap_system_improvement"
+```
+
+### 作用
+
+后续 requirements/schema/day generation 可以更聚焦“当前系统改造”，而不是泛化成一般工程计划。
+
+---
+
+## `ConstraintAwarePlanner.normalize_requirements_output`
+
+### TODO
+
+继续加强 requirements 输出清洗。
+
+### 具体要补
+
+* 去掉噪声 topic
+* 合并碎片 topic
+* 压缩 `must_cover_topics`
+* 自动补：
+
+```python
+"quality_targets": {
+    "deliverable_specificity": True,
+    "metric_measurability": True,
+    "repo_binding_required": True
+}
+```
+
+### 为什么
+
+你现在 requirements 已经不错，但还没把“内容必须具体、可测、与 repo 绑定”变成前置约束。
+
+---
+
+## `ConstraintAwarePlanner.enrich_plan_schema`
+
+### TODO
+
+继续加强 schema 的“质量模板”。
+
+### 要补的字段
+
+```python
+"deliverable_template": {
+    "must_include_file_or_module": True,
+    "must_include_test_or_trace": True,
+    "must_include_validation_artifact": True
+},
+"metric_template": {
+    "must_be_numeric_or_thresholded": True,
+    "must_measure_task_completion": True,
+    "must_not_only_check_field_presence": True
+}
+```
+
+### 为什么
+
+现在 day 生成虽然有 deliverable 和 metric，但仍然容易偏泛。schema 要先把标准写死。
+
+---
+
+## `ConstraintAwarePlanner.attach_auto_constraints`
+
+### TODO
+
+把质量型约束接进去，不只挂结构约束。
+
+### 建议新增绑定
+
+* `analyze_requirements`
+
+  * `IntentAlignmentConstraint`
+  * `NonTrivialTransformationConstraint`
+
+* `design_plan_schema`
+
+  * `SchemaSpecificityConstraint`
+  * `IntentAlignmentConstraint`
+
+* `generate_day*`
+
+  * `SpecificDeliverableConstraint`
+  * `MeasurableMetricConstraint`
+  * `NoTemplatePlaceholderConstraint`
+
+* `verify_coverage`
+
+  * `CoverageConstraint`
+  * `PlanTopicCoverageConstraint`
+  * `NoGenericPlanConstraint`
+
+* `final_response`
+
+  * `FinalStructureConstraint`
+  * `IntentAlignmentConstraint`
+  * `NoGenericPlanConstraint`
+
+### 为什么
+
+让“质量要求”成为 planner 输出的一部分，而不是只靠 verifier 兜底。
+
+---
+
+## `ConstraintAwarePlanner.propagate_intents`
+
+### TODO
+
+让 quality targets 也沿树传播。
+
+### 建议
+
+把 `deliverable_specificity`、`metric_measurability`、`repo_binding_required` 从 requirements/schema 传给：
+
+* generate_day*
+* verify_coverage
+* final_response
+
+### 为什么
+
+你现在 intent 已经会传播主题，但还没充分传播“质量目标”。
+
+---
+
+## `ConstraintAwarePlanner.replan_subtree`
+
+### TODO
+
+按 failure type 区分 subtree 重建范围。
+
+### 建议规则
+
+* `requirements_analysis_failed`
+  → 从 `analyze_requirements` 往后全重建
+* `schema_design_failed`
+  → 从 `design_plan_schema` 往后全重建
+* `generic_deliverable / non_actionable_metric / repo_binding_weak`
+  → 重建 `generate_day* + verify_coverage + final_response`
+
+---
+
+# 2. `svmap/models/constraints.py`
+
+这个文件其实已经很全了，说明你的“约束对象化”做得不错。现在主要是**启用和加强**。
+
+## `PlanTopicCoverageConstraint.validate`
+
+### TODO
+
+让它不只检查 topic 出现，还检查 topic 是否真正主导内容。
+
+### 建议加强
+
+* 不是只看关键词是否出现
+* 要看是否出现在 goal / deliverable / metric 的核心位置
+* 要能识别“只是顺手提到 query 词，但主体内容偏了”的情况
+
+---
+
+## `SchemaSpecificityConstraint.validate`
+
+### TODO
+
+加强“schema 是否足够具体”的判定。
+
+### 建议检查
+
+* 是否存在 `topic_allocation`
+* 是否存在 `quality_criteria`
+* 是否存在 deliverable/metric template
+* progression 是否过于泛化
+
+---
+
+## `SpecificDeliverableConstraint.validate`
+
+### TODO
+
+提高“具体 deliverable”的门槛。
+
+### 建议判错
+
+如果 deliverable 只包含：
+
+* implementation notes
+* short validation log
+* generic artifact
+
+但没有：
+
+* 文件
+* 模块
+* 测试
+* trace
+* experiment report
+
+则失败。
+
+### 新 failure type
+
+* `generic_deliverable`
+
+---
+
+## `MeasurableMetricConstraint.validate`
+
+### TODO
+
+更严格地区分“可测 metric”和“伪 metric”。
+
+### 建议判错
+
+如果 metric 只是：
+
+* includes fields
+* passes verification
+* looks complete
+
+没有：
+
+* 数值阈值
+* 次数
+* pass rate
+* latency / error reduction
+* case 数量
+
+则失败。
+
+### 新 failure type
+
+* `non_actionable_metric`
+
+---
+
+## `NoGenericPlanConstraint.validate`
+
+### TODO
+
+增强模板化检测。
+
+### 建议增加
+
+* 多天句式相似度检查
+* deliverable 模板重复度检查
+* metric 模板重复度检查
+
+### 目标
+
+把“结构对但内容泛”的情况识别出来。
+
+---
+
+# 3. `svmap/verification/verifiers.py`
+
+这是你现在最关键的增强点。
+
+## `RequirementsAnalysisVerifier.verify`
+
+### TODO
+
+从“字段存在”提升到“需求质量”。
+
+### 要补的检查
+
+* `topics` 是否仍有噪声
+* `must_cover_topics` 是否覆盖 query 核心目标
+* `forbidden_topic_drift` 是否存在
+* `quality_targets` 是否存在
+* 是否真的指向当前系统改造，而不是泛化目标
 
 ### 新 failure type
 
 * `requirements_analysis_failed`
 * `topic_extraction_noisy`
 
-### repair hint
-
-* `replan_subtree`
-
 ---
 
-## TODO 1.2：强化 `PlanSchemaVerifier.verify(...)`
+## `PlanSchemaVerifier.verify`
 
-你已经有这个类，也已经在 schema 中输出了 `progression / topic_allocation / quality_criteria`。
+### TODO
 
-### 要加的检查
+从“schema 结构存在”提升到“schema 是否高质量”。
+
+### 要补的检查
 
 * `topic_allocation` 是否覆盖 7 天
-* `progression` 是否具有真正递进关系，而不是只是主题列表
+* `progression` 是否有真实递进
 * `quality_criteria` 是否完整
-* deliverable 和 metric 的模板要求是否明确
-* schema 是否还过于泛化
+* `deliverable_template / metric_template` 是否存在
+* schema 是否过于泛化
 
 ### 新 failure type
 
 * `schema_design_failed`
 * `schema_semantics_weak`
 
-### repair hint
-
-* `patch_subgraph`
-* 或 `replan_subtree`
-
 ---
 
-## TODO 1.3：强化 `PlanCoverageVerifier.verify(...)`
+## `PlanCoverageVerifier.verify`
 
-从结果看，`verify_coverage` 输出了：
+### TODO
 
-* `coverage_ok=True`
-* `missing_days=[]`
-* `missing_fields=[]`
-* `semantic_gaps=[]`。
+把它从“覆盖检查器”升级成“覆盖 + 质量检查器”。
 
-这说明它已经在做结构验证，但“质量验证”还不够强。
+### 增加检查
 
-### 要加的检查
-
-新增或补强这几个辅助判断函数：
-
-```python
-def _deliverable_is_specific(text: str) -> bool: ...
-def _metric_is_measurable(text: str) -> bool: ...
-def _plan_is_too_template_like(day_outputs: list[dict]) -> bool: ...
-def _plan_is_repo_bound(answer: str, query: str) -> bool: ...
-```
-
-### 应判错的情况
-
-* deliverable 过于泛化
-* metric 只是流程/格式检查，不是真正结果指标
-* 7 天句式高度重复
-* 计划没有足够绑定到“当前系统/代码/实验”的改进目标
+* deliverable 是否具体
+* metric 是否可测
+* day outputs 是否模板化
+* 是否和 query 明确绑定
+* `semantic_gaps` 不能总是空列表
 
 ### 新 failure type
 
@@ -105,34 +366,21 @@ def _plan_is_repo_bound(answer: str, query: str) -> bool: ...
 * `low_information_output`
 * `repo_binding_weak`
 
-### repair hint
-
-* `replan_subtree`
-
 ---
 
-## TODO 1.4：强化 `FinalResponseVerifier.verify(...)`
+## `FinalResponseVerifier.verify`
 
-你现在已经有 `FinalResponseVerifier`，也会检查结构和 grounding。
-下一步需要让它真正判断“**这是不是一份高质量最终计划**”。
+### TODO
 
-### 要加的检查
+把最终答案的“高质量标准”做实。
 
-新增或加强：
+### 增加检查
 
-```python
-def _looks_like_generic_plan(answer: str) -> bool: ...
-def _deliverables_are_specific(answer: str) -> bool: ...
-def _metrics_are_actionable(answer: str) -> bool: ...
-def _covers_query_core_topics(answer: str, query: str) -> bool: ...
-```
-
-### 应判错的情况
-
-* 计划整体过于模板化
-* deliverable 不够具体
-* metric 不可测
-* final answer 虽然结构完整，但和 query 的“当前系统改进”目标绑定不够强
+* deliverable 是否具体到 repo 产物
+* metric 是否可测
+* 是否仍存在模板化
+* 是否和 query 核心目标强绑定
+* `used_nodes` 是否足够覆盖 full reasoning path，不只覆盖 day nodes
 
 ### 新 failure type
 
@@ -140,74 +388,75 @@ def _covers_query_core_topics(answer: str, query: str) -> bool: ...
 * `generic_deliverable`
 * `non_actionable_metric`
 * `final_topic_drift`
-
-### repair hint
-
-* `replan_subtree`
+* `repo_binding_weak`
 
 ---
 
-## TODO 1.5：新增通用质量型 verifier
+## `LowInformationOutputVerifier.verify`
 
-不局限于 `plan`，建议在这个文件里新增：
+### TODO
 
-```python
-class LowInformationOutputVerifier(BaseVerifier): ...
-class GenericOutputVerifier(BaseVerifier): ...
-class RepoBindingVerifier(BaseVerifier): ...
-```
+让它不只服务 plan，开始服务 summary/compare/extract/calculate。
 
-### 目的
+### 作用
 
-以后 summary / compare / extract / calculate 也能复用“质量型失败定义”，而不是只在 plan 任务里补丁式增强。
+这是把“质量型 failure”推广到全系统的关键。
 
 ---
 
-# 2. `svmap/verification/engine.py`
+## `GenericOutputVerifier.verify`
 
-这个文件现在已经有：
+### TODO
 
-* `_select_verifiers`
-* `select_verifiers_for_node`
-* `_infer_failure_type`
-* `_select_primary_failure_type`
-* `_aggregate`
-* `verify(scope=...)`
+专门识别：
 
-结构很好，但还要再往前一步。
+* 看起来完整
+* 实际过泛
+* 缺少任务特异性
 
-## TODO 2.1：强化 `select_verifiers_for_node(...)`
+### 作用
 
-你已经对 `plan` family 做了节点名路由，这很好。
-现在要把新 verifier 接进去：
+避免系统在所有 task family 上都高估成功率。
+
+---
+
+# 4. `svmap/verification/engine.py`
+
+这个文件已经很好了，说明你第二创新点的结构化设计已经成型。现在主要补 failure 聚合。
+
+## `VerifierEngine.select_verifiers_for_node`
+
+### TODO
+
+把新的质量型 verifier 正式接进去。
 
 ### 路由建议
 
 * `analyze_requirements`
+  → `RequirementsAnalysisVerifier`
 
-  * `RequirementsAnalysisVerifier`
 * `design_plan_schema`
+  → `PlanSchemaVerifier`
 
-  * `PlanSchemaVerifier`
 * `generate_day*`
+  → `IntentVerifier`
+  → `LowInformationOutputVerifier`
 
-  * `IntentVerifier`
-  * `NoPlaceholderVerifier`
-  * `LowInformationOutputVerifier`
 * `verify_coverage`
+  → `PlanCoverageVerifier`
+  → `RepoBindingVerifier`（建议新增）
 
-  * `PlanCoverageVerifier`
-  * `RepoBindingVerifier`
 * `final_response`
-
-  * `FinalResponseVerifier`
-  * `RepoBindingVerifier`
+  → `FinalResponseVerifier`
+  → `RepoBindingVerifier`
 
 ---
 
-## TODO 2.2：扩展 `_infer_failure_type(...)`
+## `VerifierEngine._infer_failure_type`
 
-把新 failure type 统一纳入归并：
+### TODO
+
+加入新质量型 failure 的映射：
 
 * `generic_deliverable`
 * `non_actionable_metric`
@@ -218,145 +467,52 @@ class RepoBindingVerifier(BaseVerifier): ...
 
 ---
 
-## TODO 2.3：扩展 `_select_primary_failure_type(...)`
+## `VerifierEngine._select_primary_failure_type`
 
-现在优先级主要围绕 internal error / final structure / topic drift / schema 等。
-建议加入质量型失败优先级：
+### TODO
 
-```text
-requirements_analysis_failed
-schema_design_failed
-plan_topic_drift
-generic_deliverable
-non_actionable_metric
-repo_binding_weak
-low_information_output
-```
+把质量问题的优先级调高。
 
-这样 runtime 和 replanner 才会优先感知“质量型失败”，而不是把它淹没在 rule/schema 错误后面。
+### 建议顺序
 
----
+1. `requirements_analysis_failed`
+2. `schema_design_failed`
+3. `plan_topic_drift`
+4. `generic_deliverable`
+5. `non_actionable_metric`
+6. `repo_binding_weak`
+7. `low_information_output`
 
-# 3. `svmap/planning/planner.py`
+### 目的
 
-你这里已经有：
-
-* `infer_task_family`
-* `ConstraintAwarePlanner.plan`
-* `normalize_planner_output`
-* `propagate_intents`
-* `attach_intent_specs`
-* `attach_quality_constraints`
-* `replan_subtree`
-
-是当前系统最完整的部分之一。
-
-## TODO 3.1：新增 `infer_plan_focus(...)`
-
-当前 `plan` 还不够细分。建议新增：
-
-```python
-def infer_plan_focus(self, query: str) -> str: ...
-```
-
-### 输出示例
-
-* `svmap_system_improvement`
-* `learning_plan`
-* `experiment_plan`
-
-### 用法
-
-在 `PlanningContext` 或 `tree.metadata` 里记录 `plan_focus`，后续 schema/day generation/verifier 都能读取它。
+让 replanner 优先处理真正影响内容质量的问题。
 
 ---
 
-## TODO 3.2：强化 `normalize_requirements_output(...)`
+## `VerifierEngine.collapse_failures`
 
-如果这个函数还没有，建议补上；如果已有类似逻辑，建议增强。
+### TODO
 
-### 要做的事
+继续强化输出：
 
-* 去噪 `topics`
-* 合并碎片 topic
-* 收敛 `must_cover_topics`
-* 自动补 `quality_targets`
+* `failure_type`
+* `repair_hints`
+* `violation_scope`
+* `details`
 
----
-
-## TODO 3.3：强化 `enrich_plan_schema(...)`
-
-你现在 schema 已经有 `quality_criteria`，建议继续补：
-
-```python
-"deliverable_template": {
-  "must_include_file_or_module": True,
-  "must_include_test_or_trace": True,
-  "must_include_validation_artifact": True
-},
-"metric_template": {
-  "must_be_numeric_or_thresholded": True,
-  "must_measure_task_completion": True,
-  "must_not_only_check_field_presence": True
-}
-```
-
-这样 day 生成和 verifier 都有明确参照。
+这一步非常重要，因为 runtime 和 replanner 都依赖它。
 
 ---
 
-## TODO 3.4：强化 `attach_quality_constraints(...)`
+# 5. `svmap/agents/assigner.py`
 
-你当前已有质量约束接入点，但要继续扩：
+## `CapabilityBasedAssigner.preferred_agents_for_task_type`
 
-### 对 `generate_day*`
+### TODO
 
-增加：
+固化当前已经比较合理的映射。
 
-* `SpecificDeliverableConstraint`
-* `MeasurableMetricConstraint`
-
-### 对 `verify_coverage`
-
-增加：
-
-* `PlanTopicCoverageConstraint`
-* `NoGenericPlanConstraint`
-
-### 对 `final_response`
-
-增加：
-
-* `RepoBindingConstraint`
-
----
-
-## TODO 3.5：强化 `replan_subtree(...)`
-
-你已经有 subtree replan 接口了。
-建议进一步让它支持“质量失败”的场景，而不仅是结构失败。
-
-### 规则建议
-
-* `requirements_analysis_failed`
-  → 重建从 requirements 到 final 的后半图
-* `schema_design_failed`
-  → 重建 schema + all day nodes + coverage + final
-* `generic_deliverable / non_actionable_metric`
-  → 重建 `generate_day* + verify_coverage + final_response`
-
----
-
-# 4. `svmap/agents/assigner.py`
-
-你这里已经有 `CapabilityBasedAssigner`。
-现在最大问题不是“能不能分”，而是“分配是否足够稳定且与节点职责匹配”。
-
-## TODO 4.1：强化 `preferred_agents_for_task_type(...)`
-
-如果你已经有类似逻辑，就增强它；如果没有，就新增。
-
-### 推荐映射
+### 建议映射
 
 * `analyze_requirements`
   → `reason_agent`
@@ -369,80 +525,103 @@ def infer_plan_focus(self, query: str) -> str: ...
 * `final_response`
   → `synthesize_agent`
 
-并增加：
+并继续使用：
 
 * `plan_task_preference_bonus`
 
 ---
 
-## TODO 4.2：把“质量角色”也纳入分配
+## `CapabilityBasedAssigner._score_for_node`
 
-例如：
+### TODO
 
-* `verify_agent` 优先承担 coverage / quality checks
-* `reason_agent` 优先承担 schema/requirements
-* `synthesize_agent` 不应承担 verify 任务
+加入“节点职责匹配度”而不只是 capability/reliability/cost/latency。
 
-这样后面你实验里才更能说明“多智能体分工”不是形式上的。
+### 作用
 
----
-
-# 5. `svmap/agents/demo_agents.py`
-
-这个文件现在承担了很多真实行为，所以很关键。
-
-## TODO 5.1：强化 `ReasonAgent`
-
-从当前运行结果看，requirements 和 schema 的质量已经提升了，但还不够“去噪和收敛”。
-
-### 要做的事
-
-在 `ReasonAgent` 的 plan 分支 prompt 中明确要求：
-
-* 不允许输出噪声 topic
-* 必须把 query 映射到当前系统的代码/模块/实验维度
-* progression 不能泛化
+让不同 agent 的分工更稳定、更可解释。
 
 ---
 
-## TODO 5.2：强化 `SynthesizeAgent`
+# 6. `svmap/agents/demo_agents.py`
 
-现在 day generation 和 final response 已经明显优于之前，但仍偏模板化。
+## `ReasonAgent.run`
 
-### 要做的事
+### TODO
 
-在生成 `generate_day*` 时要求：
+加强 requirements/schema 的 prompt 护栏。
 
-* deliverable 必须具体到文件 / 模块 / 测试 / trace / 实验工件
-* metric 必须是数值阈值、pass rate、count、latency、error reduction 等
-* 禁止使用“只通过格式验证”的 metric
+### 新要求
+
+* 去掉噪声 topic
+* 明确绑定当前系统改造
+* progression 不能泛化成一般工程课程
 
 ---
 
-## TODO 5.3：强化 `VerifyAgent`
+## `SynthesizeAgent.run`
 
-`verify_coverage` 现在已经输出结构化结果，但 `semantic_gaps=[]` 仍然太乐观。
+### TODO
 
-### 要做的事
+增强 day generation 的具体性。
 
-在 `VerifyAgent` 的覆盖验证 prompt 中加入：
+### 新要求
+
+deliverable 必须具体到：
+
+* 文件
+* 模块
+* 测试
+* trace
+* experiment artifact
+
+metric 必须是：
+
+* 数值阈值
+* pass rate
+* count
+* latency / error reduction
+
+### 禁止
+
+* “passes coverage verification” 这种把验证流程当 metric
+
+---
+
+## `VerifyAgent.run`
+
+### TODO
+
+让它真正做“质量验证”。
+
+### 新要求
 
 * 检查 deliverable 是否具体
 * 检查 metric 是否可测
-* 检查是否有高重复模板
-* 检查是否与 query 的“当前系统改进”目标绑定
+* 检查是否模板化
+* 检查与 query 的 repo/system 改造目标绑定
 
-这样 `semantic_gaps` 才会真正有内容。
+### 建议新增输出字段
+
+```python
+{
+  "generic_content_flags": [...],
+  "missing_specificity_days": [...],
+  "repo_binding_score": ...
+}
+```
 
 ---
 
-# 6. `svmap/runtime/replanner.py`
+# 7. `svmap/runtime/replanner.py`
 
-当前最缺的不是 patch 机制，而是“质量型 failure”的 repair 映射。
+现在第四创新点的问题不是没有机制，而是 failure 触发太弱。
 
-## TODO 6.1：扩展 failure → action 映射
+## `ConstraintAwareReplanner.patch_for_failure_type`
 
-增加：
+### TODO
+
+把质量型 failure 接到修复动作：
 
 * `requirements_analysis_failed`
   → `replan_subtree`
@@ -451,10 +630,10 @@ def infer_plan_focus(self, query: str) -> str: ...
   → `patch_subgraph(schema_patch)` 或 `replan_subtree`
 
 * `generic_deliverable`
-  → `patch_subgraph(schema_patch)`
+  → `build_schema_patch`
 
 * `non_actionable_metric`
-  → `patch_subgraph(metric_patch)`
+  → `build_metric_patch`
 
 * `repo_binding_weak`
   → `replan_subtree`
@@ -464,45 +643,101 @@ def infer_plan_focus(self, query: str) -> str: ...
 
 ---
 
-## TODO 6.2：新增 `build_schema_patch(...)`
+## `ConstraintAwareReplanner.build_schema_patch`
 
-用于 refinement schema，而不是整棵树盲目重跑。
+### TODO
 
-## TODO 6.3：新增 `build_metric_patch(...)`
+让它不只是轻量 refinement，而是真正重写：
 
-当问题主要在 metric 可测性不足时，局部修复 day generation / final response。
+* `topic_allocation`
+* `quality_criteria`
+* deliverable/metric template
 
----
-
-## TODO 6.4：细化 subtree/global replan 的范围
-
-规则建议：
-
-* requirements/schema 失败
-  → 从该节点往后全重建
-
-* day-level 质量失败
-  → 重建 `generate_day* + verify_coverage + final_response`
-
-* 连续 subtree 失败
-  → 升级 `global_replan`
+然后再推动 day generation 重跑。
 
 ---
 
-# 7. `svmap/runtime/executor.py`
+## `ConstraintAwareReplanner.build_metric_patch`
 
-## TODO 7.1：收紧 success 判定
+### TODO
 
-现在 `task_success=True` 还是偏宽。
+把 metric 修正做成独立 patch。
 
-### 建议修改
+### 作用
 
-只有以下都满足才记成功：
+当问题主要在 metric，可局部修复，不必整棵树重跑。
 
-* final node 成功
+---
+
+## `ConstraintAwareReplanner.should_escalate_to_subtree`
+
+### TODO
+
+让质量型 failure 也能触发 escalation：
+
+* `generic_deliverable`
+* `non_actionable_metric`
+* `repo_binding_weak`
+
+---
+
+## `ConstraintAwareReplanner.should_escalate_to_global`
+
+### TODO
+
+当 subtree replan 后仍然存在：
+
+* `plan_topic_drift`
+* `repo_binding_weak`
+  时，升级 global replan。
+
+---
+
+## `ConstraintAwareReplanner.apply_global_replan`
+
+### TODO
+
+让它对“质量失败”也适用，而不只是结构失败。
+
+---
+
+# 8. `svmap/runtime/executor.py`
+
+## `ExecutionRuntime._run_scoped_verification`
+
+### TODO
+
+确保质量型 verifier 的结果不会被弱化或忽略。
+
+---
+
+## `ExecutionRuntime.execute_node`
+
+### TODO
+
+把质量型 failure 写进 `NodeExecutionRecord`：
+
+* `quality_failures`
+* `semantic_passed`
+
+这样 trace 和 experiments 才能分析“结构成功但语义失败”。
+
+---
+
+## `ExecutionRuntime._build_report`
+
+### TODO
+
+收紧 `task_success` 定义。
+
+### 建议规则
+
+只有以下都满足才算成功：
+
+* final node success
 * final response 无质量型 verifier failure
-* coverage_ok == True
-* semantic_gaps == []
+* `coverage_ok == True`
+* `semantic_gaps == []`
 * 无 `generic_deliverable / non_actionable_metric / repo_binding_weak`
 
 否则：
@@ -512,78 +747,103 @@ def infer_plan_focus(self, query: str) -> str: ...
 
 ---
 
-## TODO 7.2：在 `NodeExecutionRecord` 中记录质量型失败
+# 9. `svmap/runtime/metrics.py`
 
-你现在应该已经记录了 `failure_type / replan_action / saved_downstream_nodes` 等；建议再加入：
+## `MetricsCollector.summarize`
 
-* `quality_failures`
-* `semantic_passed`
+### TODO
 
-这样 experiments 和 trace 会更有解释力。
-
----
-
-# 8. `svmap/runtime/metrics.py`
-
-这里一定要补。
-
-## TODO 8.1：拆 success 指标
-
-新增：
+把 success 拆成：
 
 * `structure_success_rate`
 * `semantic_success_rate`
 
-## TODO 8.2：新增 plan 质量指标
+并继续统计：
 
-* `deliverable_specificity_rate`
-* `metric_measurability_rate`
-* `repo_binding_rate`
-* `plan_quality_pass_rate`
-
-## TODO 8.3：新增 repair 指标
-
+* `generic_output_rate`
+* `topic_drift_rate`
 * `repair_trigger_rate`
 * `repair_success_rate_by_failure_type`
 
-否则你的实验仍然会高估能力。
+---
+
+## `MetricsCollector._is_specific_deliverable`
+
+### TODO
+
+继续增强判断规则，要求真正指向 repo 产物。
 
 ---
 
-# 9. `svmap/runtime/trace.py`
+## `MetricsCollector._is_measurable_metric`
 
-## TODO 9.1：记录质量型 failure 和 repair
+### TODO
 
-trace 里除了 node_start/node_end，还应记录：
-
-* `failure_type`
-* `repair_hint`
-* `replan_action`
-* `graph_delta_summary`
-
-这样你以后可以用 trace 做论文 case study。
+继续增强，过滤掉“伪 metric”。
 
 ---
 
-# 10. `experiments/run_multitask_eval.py`
+## `MetricsCollector.summarize_by_task_family`
 
-## TODO 10.1：把 plan-family 单独评估
+### TODO
 
-新增：
+给 `plan` family 单独输出：
+
+* `plan_structure_success_rate`
+* `plan_semantic_success_rate`
+* `deliverable_specificity_rate`
+* `metric_measurability_rate`
+* `repo_binding_rate`
+* `plan_repair_trigger_rate`
+
+---
+
+# 10. `svmap/runtime/trace.py`
+
+## `TraceLogger.log_plan_quality_failure`
+
+### TODO
+
+确保把这些 failure 全部写进 trace：
+
+* `generic_deliverable`
+* `non_actionable_metric`
+* `repo_binding_weak`
+* `low_information_output`
+
+---
+
+## `TraceLogger.log_graph_delta`
+
+### TODO
+
+在 repair path 中更多使用，方便 case study。
+
+---
+
+# 11. `experiments/run_multitask_eval.py`
+
+## TODO 11.1
+
+拆 plan-family 单独评估：
 
 * `plan_structure_success_rate`
 * `plan_semantic_success_rate`
 * `plan_repair_trigger_rate`
 * `plan_repair_success_rate`
 
-## TODO 10.2：增加两个关键消融
+## TODO 11.2
+
+增加两个关键消融：
 
 * `NoQualityVerifier`
 * `NoStructuralRepair`
 
-这样你能直接证明：
+### 目的
 
-* 质量型 verifier 的必要性
-* 结构修复的必要性
+直接验证：
+
+* 没有质量 verifier，会高估成功率
+* 没有结构修复，质量失败恢复不了
 
 ---
