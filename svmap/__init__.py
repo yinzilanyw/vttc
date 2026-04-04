@@ -1,5 +1,5 @@
 from .app import main
-from .demos.case_study import run_case_study
-from .demos.run_demo import run_demo
+from .run_batch import run_batch_from_env
+from .run_single import run_single_from_env
 
-__all__ = ["main", "run_case_study", "run_demo"]
+__all__ = ["main", "run_single_from_env", "run_batch_from_env"]

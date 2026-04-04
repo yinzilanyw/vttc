@@ -1,0 +1,2 @@
+mode,task_family,query,success,retries,replans,verification_failures,final_answer,semantic_alignment_rate,topic_drift_rate,coverage_verification_pass_rate,structure_success_rate,semantic_success_rate,repair_trigger_rate,deliverable_specificity_rate,metric_measurability_rate,repo_binding_rate
+full,qa,Who is the CEO of the company founded by Elon Musk?,0,20,10,60,,1.0,0.0,1.0,1.0,0.0,3.3333333333333335,0.0,0.0,0.0

@@ -57,7 +57,18 @@ def load_app_config_from_env(env_path: str = ".env") -> AppConfig:
         or os.getenv("BAILIAN_RETRIEVE_MODEL")
         or judge_model
     )
-    default_task_family = (os.getenv("DEMO_TASK_FAMILY") or "qa").strip().lower() or "qa"
+    default_task_family = (
+        os.getenv("DEFAULT_TASK_FAMILY")
+        or os.getenv("SINGLE_TASK_FAMILY")
+        or os.getenv("DEMO_TASK_FAMILY")
+        or "qa"
+    ).strip().lower() or "qa"
+    default_query = (
+        os.getenv("DEFAULT_QUERY")
+        or os.getenv("SINGLE_QUERY")
+        or os.getenv("DEMO_QUERY")
+        or ""
+    ).strip()
 
     return AppConfig(
         use_model_api=_env_flag("USE_MODEL_API", default=True),
@@ -70,8 +81,7 @@ def load_app_config_from_env(env_path: str = ".env") -> AppConfig:
         judge_model=judge_model.strip() or "qwen-flash",
         retrieve_model=retrieve_model.strip() or "qwen-flash",
         default_task_family=default_task_family,
-        default_query=(os.getenv("DEMO_QUERY") or "").strip(),
+        default_query=default_query,
         stop_on_failure=_env_flag("STOP_ON_FAILURE", default=False),
         assignment_mode=(os.getenv("ASSIGNMENT_MODE") or "capability").strip().lower() or "capability",
     )
-
