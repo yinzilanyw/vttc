@@ -1,5 +1,6 @@
 from .constraints import (
     AllDaysPresentConstraint,
+    AllItemsPresentConstraint,
     CoverageConstraint,
     Constraint,
     ConstraintParser,
@@ -40,6 +41,7 @@ __all__ = [
     "ConstraintResult",
     "CoverageConstraint",
     "AllDaysPresentConstraint",
+    "AllItemsPresentConstraint",
     "ConsistencyConstraint",
     "EvidenceCoverageConstraint",
     "ExecutionContext",

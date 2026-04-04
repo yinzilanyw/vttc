@@ -31,14 +31,59 @@ def _similarity(left: str, right: str) -> float:
 
 def _is_plan_query(query: str) -> bool:
     text = _normalize_text(query)
-    keywords = ["plan", "learning plan", "7-day", "daily goals", "deliverables", "metric"]
+    keywords = [
+        "plan",
+        "learning plan",
+        "day",
+        "days",
+        "daily goals",
+        "deliverables",
+        "metric",
+        "phase",
+        "step",
+        "milestone",
+        "阶段",
+        "步骤",
+        "里程碑",
+    ]
     return any(k in text for k in keywords)
 
 
-def _detect_day_count(text: str) -> int:
-    if not text:
-        return 0
-    hits = re.findall(r"\bday\s*([1-9]|10)\b", _normalize_text(text))
+def _detect_plan_item_count(text: str) -> Optional[int]:
+    normalized = _normalize_text(text)
+    patterns = [
+        r"\b(\d+)\s*[- ]?day\b",
+        r"\bday\s*(\d+)\b",
+        r"\b(\d+)\s*days\b",
+        r"\b(\d+)\s*天\b",
+        r"\b(\d+)\s*[- ]?phase\b",
+        r"\b(\d+)\s*阶段\b",
+        r"\b(\d+)\s*[- ]?step\b",
+        r"\b(\d+)\s*步骤\b",
+        r"\b(\d+)\s*[- ]?milestone\b",
+        r"\b(\d+)\s*里程碑\b",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, normalized)
+        if not match:
+            continue
+        try:
+            value = int(match.group(1))
+        except ValueError:
+            continue
+        if value > 0:
+            return value
+    return None
+
+
+def _count_rendered_items(text: str, item_label: str) -> int:
+    normalized = _normalize_text(text)
+    label = _normalize_text(item_label or "item")
+    if label in {"", "item"}:
+        pattern = r"\b(?:day|phase|step|milestone|item)\s*([1-9]|10)\b"
+    else:
+        pattern = rf"\b{re.escape(label)}\s*([1-9]|10)\b"
+    hits = re.findall(pattern, normalized)
     return len(set(hits))
 
 
@@ -113,16 +158,15 @@ def _looks_like_placeholder_plan(text: str) -> bool:
         r"complete step\s*\d+",
         r"artifact\s*\d+",
         r"measure\s*\d+",
-        r"produce a concrete artifact for day",
+        r"produce a concrete artifact for (?:day|phase|step|milestone|item)",
         r"acceptance checklist",
     ]
     if any(re.search(p, lowered) for p in placeholder_patterns):
         return True
-    day_matches = re.findall(r"day\s*([1-9]|10)[^.;\n]*", lowered)
-    if day_matches and len(set(day_matches)) >= 5:
-        # If most day lines are near-identical besides the day index, treat as placeholder.
-        normalized_day_lines = re.findall(r"day\s*(?:[1-9]|10)\s*[:\-]?\s*([^\n]+)", lowered)
-        compact = [re.sub(r"\b[1-9]\b", "", line).strip() for line in normalized_day_lines]
+    item_matches = re.findall(r"(?:day|phase|step|milestone|item)\s*([1-9]|10)[^.;\n]*", lowered)
+    if item_matches and len(set(item_matches)) >= 3:
+        normalized_item_lines = re.findall(r"(?:day|phase|step|milestone|item)\s*(?:[1-9]|10)\s*[:\-]?\s*([^\n]+)", lowered)
+        compact = [re.sub(r"\b[1-9]\b", "", line).strip() for line in normalized_item_lines]
         if len(compact) >= 5 and len(set(compact)) <= 2:
             return True
     return False
@@ -151,14 +195,14 @@ def _covers_query_core_topics(answer: str, query: str, required_topics: List[str
 
 def _has_progressive_day_structure(answer: str) -> bool:
     lowered = _as_text(answer).lower()
-    goals = re.findall(r"day\s*(?:[1-9]|10)\s*:\s*goal=([^;\n]+)", lowered)
+    goals = re.findall(r"(?:day|phase|step|milestone|item)\s*(?:[1-9]|10)\s*:\s*goal=([^;\n]+)", lowered)
     if len(goals) < 4:
         return False
     normalized_goals: List[str] = []
     for goal in goals:
         compact = re.sub(r"\s+", " ", goal)
         compact = re.sub(r"\b[1-9]\b", "", compact)
-        compact = re.sub(r"\b(day|goal|for)\b", "", compact).strip()
+        compact = re.sub(r"\b(day|phase|step|milestone|item|goal|for)\b", "", compact).strip()
         normalized_goals.append(compact)
     return len(set(normalized_goals)) >= max(4, len(normalized_goals) // 2)
 
@@ -167,8 +211,8 @@ def _has_meaningful_progression(answer: str) -> bool:
     if not _has_progressive_day_structure(answer):
         return False
     lowered = _as_text(answer).lower()
-    goals = re.findall(r"day\s*(?:[1-9]|10)\s*:\s*goal=([^;\n]+)", lowered)
-    if len(goals) < 7:
+    goals = re.findall(r"(?:day|phase|step|milestone|item)\s*(?:[1-9]|10)\s*:\s*goal=([^;\n]+)", lowered)
+    if len(goals) < 3:
         return False
     compact: List[str] = []
     for goal in goals:
@@ -289,20 +333,26 @@ def _is_repo_bound_plan(answer: str, query: str) -> bool:
     return True
 
 
-def _is_grounded_in_all_days(output: Dict[str, Any]) -> bool:
+def _is_grounded_in_all_items(output: Dict[str, Any], item_count: int) -> bool:
     used_nodes = output.get("used_nodes")
     if not isinstance(used_nodes, list):
         return False
     used = {str(x).lower() for x in used_nodes}
-    day_nodes = {f"generate_day{idx}" for idx in range(1, 8)}
-    if day_nodes.issubset(used):
+    item_nodes = {f"generate_item{idx}" for idx in range(1, item_count + 1)}
+    if item_nodes and item_nodes.issubset(used):
+        return True
+    legacy_day_nodes = {f"generate_day{idx}" for idx in range(1, item_count + 1)}
+    if legacy_day_nodes and legacy_day_nodes.issubset(used):
         return True
     verification = output.get("coverage_verification")
     if isinstance(verification, dict):
         grounded = verification.get("grounded_nodes")
         if isinstance(grounded, list):
             grounded_set = {str(x).lower() for x in grounded}
-            return day_nodes.issubset(grounded_set)
+            if item_nodes and item_nodes.issubset(grounded_set):
+                return True
+            if legacy_day_nodes and legacy_day_nodes.issubset(grounded_set):
+                return True
     return False
 
 
@@ -599,13 +649,17 @@ class IntentVerifier(BaseVerifier):
                         violation_scope="node",
                     )
                 ]
-            if _detect_day_count(answer_text) < 3 and not isinstance(output.get("days"), list):
-                node.mark_intent_violated("plan output missing day structure")
+            rendered_items = _count_rendered_items(
+                answer_text,
+                item_label=_as_text(output.get("item_label")) or "item",
+            )
+            if rendered_items < 3 and not isinstance(output.get("items"), list) and not isinstance(output.get("days"), list):
+                node.mark_intent_violated("plan output missing item structure")
                 return [
                     ConstraintResult(
                         passed=False,
                         code="intent_plan_structure_missing",
-                        message="Plan-like task output lacks day-by-day structure.",
+                        message="Plan-like task output lacks item-by-item structure.",
                         failure_type="intent_misalignment",
                         repair_hint="replan_subtree",
                         violation_scope="node",
@@ -801,11 +855,12 @@ class EdgeConsistencyVerifier(BaseVerifier):
             if src_id.startswith("ev_"):
                 return results
             used_set = {str(x) for x in used_nodes}
-            if src_id == "verify_coverage" and _is_grounded_in_all_days(dst_output):
+            required_count = _detect_plan_item_count(_as_text(context.get("global_context", {}).get("query"))) or 3
+            if src_id == "verify_coverage" and _is_grounded_in_all_items(dst_output, item_count=required_count):
                 return results
-            if src_id.startswith("generate_day") and src_id in used_set:
+            if (src_id.startswith("generate_item") or src_id.startswith("generate_day")) and src_id in used_set:
                 return results
-            if src_id not in used_set and src_id.startswith("generate_day"):
+            if src_id not in used_set and (src_id.startswith("generate_item") or src_id.startswith("generate_day")):
                 results.append(
                     ConstraintResult(
                         passed=False,
@@ -894,21 +949,22 @@ class SubtreeIntentVerifier(BaseVerifier):
         task_family = str(tree.metadata.get("task_family", "")).strip().lower()
         query = _normalize_text(_as_text(context.get("global_context", {}).get("query")))
         if task_family == "plan" or _is_plan_query(query):
-            day_hits = set()
+            expected_count = _detect_plan_item_count(query) or int(tree.metadata.get("item_count", 3) or 3)
+            item_hits = set()
             for node in tree.nodes.values():
                 text = f"{node.id} {node.spec.description}".lower()
-                for match in re.findall(r"\bday\s*([1-9]|10)\b", text):
-                    day_hits.add(match)
-            if len(day_hits) < 7:
+                for match in re.findall(r"\b(?:day|phase|step|milestone|item)\s*([1-9]|10)\b", text):
+                    item_hits.add(match)
+            if len(item_hits) < expected_count:
                 results.append(
                     ConstraintResult(
                         passed=False,
-                        code="subtree_plan_day_coverage_incomplete",
-                        message=f"Plan subtree day coverage incomplete: found {len(day_hits)} distinct days.",
+                        code="subtree_plan_item_coverage_incomplete",
+                        message=f"Plan subtree item coverage incomplete: found {len(item_hits)} distinct items.",
                         failure_type="intent_misalignment",
                         violation_scope="subtree",
                         repair_hint="replan_subtree",
-                        evidence={"days_found": sorted(day_hits)},
+                        evidence={"items_found": sorted(item_hits), "expected_item_count": expected_count},
                     )
                 )
         return results
@@ -972,6 +1028,22 @@ class ExtractionVerifier(BaseVerifier):
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> List[ConstraintResult]:
+        expected_shape = _as_text(
+            context.get("node_inputs", {}).get("extract_shape")
+            or context.get("global_context", {}).get("extract_shape")
+        )
+        actual_shape = _as_text(output.get("extract_shape"))
+        if expected_shape and actual_shape and expected_shape != actual_shape:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="extract_shape_mismatch",
+                    message=f"extract_shape mismatch: expected={expected_shape}, actual={actual_shape}",
+                    failure_type="intent_misalignment",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
         extracted = output.get("extracted")
         if isinstance(extracted, dict):
             non_empty = [k for k, v in extracted.items() if v not in (None, "", [], {})]
@@ -1021,6 +1093,9 @@ class RequirementsAnalysisVerifier(BaseVerifier):
         topics = output.get("topics")
         constraints = output.get("constraints")
         required_fields = output.get("required_fields")
+        item_count = output.get("item_count")
+        item_label = _as_text(output.get("item_label"))
+        plan_shape = _as_text(output.get("plan_shape"))
         duration_days = output.get("duration_days")
         task_form = _as_text(output.get("task_form"))
         primary_domain = _as_text(output.get("primary_domain"))
@@ -1062,23 +1137,80 @@ class RequirementsAnalysisVerifier(BaseVerifier):
                     violation_scope="node",
                 )
             )
-        if duration_days != 7:
+        query = _as_text(context.get("global_context", {}).get("query"))
+        query_requested_count = _detect_plan_item_count(query)
+        if not isinstance(item_count, int) or item_count <= 0:
             results.append(
                 ConstraintResult(
                     passed=False,
-                    code="requirements_duration_invalid",
-                    message="duration_days should be 7 for 7-day plan tasks.",
+                    code="requirements_item_count_invalid",
+                    message="item_count must be a positive integer.",
                     failure_type="requirements_analysis_failed",
                     repair_hint="replan_subtree",
                     violation_scope="node",
                 )
             )
-        if "7-day" not in task_form and "7 day" not in task_form:
+        if isinstance(query_requested_count, int) and query_requested_count > 0 and item_count != query_requested_count:
             results.append(
                 ConstraintResult(
                     passed=False,
-                    code="requirements_task_form_invalid",
-                    message="task_form should explicitly indicate a 7-day learning plan.",
+                    code="requirements_item_count_mismatch",
+                    message=f"item_count should match query requested count={query_requested_count}.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            )
+        if not item_label:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_item_label_missing",
+                    message="item_label is required for plan requirements output.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            )
+        if plan_shape not in {"temporal_plan", "phase_plan", "step_plan", "milestone_plan"}:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_plan_shape_invalid",
+                    message="plan_shape must be one of temporal/phase/step/milestone plan.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            )
+        if plan_shape == "temporal_plan" and duration_days != item_count:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_duration_mismatch",
+                    message="duration_days must equal item_count in temporal plans.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            )
+        if plan_shape != "temporal_plan" and duration_days not in (None, 0, "", item_count):
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_duration_unexpected",
+                    message="duration_days should be omitted for non-temporal plans.",
+                    failure_type="requirements_analysis_failed",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            )
+        if not task_form:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="requirements_task_form_missing",
+                    message="task_form should indicate plan structure semantics.",
                     failure_type="requirements_analysis_failed",
                     repair_hint="replan_subtree",
                     violation_scope="node",
@@ -1168,7 +1300,6 @@ class RequirementsAnalysisVerifier(BaseVerifier):
                     )
                 )
 
-        query = _as_text(context.get("global_context", {}).get("query"))
         query_topics = _extract_required_topics_from_query(query)
         joined = " ".join(
             [
@@ -1220,54 +1351,98 @@ class PlanSchemaVerifier(BaseVerifier):
         if node.id != "design_plan_schema":
             return []
         results: List[ConstraintResult] = []
-        day_template = output.get("day_template")
+        item_template = output.get("item_template")
+        if not isinstance(item_template, dict):
+            item_template = output.get("day_template")
         progression = output.get("progression")
-        topic_allocation = output.get("topic_allocation")
+        item_allocation = output.get("item_allocation")
+        if not isinstance(item_allocation, dict):
+            item_allocation = output.get("topic_allocation")
+        item_count = output.get("item_count")
+        item_label = _as_text(output.get("item_label"))
+        plan_shape = _as_text(output.get("plan_shape"))
         required_fields = output.get("required_fields")
         quality_criteria = output.get("quality_criteria")
         deliverable_template = output.get("deliverable_template")
         metric_template = output.get("metric_template")
-        if not isinstance(day_template, dict):
+        if not isinstance(item_template, dict):
             results.append(
                 ConstraintResult(
                     passed=False,
-                    code="schema_day_template_missing",
-                    message="Plan schema must define day_template object.",
+                    code="schema_item_template_missing",
+                    message="Plan schema must define item_template object.",
                     failure_type="schema_design_failed",
                     repair_hint="build_schema_patch",
                     violation_scope="node",
                 )
             )
-        day_template_map = day_template if isinstance(day_template, dict) else {}
-        missing_fields = [x for x in ["goal", "deliverable", "metric"] if x not in day_template_map]
+        item_template_map = item_template if isinstance(item_template, dict) else {}
+        missing_fields = [x for x in ["goal", "deliverable", "metric"] if x not in item_template_map]
         if missing_fields:
             results.append(
                 ConstraintResult(
                     passed=False,
-                    code="schema_day_template_incomplete",
-                    message=f"Plan schema day_template missing fields: {missing_fields}",
+                    code="schema_item_template_incomplete",
+                    message=f"Plan schema item_template missing fields: {missing_fields}",
                     failure_type="schema_design_failed",
                     repair_hint="build_schema_patch",
                     violation_scope="node",
                 )
             )
-        if not isinstance(progression, list) or len(progression) < 7:
+        if not isinstance(item_count, int) or item_count <= 0:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="schema_item_count_invalid",
+                    message="Plan schema must define positive item_count.",
+                    failure_type="schema_design_failed",
+                    repair_hint="build_schema_patch",
+                    violation_scope="node",
+                )
+            )
+        if not item_label:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="schema_item_label_missing",
+                    message="Plan schema must define item_label.",
+                    failure_type="schema_design_failed",
+                    repair_hint="build_schema_patch",
+                    violation_scope="node",
+                )
+            )
+        if plan_shape not in {"temporal_plan", "phase_plan", "step_plan", "milestone_plan"}:
+            results.append(
+                ConstraintResult(
+                    passed=False,
+                    code="schema_plan_shape_invalid",
+                    message="Plan schema must define valid plan_shape.",
+                    failure_type="schema_design_failed",
+                    repair_hint="build_schema_patch",
+                    violation_scope="node",
+                )
+            )
+        if not isinstance(progression, list) or (
+            isinstance(item_count, int) and item_count > 0 and len(progression) < item_count
+        ):
             results.append(
                 ConstraintResult(
                     passed=False,
                     code="schema_progression_missing",
-                    message="Plan schema must define 7-day progression ordering.",
+                    message="Plan schema progression length must cover item_count.",
                     failure_type="schema_design_failed",
                     repair_hint="build_schema_patch",
                     violation_scope="node",
                 )
             )
-        if not isinstance(topic_allocation, dict) or len(topic_allocation) < 7:
+        if not isinstance(item_allocation, dict) or (
+            isinstance(item_count, int) and item_count > 0 and len(item_allocation) < item_count
+        ):
             results.append(
                 ConstraintResult(
                     passed=False,
-                    code="schema_topic_allocation_missing",
-                    message="Plan schema must define topic_allocation for day1..day7.",
+                    code="schema_item_allocation_missing",
+                    message="Plan schema must define item_allocation for item1..itemN.",
                     failure_type="schema_design_failed",
                     repair_hint="build_schema_patch",
                     violation_scope="node",
@@ -1370,8 +1545,8 @@ class PlanSchemaVerifier(BaseVerifier):
         query = _as_text(context.get("global_context", {}).get("query"))
         query_topics = _extract_required_topics_from_query(query)
         joined = " ".join([_as_text(x) for x in (progression if isinstance(progression, list) else [])])
-        if isinstance(topic_allocation, dict):
-            joined += " " + " ".join([_as_text(x) for x in topic_allocation.values()])
+        if isinstance(item_allocation, dict):
+            joined += " " + " ".join([_as_text(x) for x in item_allocation.values()])
         joined = joined.lower()
         if query_topics:
             hit_count = sum(1 for topic in query_topics if topic in joined)
@@ -1403,19 +1578,27 @@ class PlanCoverageVerifier(BaseVerifier):
             return []
         results: List[ConstraintResult] = []
         coverage_ok = bool(output.get("coverage_ok", True))
-        missing_days = output.get("missing_days", [])
+        item_count = output.get("item_count")
+        if not isinstance(item_count, int) or item_count <= 0:
+            item_count = _detect_plan_item_count(_as_text(context.get("global_context", {}).get("query"))) or 3
+        item_label = _as_text(output.get("item_label")) or "day"
+        missing_items = output.get("missing_items", [])
+        if not isinstance(missing_items, list):
+            missing_items = output.get("missing_days", [])
         missing_fields = output.get("missing_fields", [])
         semantic_gaps = list(output.get("semantic_gaps", [])) if isinstance(output.get("semantic_gaps"), list) else []
         grounded_nodes = output.get("grounded_nodes", [])
         generic_content_flags = output.get("generic_content_flags", [])
-        missing_specificity_days = output.get("missing_specificity_days", [])
+        missing_specificity_items = output.get("missing_specificity_items", [])
+        if not isinstance(missing_specificity_items, list):
+            missing_specificity_items = output.get("missing_specificity_days", [])
         repo_binding_score = output.get("repo_binding_score")
-        if not isinstance(missing_days, list) or not isinstance(missing_fields, list) or not isinstance(semantic_gaps, list):
+        if not isinstance(missing_items, list) or not isinstance(missing_fields, list) or not isinstance(semantic_gaps, list):
             return [
                 ConstraintResult(
                     passed=False,
                     code="plan_coverage_structure_invalid",
-                    message="verify_coverage output must include missing_days/missing_fields/semantic_gaps arrays.",
+                    message="verify_coverage output must include missing_items/missing_fields/semantic_gaps arrays.",
                     failure_type="plan_coverage_incomplete",
                     repair_hint="replan_subtree",
                     violation_scope="subtree",
@@ -1432,12 +1615,12 @@ class PlanCoverageVerifier(BaseVerifier):
                     violation_scope="subtree",
                 )
             ]
-        if not isinstance(missing_specificity_days, list):
+        if not isinstance(missing_specificity_items, list):
             return [
                 ConstraintResult(
                     passed=False,
-                    code="plan_coverage_specificity_days_missing",
-                    message="verify_coverage must include missing_specificity_days list.",
+                    code="plan_coverage_specificity_items_missing",
+                    message="verify_coverage must include missing_specificity_items list.",
                     failure_type="plan_coverage_incomplete",
                     repair_hint="replan_subtree",
                     violation_scope="subtree",
@@ -1455,12 +1638,12 @@ class PlanCoverageVerifier(BaseVerifier):
                 )
             ]
 
-        if not coverage_ok or missing_days or missing_fields:
+        if not coverage_ok or missing_items or missing_fields:
             results.append(
                 ConstraintResult(
                     passed=False,
                     code="plan_coverage_incomplete",
-                    message=f"missing_days={missing_days}, missing_fields={missing_fields}",
+                    message=f"missing_items={missing_items}, missing_fields={missing_fields}",
                     failure_type="plan_coverage_incomplete",
                     repair_hint="replan_subtree",
                     violation_scope="subtree",
@@ -1489,12 +1672,16 @@ class PlanCoverageVerifier(BaseVerifier):
                     violation_scope="subtree",
                 )
             )
-        if not isinstance(grounded_nodes, list) or len(set([x for x in grounded_nodes if "generate_day" in str(x)])) < 7:
+        grounded_item_nodes = [
+            x for x in (grounded_nodes if isinstance(grounded_nodes, list) else [])
+            if "generate_item" in str(x) or "generate_day" in str(x)
+        ]
+        if not isinstance(grounded_nodes, list) or len(set(grounded_item_nodes)) < item_count:
             results.append(
                 ConstraintResult(
                     passed=False,
                     code="plan_grounding_weak",
-                    message="verify_coverage did not ground all day nodes.",
+                    message="verify_coverage did not ground all item nodes.",
                     failure_type="plan_coverage_incomplete",
                     repair_hint="replan_subtree",
                     violation_scope="subtree",
@@ -1502,68 +1689,68 @@ class PlanCoverageVerifier(BaseVerifier):
             )
 
         dep_outputs = context.get("dependency_outputs", {})
-        day_outputs: List[Dict[str, Any]] = []
+        item_outputs: List[Dict[str, Any]] = []
         for dep_id, dep_output in dep_outputs.items():
-            if dep_id.startswith("generate_day") and isinstance(dep_output, dict):
-                day_outputs.append(dep_output)
-        if not day_outputs:
-            fallback_day_outputs = context.get("global_context", {}).get("day_outputs", [])
-            if isinstance(fallback_day_outputs, list):
-                day_outputs = [x for x in fallback_day_outputs if isinstance(x, dict)]
+            if (dep_id.startswith("generate_item") or dep_id.startswith("generate_day")) and isinstance(dep_output, dict):
+                item_outputs.append(dep_output)
+        if not item_outputs:
+            fallback_item_outputs = context.get("global_context", {}).get("item_outputs", [])
+            if isinstance(fallback_item_outputs, list):
+                item_outputs = [x for x in fallback_item_outputs if isinstance(x, dict)]
 
-        missing_specificity_days_detected: List[Any] = []
-        non_actionable_metric_days: List[Any] = []
-        weak_repo_binding_days: List[Any] = []
-        day_entries: List[str] = []
-        for day in day_outputs:
-            day_idx = day.get("day")
-            goal = _as_text(day.get("goal"))
-            deliverable = _as_text(day.get("deliverable"))
-            metric = _as_text(day.get("metric"))
+        missing_specificity_items_detected: List[Any] = []
+        non_actionable_metric_items: List[Any] = []
+        weak_repo_binding_items: List[Any] = []
+        item_entries: List[str] = []
+        for item in item_outputs:
+            item_idx = item.get("item_index", item.get("day"))
+            goal = _as_text(item.get("goal"))
+            deliverable = _as_text(item.get("deliverable"))
+            metric = _as_text(item.get("metric"))
             if deliverable and not _deliverables_are_specific(deliverable):
-                missing_specificity_days_detected.append(day_idx)
+                missing_specificity_items_detected.append(item_idx)
             if metric and not _metrics_are_measurable(metric):
-                non_actionable_metric_days.append(day_idx)
+                non_actionable_metric_items.append(item_idx)
             if not (_contains_repo_binding_hint(deliverable) or _contains_repo_binding_hint(goal)):
-                weak_repo_binding_days.append(day_idx)
+                weak_repo_binding_items.append(item_idx)
 
             merged = " ".join([goal, deliverable, metric]).lower().strip()
-            merged = re.sub(r"\bday\s*[1-9]\b", "day", merged)
+            merged = re.sub(r"\b(?:day|phase|step|milestone|item)\s*[1-9]\b", "item", merged)
             merged = re.sub(r"\s+", " ", merged).strip()
             if merged:
-                day_entries.append(merged)
+                item_entries.append(merged)
 
-        if missing_specificity_days_detected:
-            semantic_gaps.append(f"generic_deliverable:{missing_specificity_days_detected}")
+        if missing_specificity_items_detected:
+            semantic_gaps.append(f"generic_deliverable:{missing_specificity_items_detected}")
             results.append(
                 ConstraintResult(
                     passed=False,
                     code="generic_deliverable",
-                    message=f"days with generic deliverables: {missing_specificity_days_detected}",
+                    message=f"items with generic deliverables: {missing_specificity_items_detected}",
                     failure_type="generic_deliverable",
                     repair_hint="patch_subgraph",
                     violation_scope="subtree",
                 )
             )
-        if non_actionable_metric_days:
-            semantic_gaps.append(f"non_actionable_metric:{non_actionable_metric_days}")
+        if non_actionable_metric_items:
+            semantic_gaps.append(f"non_actionable_metric:{non_actionable_metric_items}")
             results.append(
                 ConstraintResult(
                     passed=False,
                     code="non_actionable_metric",
-                    message=f"days with weak metrics: {non_actionable_metric_days}",
+                    message=f"items with weak metrics: {non_actionable_metric_items}",
                     failure_type="non_actionable_metric",
                     repair_hint="patch_subgraph",
                     violation_scope="subtree",
                 )
             )
-        if weak_repo_binding_days and len(weak_repo_binding_days) >= 3:
-            semantic_gaps.append(f"repo_binding_weak:{weak_repo_binding_days}")
+        if weak_repo_binding_items and len(weak_repo_binding_items) >= max(2, item_count // 2):
+            semantic_gaps.append(f"repo_binding_weak:{weak_repo_binding_items}")
             results.append(
                 ConstraintResult(
                     passed=False,
                     code="repo_binding_weak",
-                    message=f"repo binding weak on days: {weak_repo_binding_days}",
+                    message=f"repo binding weak on items: {weak_repo_binding_items}",
                     failure_type="repo_binding_weak",
                     repair_hint="replan_subtree",
                     violation_scope="subtree",
@@ -1580,14 +1767,14 @@ class PlanCoverageVerifier(BaseVerifier):
                     violation_scope="subtree",
                 )
             )
-        if day_entries:
-            diversity = len(set(day_entries)) / max(len(day_entries), 1)
+        if item_entries:
+            diversity = len(set(item_entries)) / max(len(item_entries), 1)
             if diversity < 0.6:
                 results.append(
                     ConstraintResult(
                         passed=False,
                         code="plan_coverage_repetition_detected",
-                        message="Generated day entries are too repetitive and template-driven.",
+                        message="Generated item entries are too repetitive and template-driven.",
                         failure_type="low_information_output",
                         repair_hint="replan_subtree",
                         violation_scope="subtree",
@@ -1596,6 +1783,10 @@ class PlanCoverageVerifier(BaseVerifier):
                 )
         if semantic_gaps:
             output["semantic_gaps"] = semantic_gaps
+        output["item_count"] = item_count
+        output["item_label"] = item_label
+        output["missing_items"] = missing_items
+        output["missing_days"] = list(missing_items)
         return results
 
 
@@ -1609,7 +1800,7 @@ class NoPlaceholderVerifier(BaseVerifier):
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> List[ConstraintResult]:
-        if not (node.id.startswith("generate_day") or node.id == "final_response"):
+        if not (node.id.startswith("generate_item") or node.id.startswith("generate_day") or node.id == "final_response"):
             return []
         fields: List[str] = []
         for key in ["goal", "deliverable", "metric", "answer", "final_response"]:
@@ -1761,6 +1952,22 @@ class SummarizationVerifier(BaseVerifier):
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> List[ConstraintResult]:
+        expected_shape = _as_text(
+            context.get("node_inputs", {}).get("summary_shape")
+            or context.get("global_context", {}).get("summary_shape")
+        )
+        actual_shape = _as_text(output.get("summary_shape"))
+        if expected_shape and actual_shape and expected_shape != actual_shape:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="summary_shape_mismatch",
+                    message=f"summary_shape mismatch: expected={expected_shape}, actual={actual_shape}",
+                    failure_type="intent_misalignment",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
         summary = output.get("summary")
         if not isinstance(summary, str) or not summary.strip():
             return [
@@ -1825,6 +2032,22 @@ class ComparisonVerifier(BaseVerifier):
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> List[ConstraintResult]:
+        expected_shape = _as_text(
+            context.get("node_inputs", {}).get("compare_shape")
+            or context.get("global_context", {}).get("compare_shape")
+        )
+        actual_shape = _as_text(output.get("compare_shape"))
+        if expected_shape and actual_shape and expected_shape != actual_shape:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="compare_shape_mismatch",
+                    message=f"compare_shape mismatch: expected={expected_shape}, actual={actual_shape}",
+                    failure_type="intent_misalignment",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
         compared_items = output.get("compared_items")
         comparison = output.get("comparison")
         if not isinstance(compared_items, list) or len(compared_items) < 2:
@@ -1869,6 +2092,22 @@ class CalculationVerifier(BaseVerifier):
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> List[ConstraintResult]:
+        expected_shape = _as_text(
+            context.get("node_inputs", {}).get("calculate_shape")
+            or context.get("global_context", {}).get("calculate_shape")
+        )
+        actual_shape = _as_text(output.get("calculate_shape"))
+        if expected_shape and actual_shape and expected_shape != actual_shape:
+            return [
+                ConstraintResult(
+                    passed=False,
+                    code="calculate_shape_mismatch",
+                    message=f"calculate_shape mismatch: expected={expected_shape}, actual={actual_shape}",
+                    failure_type="intent_misalignment",
+                    repair_hint="replan_subtree",
+                    violation_scope="node",
+                )
+            ]
         err = _as_text(output.get("calculation_error"))
         if err:
             return [
@@ -1978,17 +2217,19 @@ class FinalResponseVerifier(BaseVerifier):
             )
 
         if _is_plan_query(query):
-            day_count = _detect_day_count(answer)
-            if day_count < 7 or not _contains_plan_sections(answer):
+            item_count = _detect_plan_item_count(query) or 3
+            item_label = _as_text(output.get("item_label")) or "day"
+            rendered_count = _count_rendered_items(answer, item_label=item_label)
+            if rendered_count < item_count or not _contains_plan_sections(answer):
                 results.append(
                     ConstraintResult(
                         passed=False,
                         code="final_answer_missing_structure",
-                        message="Final plan answer must contain 7-day structure with goal/deliverable/metric.",
+                        message=f"Final plan answer must contain {item_count} {item_label}-structured items with goal/deliverable/metric.",
                         failure_type="final_answer_missing_structure",
                         violation_scope="node",
                         repair_hint="replan_subtree",
-                        evidence={"day_count": day_count},
+                        evidence={"item_count": rendered_count, "required_item_count": item_count, "item_label": item_label},
                     )
                 )
             if _looks_like_placeholder_plan(answer):
@@ -2063,7 +2304,7 @@ class FinalResponseVerifier(BaseVerifier):
                     ConstraintResult(
                         passed=False,
                         code="final_progression_missing",
-                        message="Final plan lacks progressive day-by-day structure.",
+                        message="Final plan lacks progressive item-by-item structure.",
                         failure_type="low_information_output",
                         violation_scope="node",
                         repair_hint="replan_subtree",
@@ -2100,13 +2341,17 @@ class FinalResponseVerifier(BaseVerifier):
                     )
                 )
 
-        used_day_nodes = [x for x in used_nodes if str(x).startswith("generate_day")]
-        if _is_plan_query(query) and len(set(used_day_nodes)) < 7:
+        required_item_count = _detect_plan_item_count(query) or 3
+        used_item_nodes = [
+            x for x in used_nodes
+            if str(x).startswith("generate_item") or str(x).startswith("generate_day")
+        ]
+        if _is_plan_query(query) and len(set(used_item_nodes)) < required_item_count:
             results.append(
                 ConstraintResult(
                     passed=False,
                     code="final_grounding_incomplete",
-                    message="Final response is not grounded in all generated day nodes.",
+                    message="Final response is not grounded in all generated item nodes.",
                     failure_type="final_grounding_weak",
                     repair_hint="replan_subtree",
                     violation_scope="node",

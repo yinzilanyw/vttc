@@ -173,27 +173,28 @@ class MetricsCollector:
                 has_generic_failure = True
                 break
 
-        day_records = [
+        item_records = [
             rec for rec in report.node_records.values()
-            if rec.node_id.startswith("generate_day") and isinstance(rec.output, dict)
+            if (rec.node_id.startswith("generate_item") or rec.node_id.startswith("generate_day"))
+            and isinstance(rec.output, dict)
         ]
         specific_deliverable_hits = sum(
-            1 for rec in day_records if self._is_specific_deliverable(str(rec.output.get("deliverable", "")))
+            1 for rec in item_records if self._is_specific_deliverable(str(rec.output.get("deliverable", "")))
         )
         measurable_metric_hits = sum(
-            1 for rec in day_records if self._is_measurable_metric(str(rec.output.get("metric", "")))
+            1 for rec in item_records if self._is_measurable_metric(str(rec.output.get("metric", "")))
         )
         repo_binding_hits = sum(
             1
-            for rec in day_records
+            for rec in item_records
             if any(
                 token in str(rec.output.get("deliverable", "")).lower()
                 for token in ["modified file", "file path", "commit", "patch", "diff", "repo", "repository", ".py", ".md"]
             )
         )
-        deliverable_specificity_rate = specific_deliverable_hits / max(len(day_records), 1) if day_records else 0.0
-        metric_measurability_rate = measurable_metric_hits / max(len(day_records), 1) if day_records else 0.0
-        repo_binding_rate = repo_binding_hits / max(len(day_records), 1) if day_records else 0.0
+        deliverable_specificity_rate = specific_deliverable_hits / max(len(item_records), 1) if item_records else 0.0
+        metric_measurability_rate = measurable_metric_hits / max(len(item_records), 1) if item_records else 0.0
+        repo_binding_rate = repo_binding_hits / max(len(item_records), 1) if item_records else 0.0
 
         return MetricsSummary(
             task_success=report.success,

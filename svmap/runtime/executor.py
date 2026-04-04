@@ -422,7 +422,13 @@ class ExecutionRuntime:
                     failure_type = "plan_coverage_incomplete"
                 elif "requirements_" in code:
                     failure_type = "requirements_analysis_failed"
-                elif "schema_day_template" in code or "schema_progression" in code or "schema_topic" in code:
+                elif (
+                    "schema_day_template" in code
+                    or "schema_item_template" in code
+                    or "schema_progression" in code
+                    or "schema_topic" in code
+                    or "schema_item_allocation" in code
+                ):
                     failure_type = "schema_design_failed"
                 elif "low_information_output" in code or "placeholder" in code:
                     failure_type = "low_information_output"
@@ -521,6 +527,9 @@ class ExecutionRuntime:
             final_output=final_output,
             node_task_types={nid: node.spec.task_type for nid, node in tree.nodes.items()},
             task_family=str(tree.metadata.get("task_family", "")),
+            plan_shape=str(tree.metadata.get("plan_shape", "")),
+            item_count=int(tree.metadata.get("item_count", 0) or 0),
+            item_label=str(tree.metadata.get("item_label", "")),
             error=error,
             stalled_node_ids=stalled_node_ids,
             failure_summary=failure_summary,

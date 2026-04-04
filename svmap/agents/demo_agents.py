@@ -126,6 +126,57 @@ def _extract_query_topics(query: str) -> List[str]:
     return topics[:8]
 
 
+def _extract_plan_item_count(query: str) -> Optional[int]:
+    text = _safe_str(query).lower()
+    patterns = [
+        r"\b(\d+)\s*[- ]?day\b",
+        r"\bday\s*(\d+)\b",
+        r"\b(\d+)\s*(?:days)\b",
+        r"\b(\d+)\s*天\b",
+        r"\b(\d+)\s*阶段\b",
+        r"\b(\d+)\s*[- ]?phase\b",
+        r"\b(\d+)\s*步骤\b",
+        r"\b(\d+)\s*[- ]?step\b",
+        r"\b(\d+)\s*里程碑\b",
+        r"\b(\d+)\s*[- ]?milestone\b",
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text)
+        if not m:
+            continue
+        try:
+            value = int(m.group(1))
+        except ValueError:
+            continue
+        if value > 0:
+            return value
+    return None
+
+
+def _extract_plan_shape(query: str) -> str:
+    text = _safe_str(query).lower()
+    if any(token in text for token in ["阶段", "phase"]):
+        return "phase_plan"
+    if any(token in text for token in ["步骤", "step"]):
+        return "step_plan"
+    if any(token in text for token in ["里程碑", "milestone"]):
+        return "milestone_plan"
+    if any(token in text for token in ["day", "days", "天"]):
+        return "temporal_plan"
+    return "temporal_plan"
+
+
+def _infer_item_label(query: str, plan_shape: str) -> str:
+    text = _safe_str(query).lower()
+    if plan_shape == "phase_plan" or "阶段" in text or "phase" in text:
+        return "phase"
+    if plan_shape == "step_plan" or "步骤" in text or "step" in text:
+        return "step"
+    if plan_shape == "milestone_plan" or "里程碑" in text or "milestone" in text:
+        return "milestone"
+    return "day"
+
+
 def _normalize_topics_for_plan(topics: List[str]) -> List[str]:
     stop = {
         "including",
@@ -204,21 +255,27 @@ def _matches_generic_metric(text: str) -> bool:
     return any(re.search(p, lowered) for p in GENERIC_METRIC_PATTERNS)
 
 
-def _build_specific_deliverable(day_idx: int, assigned_topic: str) -> str:
+def _build_specific_deliverable(
+    item_idx: int,
+    assigned_topic: str,
+    item_label: str,
+    plan_shape: str,
+) -> str:
+    label = (item_label or "item").strip().title()
     artifacts = {
-        1: "update svmap/planning/planner.py and write artifacts/day1_requirements.md task-tree draft note",
-        2: "implement runnable orchestration updates in svmap/pipeline.py and svmap/runtime/executor.py with artifacts/day2_trace.json",
+        1: "update svmap/planning/planner.py and write artifacts/item1_requirements.md task-tree draft note",
+        2: "implement runnable orchestration updates in svmap/pipeline.py and svmap/runtime/executor.py with artifacts/item2_trace.json",
         3: "update svmap/models/task_node.py and svmap/models/task_tree.py and add DAG validator unit tests",
         4: "extend svmap/verification/verifiers.py and svmap/verification/engine.py with injected-error verification tests",
         5: "update svmap/models/constraints.py and add intent-alignment test cases under experiments",
         6: "update svmap/runtime/replanner.py to output graph-delta traces and demonstrate subtree/global replan",
         7: "generate ablation report from experiments/run_multitask_eval.py outputs with case-study tables",
     }
-    artifact = artifacts.get(day_idx, f"update repository code and tests for {assigned_topic}")
-    return f"Implement {artifact} for {assigned_topic}."
+    artifact = artifacts.get(item_idx, f"update repository code and tests for {assigned_topic}")
+    return f"{label} {item_idx} ({plan_shape}): implement {artifact} for {assigned_topic}."
 
 
-def _build_measurable_metric(day_idx: int) -> str:
+def _build_measurable_metric(item_idx: int, plan_shape: str) -> str:
     metrics = {
         1: "Requirements extraction keeps >= 5 core topics with 0 obvious noise terms across 5 sample queries.",
         2: "Workflow executes end-to-end in 3/3 runs with <= 1 manual intervention.",
@@ -228,7 +285,8 @@ def _build_measurable_metric(day_idx: int) -> str:
         6: "At least one subtree replan and one graph-delta trace are produced on a failing case.",
         7: "Ablation report contains full/no_quality_verifier/no_repair variants with all tables generated.",
     }
-    return metrics.get(day_idx, "Define a numeric threshold and verify it with logs or tests.")
+    metric = metrics.get(item_idx, "Define a numeric threshold and verify it with logs or tests.")
+    return f"{metric} (shape={plan_shape})"
 
 
 def _is_specific_deliverable(text: str) -> bool:
@@ -266,8 +324,10 @@ def _is_repo_bound_text(text: str) -> bool:
     return any(tok in lowered for tok in repo_ref_tokens)
 
 
-def _parse_day_index(node_id: str) -> Optional[int]:
-    m = re.search(r"generate_day(\d+)", node_id.lower())
+def _parse_item_index(node_id: str) -> Optional[int]:
+    m = re.search(r"generate_item(\d+)", node_id.lower())
+    if not m:
+        m = re.search(r"generate_day(\d+)", node_id.lower())
     if not m:
         return None
     try:
@@ -417,6 +477,11 @@ class ExtractAgent(BaseAgent):
         query = _safe_str(inputs.get("node_inputs", {}).get("query")) or _safe_str(
             inputs.get("global_context", {}).get("query")
         )
+        extract_shape = (
+            _safe_str(inputs.get("node_inputs", {}).get("extract_shape"))
+            or _safe_str(inputs.get("global_context", {}).get("extract_shape"))
+            or "flat_schema_extract"
+        )
         combined = f"{query} {_flatten_dependency_text(dependency_outputs)}"
 
         founder = _safe_str(
@@ -441,6 +506,7 @@ class ExtractAgent(BaseAgent):
             "extracted": extracted,
             "source": "extract_from_retrieval",
             "evidence": combined[:280],
+            "extract_shape": extract_shape,
         }
         output.update(extracted)
         return _ensure_required_fields(node=node, output=output)
@@ -458,6 +524,11 @@ class SummarizeAgent(BaseAgent):
 
     def run(self, node: TaskNode, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         dependency_outputs = inputs.get("dependency_outputs", {})
+        summary_shape = (
+            _safe_str(inputs.get("node_inputs", {}).get("summary_shape"))
+            or _safe_str(inputs.get("global_context", {}).get("summary_shape"))
+            or "single_pass_summary"
+        )
         if dependency_outputs:
             parts = []
             for dep_output in dependency_outputs.values():
@@ -472,6 +543,7 @@ class SummarizeAgent(BaseAgent):
         output = {
             "summary": summary[:2000],
             "coverage_keys": list(dependency_outputs.keys()),
+            "summary_shape": summary_shape,
             "source": "summarizer",
         }
         return _ensure_required_fields(node=node, output=output)
@@ -489,6 +561,11 @@ class CompareAgent(BaseAgent):
 
     def run(self, node: TaskNode, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         dependency_outputs = inputs.get("dependency_outputs", {})
+        compare_shape = (
+            _safe_str(inputs.get("node_inputs", {}).get("compare_shape"))
+            or _safe_str(inputs.get("global_context", {}).get("compare_shape"))
+            or "pairwise_compare"
+        )
         items = []
         for dep_id, dep_output in dependency_outputs.items():
             if isinstance(dep_output, dict):
@@ -508,6 +585,7 @@ class CompareAgent(BaseAgent):
             "comparison": comparison,
             "dimensions": ["availability", "evidence"],
             "winner": items[0] if items else "",
+            "compare_shape": compare_shape,
             "source": "compare_agent",
         }
         return _ensure_required_fields(node=node, output=output)
@@ -526,6 +604,11 @@ class CalculateAgent(BaseAgent):
     def run(self, node: TaskNode, inputs: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         expression = _safe_str(inputs.get("node_inputs", {}).get("expression"))
         query = _safe_str(inputs.get("global_context", {}).get("query"))
+        calculate_shape = (
+            _safe_str(inputs.get("node_inputs", {}).get("calculate_shape"))
+            or _safe_str(inputs.get("global_context", {}).get("calculate_shape"))
+            or "single_formula"
+        )
         if not expression:
             expression = _parse_simple_expression(query) or ""
         result: float | int = 0
@@ -539,6 +622,7 @@ class CalculateAgent(BaseAgent):
             "expression": expression,
             "result": result,
             "calculation_trace": f"{expression}={result}" if expression else "no_expression",
+            "calculate_shape": calculate_shape,
             "source": "calculate_agent",
         }
         if error:
@@ -562,8 +646,8 @@ class SynthesizeAgent(BaseAgent):
         topics = _extract_query_topics(query)
         core_topics = topics[:3] if topics else ["the target topic"]
 
-        day_idx = _parse_day_index(node.id)
-        if day_idx is not None:
+        item_idx = _parse_item_index(node.id)
+        if item_idx is not None:
             schema_output = dependency_outputs.get("design_plan_schema", {})
             if not isinstance(schema_output, dict):
                 schema_output = {}
@@ -571,12 +655,17 @@ class SynthesizeAgent(BaseAgent):
             if not isinstance(requirements_output, dict):
                 requirements_output = {}
 
+            item_allocation = schema_output.get("item_allocation", {})
+            if not isinstance(item_allocation, dict):
+                item_allocation = {}
             topic_allocation = schema_output.get("topic_allocation", {})
             if not isinstance(topic_allocation, dict):
                 topic_allocation = {}
             progression = schema_output.get("progression", [])
             if not isinstance(progression, list):
                 progression = []
+            item_label = _safe_str(requirements_output.get("item_label")) or _safe_str(schema_output.get("item_label")) or "day"
+            plan_shape = _safe_str(requirements_output.get("plan_shape")) or _safe_str(schema_output.get("plan_shape")) or "temporal_plan"
             must_cover_topics = requirements_output.get("must_cover_topics", [])
             if not isinstance(must_cover_topics, list):
                 must_cover_topics = []
@@ -593,10 +682,14 @@ class SynthesizeAgent(BaseAgent):
             if not isinstance(metric_template, dict):
                 metric_template = {}
 
-            day_key = f"day{day_idx}"
-            assigned_topic = _safe_str(topic_allocation.get(day_key))
-            if not assigned_topic and 0 <= day_idx - 1 < len(progression):
-                assigned_topic = _safe_str(progression[day_idx - 1])
+            item_key = f"item{item_idx}"
+            assigned_topic = _safe_str(item_allocation.get(item_key))
+            if not assigned_topic:
+                assigned_topic = _safe_str(topic_allocation.get(item_key))
+            if not assigned_topic:
+                assigned_topic = _safe_str(topic_allocation.get(f"day{item_idx}"))
+            if not assigned_topic and 0 <= item_idx - 1 < len(progression):
+                assigned_topic = _safe_str(progression[item_idx - 1])
             if not assigned_topic:
                 assigned_topic = "multi-agent workflow and verifiable task trees"
 
@@ -604,8 +697,13 @@ class SynthesizeAgent(BaseAgent):
             goal = (
                 f"Focus on {assigned_topic} while keeping alignment with {topic_text}."
             )
-            deliverable = _build_specific_deliverable(day_idx=day_idx, assigned_topic=assigned_topic)
-            metric = _build_measurable_metric(day_idx=day_idx)
+            deliverable = _build_specific_deliverable(
+                item_idx=item_idx,
+                assigned_topic=assigned_topic,
+                item_label=item_label,
+                plan_shape=plan_shape,
+            )
+            metric = _build_measurable_metric(item_idx=item_idx, plan_shape=plan_shape)
             if quality_criteria.get("must_reference_repo_changes", False) or quality_targets.get("repo_binding_required", False):
                 deliverable += " Include modified file paths in the daily artifact note."
             if (
@@ -631,7 +729,9 @@ class SynthesizeAgent(BaseAgent):
                 if any(tok in metric.lower() for tok in ["includes fields", "passes verification", "looks complete"]):
                     metric = "Set measurable completion target: >=90% pass rate across >=10 test cases."
             output = {
-                "day": day_idx,
+                "item_index": item_idx,
+                "item_label": item_label,
+                "day": item_idx,
                 "goal": goal,
                 "deliverable": deliverable,
                 "metric": metric,
@@ -640,22 +740,36 @@ class SynthesizeAgent(BaseAgent):
             return _ensure_required_fields(node=node, output=output)
 
         if node.is_final_response():
-            day_items: List[Dict[str, Any]] = []
+            item_objects: List[Dict[str, Any]] = []
             used_nodes: List[str] = []
             coverage_verification: Dict[str, Any] = {}
+            item_label = "day"
             for dep_id, dep_output in dependency_outputs.items():
-                if isinstance(dep_output, dict) and isinstance(dep_output.get("day"), int):
-                    day_items.append(dep_output)
+                if isinstance(dep_output, dict) and isinstance(dep_output.get("item_index"), int):
+                    item_objects.append(dep_output)
+                    item_label = _safe_str(dep_output.get("item_label")) or item_label
+                    used_nodes.append(dep_id)
+                elif isinstance(dep_output, dict) and isinstance(dep_output.get("day"), int):
+                    item_objects.append(
+                        {
+                            "item_index": dep_output.get("day"),
+                            "item_label": "day",
+                            "goal": dep_output.get("goal"),
+                            "deliverable": dep_output.get("deliverable"),
+                            "metric": dep_output.get("metric"),
+                        }
+                    )
                     used_nodes.append(dep_id)
                 if dep_id == "verify_coverage" and isinstance(dep_output, dict):
                     coverage_verification = dep_output
+                    item_label = _safe_str(dep_output.get("item_label")) or item_label
                     if dep_id not in used_nodes:
                         used_nodes.append(dep_id)
                     for nid in dep_output.get("grounded_nodes", []):
                         if isinstance(nid, str) and nid not in used_nodes:
                             used_nodes.append(nid)
-            day_items = sorted(day_items, key=lambda x: int(x.get("day", 0)))
-            if day_items:
+            item_objects = sorted(item_objects, key=lambda x: int(x.get("item_index", x.get("day", 0) or 0)))
+            if item_objects:
                 lines: List[str] = []
                 seen_nodes = set()
                 dedup_used_nodes: List[str] = []
@@ -664,9 +778,11 @@ class SynthesizeAgent(BaseAgent):
                         continue
                     seen_nodes.add(nid)
                     dedup_used_nodes.append(nid)
-                for item in day_items:
+                item_label_title = item_label.title()
+                for item in item_objects:
+                    idx = item.get("item_index", item.get("day"))
                     lines.append(
-                        f"Day {item.get('day')}: goal={_safe_str(item.get('goal'))}; "
+                        f"{item_label_title} {idx}: goal={_safe_str(item.get('goal'))}; "
                         f"deliverable={_safe_str(item.get('deliverable'))}; "
                         f"metric={_safe_str(item.get('metric'))}"
                     )
@@ -675,6 +791,8 @@ class SynthesizeAgent(BaseAgent):
                     "answer": answer,
                     "final_response": answer,
                     "source": "synthesize_agent",
+                    "item_label": item_label,
+                    "item_count": len(item_objects),
                     "used_nodes": dedup_used_nodes or list(dependency_outputs.keys()),
                     "coverage_verification": coverage_verification,
                 }
@@ -724,6 +842,9 @@ class ReasonAgent(BaseAgent):
 
         if node.id == "analyze_requirements":
             query_lower = query.lower()
+            plan_shape = _extract_plan_shape(query)
+            item_label = _infer_item_label(query, plan_shape)
+            item_count = _extract_plan_item_count(query) or 3
             svmap_focus = any(
                 token in query_lower
                 for token in ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
@@ -744,8 +865,8 @@ class ReasonAgent(BaseAgent):
                     must_cover_topics.append(topic)
             must_cover_topics = must_cover_topics[:5]
             constraints = []
-            if "7-day" in query.lower() or "7 day" in query.lower():
-                constraints.append("duration_days=7")
+            if item_count > 0:
+                constraints.append(f"item_count={item_count}")
             if "goal" in query.lower():
                 constraints.append("include_goal_field")
             if "deliverable" in query.lower():
@@ -757,7 +878,7 @@ class ReasonAgent(BaseAgent):
             output = {
                 "primary_domain": primary_domain,
                 "secondary_focus": secondary_focus,
-                "task_form": "7-day learning plan",
+                "task_form": f"{item_count}-{item_label} {plan_shape}",
                 "topics": topics or ["general"],
                 "must_cover_topics": must_cover_topics,
                 "forbidden_topic_drift": [
@@ -767,7 +888,9 @@ class ReasonAgent(BaseAgent):
                 ],
                 "constraints": constraints or ["respond_to_user_query"],
                 "required_fields": ["goal", "deliverable", "metric"],
-                "duration_days": 7,
+                "plan_shape": plan_shape,
+                "item_count": item_count,
+                "item_label": item_label,
                 "quality_targets": {
                     "deliverable_specificity": True,
                     "metric_measurability": True,
@@ -775,6 +898,8 @@ class ReasonAgent(BaseAgent):
                 },
                 "source": "reason_agent",
             }
+            if plan_shape == "temporal_plan":
+                output["duration_days"] = item_count
             return _ensure_required_fields(node=node, output=output)
 
         if node.id == "design_plan_schema":
@@ -786,6 +911,15 @@ class ReasonAgent(BaseAgent):
             required_fields = req.get("required_fields") if isinstance(req, dict) else None
             if not isinstance(required_fields, list) or not required_fields:
                 required_fields = ["goal", "deliverable", "metric"]
+            item_count = req.get("item_count") if isinstance(req, dict) else None
+            if not isinstance(item_count, int) or item_count <= 0:
+                item_count = _extract_plan_item_count(query) or 3
+            plan_shape = _safe_str(req.get("plan_shape")) if isinstance(req, dict) else ""
+            if not plan_shape:
+                plan_shape = _extract_plan_shape(query)
+            item_label = _safe_str(req.get("item_label")) if isinstance(req, dict) else ""
+            if not item_label:
+                item_label = _infer_item_label(query, plan_shape)
             svmap_focus = False
             if isinstance(req, dict):
                 joined_req = " ".join(
@@ -799,7 +933,7 @@ class ReasonAgent(BaseAgent):
                     token in joined_req for token in ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
                 )
             if svmap_focus:
-                progression = [
+                base_progression = [
                     "multi-agent basics",
                     "workflow orchestration",
                     "explicit task trees",
@@ -808,17 +942,17 @@ class ReasonAgent(BaseAgent):
                     "replanning and graph transformation",
                     "end-to-end capstone",
                 ]
-                topic_allocation = {
-                    "day1": "multi-agent basics and decomposition",
-                    "day2": "workflow orchestration with typed node interfaces",
-                    "day3": "explicit task-tree representation and dependency control",
-                    "day4": "node/edge/subtree/global verification flow",
-                    "day5": "intent alignment and constraint-aware validation",
-                    "day6": "failure taxonomy and subtree/global replanning",
-                    "day7": "end-to-end case study with ablation metrics",
-                }
+                base_topics = [
+                    "multi-agent basics and decomposition",
+                    "workflow orchestration with typed node interfaces",
+                    "explicit task-tree representation and dependency control",
+                    "node/edge/subtree/global verification flow",
+                    "intent alignment and constraint-aware validation",
+                    "failure taxonomy and subtree/global replanning",
+                    "end-to-end case study with ablation metrics",
+                ]
             else:
-                progression = [
+                base_progression = [
                     "scope and requirements",
                     "core concepts",
                     "implementation baseline",
@@ -830,23 +964,35 @@ class ReasonAgent(BaseAgent):
                 topic_seed = req.get("must_cover_topics", []) if isinstance(req, dict) else []
                 if not isinstance(topic_seed, list) or not topic_seed:
                     topic_seed = topics or ["target domain"]
-                topic_allocation = {
-                    "day1": f"requirements and scope for {topic_seed[0]}",
-                    "day2": f"core concept drill-down for {topic_seed[min(1, len(topic_seed)-1)]}",
-                    "day3": f"build baseline around {topic_seed[min(2, len(topic_seed)-1)]}",
-                    "day4": f"verification and testing for {topic_seed[min(0, len(topic_seed)-1)]}",
-                    "day5": f"optimization and iteration for {topic_seed[min(1, len(topic_seed)-1)]}",
-                    "day6": f"integration and hardening for {topic_seed[min(2, len(topic_seed)-1)]}",
-                    "day7": "capstone with measurable outcomes",
-                }
+                base_topics = [
+                    f"requirements and scope for {topic_seed[0]}",
+                    f"core concept drill-down for {topic_seed[min(1, len(topic_seed)-1)]}",
+                    f"build baseline around {topic_seed[min(2, len(topic_seed)-1)]}",
+                    f"verification and testing for {topic_seed[min(0, len(topic_seed)-1)]}",
+                    f"optimization and iteration for {topic_seed[min(1, len(topic_seed)-1)]}",
+                    f"integration and hardening for {topic_seed[min(2, len(topic_seed)-1)]}",
+                    "capstone with measurable outcomes",
+                ]
+            progression: List[str] = []
+            for idx in range(item_count):
+                progression.append(base_progression[idx] if idx < len(base_progression) else f"advance {item_label} {idx + 1}")
+            item_allocation: Dict[str, str] = {}
+            for idx in range(item_count):
+                item_allocation[f"item{idx + 1}"] = (
+                    base_topics[idx] if idx < len(base_topics) else f"focused implementation for {item_label} {idx + 1}"
+                )
             output = {
-                "day_template": {
-                    "goal": "A day-specific learning objective tied to query topics.",
-                    "deliverable": "A concrete artifact produced today.",
+                "item_template": {
+                    "goal": "An item-specific objective tied to query topics.",
+                    "deliverable": "A concrete artifact produced in this item.",
                     "metric": "Measurable completion criteria.",
                 },
+                "plan_shape": plan_shape,
+                "item_label": item_label,
+                "item_count": item_count,
                 "progression": progression,
-                "topic_allocation": topic_allocation,
+                "item_allocation": item_allocation,
+                "topic_allocation": {k.replace("item", "day"): v for k, v in item_allocation.items()},
                 "required_fields": required_fields,
                 "quality_criteria": {
                     "deliverable_must_be_specific": True,
@@ -866,6 +1012,8 @@ class ReasonAgent(BaseAgent):
                 },
                 "source": "reason_agent",
             }
+            if plan_shape == "temporal_plan":
+                output["duration_days"] = item_count
             return _ensure_required_fields(node=node, output=output)
 
         summary = _safe_str(inputs.get("node_inputs", {}).get("text")) or query
@@ -894,92 +1042,103 @@ class VerifyAgent(BaseAgent):
         topics = _extract_query_topics(query)
 
         if node.id == "verify_coverage":
-            day_objects: Dict[int, Dict[str, Any]] = {}
+            item_objects: Dict[int, Dict[str, Any]] = {}
             grounded_nodes: List[str] = []
             quality_criteria: Dict[str, Any] = {}
+            item_count = _extract_plan_item_count(query) or 3
+            item_label = "day"
             for dep_id, dep_output in dependency_outputs.items():
                 if not isinstance(dep_output, dict):
                     continue
-                day_val = dep_output.get("day")
-                if isinstance(day_val, int):
-                    day_objects[day_val] = dep_output
+                item_val = dep_output.get("item_index")
+                if not isinstance(item_val, int):
+                    item_val = dep_output.get("day")
+                if isinstance(item_val, int):
+                    item_objects[item_val] = dep_output
                     grounded_nodes.append(dep_id)
+                if isinstance(dep_output.get("item_count"), int):
+                    item_count = int(dep_output.get("item_count", item_count))
+                if dep_output.get("item_label"):
+                    item_label = _safe_str(dep_output.get("item_label")) or item_label
                 if isinstance(dep_output.get("quality_criteria"), dict):
                     quality_criteria = dep_output.get("quality_criteria", {})
-
-            missing_days = [d for d in range(1, 8) if d not in day_objects]
+            missing_items = [d for d in range(1, item_count + 1) if d not in item_objects]
             missing_fields: List[str] = []
             semantic_gaps: List[str] = []
             generic_content_flags: List[str] = []
-            missing_specificity_days: List[int] = []
+            missing_specificity_items: List[int] = []
             anchor_terms = ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
             require_anchor_topics = any(token in query.lower() for token in anchor_terms)
             require_repo_refs = bool(quality_criteria.get("must_reference_repo_changes", False))
-            anchor_days = 0
+            anchor_items = 0
             repo_binding_hits = 0
-            for day, item in day_objects.items():
+            for item_idx, item in item_objects.items():
                 for field in ["goal", "deliverable", "metric"]:
                     value = _safe_str(item.get(field))
                     if not value:
-                        missing_fields.append(f"day{day}.{field}")
+                        missing_fields.append(f"item{item_idx}.{field}")
                 deliverable_text = _safe_str(item.get("deliverable"))
                 metric_text = _safe_str(item.get("metric"))
                 if deliverable_text and not _is_specific_deliverable(deliverable_text):
-                    semantic_gaps.append(f"day{day}:generic_deliverable")
-                    missing_specificity_days.append(day)
-                    generic_content_flags.append(f"day{day}:generic_deliverable")
+                    semantic_gaps.append(f"item{item_idx}:generic_deliverable")
+                    missing_specificity_items.append(item_idx)
+                    generic_content_flags.append(f"item{item_idx}:generic_deliverable")
                 if require_repo_refs and deliverable_text:
                     lowered_deliverable = deliverable_text.lower()
                     if not _is_repo_bound_text(lowered_deliverable):
-                        semantic_gaps.append(f"day{day}:missing_repo_reference")
+                        semantic_gaps.append(f"item{item_idx}:missing_repo_reference")
                     else:
                         repo_binding_hits += 1
                 if metric_text and not _is_measurable_metric(metric_text):
-                    semantic_gaps.append(f"day{day}:non_actionable_metric")
-                    generic_content_flags.append(f"day{day}:non_actionable_metric")
+                    semantic_gaps.append(f"item{item_idx}:non_actionable_metric")
+                    generic_content_flags.append(f"item{item_idx}:non_actionable_metric")
                 merged = " ".join(
                     [_safe_str(item.get("goal")), _safe_str(item.get("deliverable")), _safe_str(item.get("metric"))]
                 ).lower()
                 if _is_placeholder_text(merged):
-                    semantic_gaps.append(f"day{day}:placeholder_pattern")
-                    generic_content_flags.append(f"day{day}:placeholder_pattern")
+                    semantic_gaps.append(f"item{item_idx}:placeholder_pattern")
+                    generic_content_flags.append(f"item{item_idx}:placeholder_pattern")
                 if topics and not any(topic in merged for topic in topics):
-                    semantic_gaps.append(f"day{day}:topic_not_aligned")
+                    semantic_gaps.append(f"item{item_idx}:topic_not_aligned")
                 if any(anchor in merged for anchor in anchor_terms):
-                    anchor_days += 1
+                    anchor_items += 1
                 if "async" in merged or "event loop" in merged or "concurrency" in merged:
                     if "async" not in query.lower() and "concurrency" not in query.lower():
-                        semantic_gaps.append(f"day{day}:topic_drift_to_runtime")
+                        semantic_gaps.append(f"item{item_idx}:topic_drift_to_runtime")
                 if "concrete artifact" in merged and not _is_specific_deliverable(merged):
-                    semantic_gaps.append(f"day{day}:generic_plan_template")
-                    generic_content_flags.append(f"day{day}:generic_plan_template")
+                    semantic_gaps.append(f"item{item_idx}:generic_plan_template")
+                    generic_content_flags.append(f"item{item_idx}:generic_plan_template")
 
             normalized_templates: List[str] = []
-            for day in sorted(day_objects):
-                item = day_objects[day]
+            for item_idx in sorted(item_objects):
+                item = item_objects[item_idx]
                 merged = " ".join(
                     [_safe_str(item.get("goal")), _safe_str(item.get("deliverable")), _safe_str(item.get("metric"))]
                 ).lower()
-                merged = re.sub(r"\bday\s*[1-9]\b", "day", merged)
+                merged = re.sub(r"\b(?:day|phase|step|milestone|item)\s*[1-9]\b", "item", merged)
                 merged = re.sub(r"\s+", " ", merged).strip()
                 normalized_templates.append(merged)
             if normalized_templates:
                 diversity = len(set(normalized_templates)) / max(len(normalized_templates), 1)
                 if diversity < 0.6:
                     semantic_gaps.append("plan_repetition_template_detected")
-            if require_anchor_topics and anchor_days < 3:
+            if require_anchor_topics and anchor_items < min(3, item_count):
                 semantic_gaps.append("plan_anchor_coverage_below_threshold")
                 generic_content_flags.append("plan_anchor_coverage_below_threshold")
 
-            repo_binding_score = repo_binding_hits / max(len(day_objects), 1) if day_objects else 0.0
-            coverage_ok = len(missing_days) == 0 and len(missing_fields) == 0 and len(semantic_gaps) == 0
+            repo_binding_score = repo_binding_hits / max(len(item_objects), 1) if item_objects else 0.0
+            coverage_ok = len(missing_items) == 0 and len(missing_fields) == 0 and len(semantic_gaps) == 0
             output = {
                 "coverage_ok": coverage_ok,
-                "missing_days": missing_days,
+                "item_count": item_count,
+                "item_label": item_label,
+                "missing_items": missing_items,
+                "missing_days": list(missing_items),
                 "missing_fields": missing_fields,
                 "semantic_gaps": semantic_gaps,
                 "generic_content_flags": sorted(set(generic_content_flags)),
-                "missing_specificity_days": sorted(set(missing_specificity_days)),
+                "missing_specificity_items": sorted(set(missing_specificity_items)),
+                "missing_specificity_days": sorted(set(missing_specificity_items)),
                 "repo_binding_score": repo_binding_score,
                 "grounded_nodes": grounded_nodes,
                 "source": "verify_agent",

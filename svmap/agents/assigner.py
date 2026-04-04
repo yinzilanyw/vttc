@@ -35,7 +35,7 @@ class CapabilityBasedAssigner(AssignmentStrategy):
             return ["reason_agent", "synthesize_agent"]
         if node_key == "design_plan_schema":
             return ["reason_agent", "verify_agent", "synthesize_agent"]
-        if node_key.startswith("generate_day"):
+        if node_key.startswith("generate_item") or node_key.startswith("generate_day"):
             return ["synthesize_agent", "reason_agent"]
         if node_key == "verify_coverage":
             return ["verify_agent", "reason_agent", "synthesize_agent"]
@@ -61,7 +61,7 @@ class CapabilityBasedAssigner(AssignmentStrategy):
             return ["reason_agent"]
         if node_id == "design_plan_schema":
             return ["reason_agent"]
-        if node_id.startswith("generate_day"):
+        if node_id.startswith("generate_item") or node_id.startswith("generate_day"):
             return ["synthesize_agent"]
         if node_id == "verify_coverage":
             return ["verify_agent"]
@@ -79,7 +79,7 @@ class CapabilityBasedAssigner(AssignmentStrategy):
                 bonus += self.node_responsibility_bonus
             if spec.name == "retrieve_agent" or "retrieve" in spec.capabilities:
                 bonus -= self.node_responsibility_penalty
-        elif node_id.startswith("generate_day"):
+        elif node_id.startswith("generate_item") or node_id.startswith("generate_day"):
             if spec.name == "synthesize_agent" or "synthesize" in spec.capabilities:
                 bonus += self.node_responsibility_bonus
             if spec.name == "verify_agent" or "verify" in spec.capabilities:

@@ -43,6 +43,10 @@ def print_single_summary(result: RunResult) -> None:
     print("Mode:", result.mode)
     print("Task family:", result.task_family)
     print("Query:", result.query)
+    if result.task_family == "plan":
+        print("Plan shape:", result.plan_shape or "")
+        print("Item label:", result.item_label or "")
+        print("Item count:", int(result.item_count or 0))
     print("Structure success:", result.structure_success)
     print("Semantic success:", result.semantic_success)
     print("Success:", result.success)
@@ -203,4 +207,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

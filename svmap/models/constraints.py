@@ -311,7 +311,9 @@ class ConstraintParser:
             elif text == "coverage_constraint":
                 parsed.append(CoverageConstraint())
             elif text == "all_days_present":
-                parsed.append(AllDaysPresentConstraint())
+                parsed.append(AllItemsPresentConstraint())
+            elif text == "all_items_present":
+                parsed.append(AllItemsPresentConstraint())
             elif text == "plan_topic_coverage":
                 parsed.append(PlanTopicCoverageConstraint())
             elif text == "schema_specificity":
@@ -461,18 +463,26 @@ class FinalStructureConstraint(Constraint):
     forbid_query_echo: bool = True
     constraint_type: str = "final_structure"
 
-    def _find_day_count(self, answer: Any) -> int:
+    def _find_item_count(self, answer: Any, item_label: str = "day") -> int:
+        label = str(item_label or "item").strip().lower()
+        if label == "item":
+            pattern = r"\b(?:day|phase|step|milestone|item)\s*([1-9]|10)\b"
+        else:
+            pattern = rf"\b{re.escape(label)}\s*([1-9]|10)\b"
         if isinstance(answer, dict):
-            day_keys = [
-                key for key in answer.keys() if re.search(r"\bday\s*[1-9]\b", str(key).lower())
+            item_keys = [
+                key for key in answer.keys() if re.search(pattern, str(key).lower())
             ]
-            if day_keys:
-                return len(day_keys)
+            if item_keys:
+                return len(item_keys)
+            items = answer.get("items")
+            if isinstance(items, list):
+                return len(items)
             days = answer.get("days")
             if isinstance(days, list):
                 return len(days)
         text = str(answer or "")
-        return len(set(re.findall(r"\bday\s*([1-9]|10)\b", text.lower())))
+        return len(set(re.findall(pattern, text.lower())))
 
     def _has_sections(self, answer: Any) -> List[str]:
         required = [x.strip().lower() for x in self.required_sections if x.strip()]
@@ -523,16 +533,17 @@ class FinalStructureConstraint(Constraint):
                 )
 
         if self.min_items > 0:
-            day_count = self._find_day_count(answer)
-            if day_count < self.min_items:
+            item_label = str(output.get("item_label") or context.get("item_label") or "day")
+            item_count = self._find_item_count(answer, item_label=item_label)
+            if item_count < self.min_items:
                 return ConstraintResult(
                     passed=False,
                     code="final_answer_missing_structure",
-                    message=f"Expected at least {self.min_items} structured items, got {day_count}.",
+                    message=f"Expected at least {self.min_items} structured items, got {item_count}.",
                     failure_type="final_answer_missing_structure",
                     repair_hint="build_final_response_patch",
                     violation_scope="node",
-                    evidence={"items_found": day_count},
+                    evidence={"items_found": item_count, "item_label": item_label},
                 )
 
         missing_sections = self._has_sections(answer)
@@ -720,50 +731,68 @@ class CoverageConstraint(Constraint):
 
 
 @dataclass
-class AllDaysPresentConstraint(Constraint):
-    min_days: int = 7
-    constraint_type: str = "all_days_present"
+class AllItemsPresentConstraint(Constraint):
+    min_items: int = 1
+    constraint_type: str = "all_items_present"
 
     def validate(
         self, node: "TaskNode", output: Dict[str, Any], context: Dict[str, Any]
     ) -> ConstraintResult:
-        missing_days = output.get("missing_days")
-        if not isinstance(missing_days, list):
+        missing_items = output.get("missing_items")
+        if not isinstance(missing_items, list):
+            missing_items = output.get("missing_days")
+        if not isinstance(missing_items, list):
             return ConstraintResult(
                 passed=False,
-                code="coverage_missing_days_field_invalid",
-                message="missing_days must be a list.",
+                code="coverage_missing_items_field_invalid",
+                message="missing_items must be a list.",
                 failure_type="plan_coverage_incomplete",
                 repair_hint="replan_subtree",
                 violation_scope="node",
             )
-        if len(missing_days) > 0:
+        if len(missing_items) > 0:
             return ConstraintResult(
                 passed=False,
-                code="coverage_missing_days",
-                message=f"Missing days in plan coverage: {missing_days}",
+                code="coverage_missing_items",
+                message=f"Missing items in plan coverage: {missing_items}",
                 failure_type="plan_coverage_incomplete",
                 repair_hint="replan_subtree",
                 violation_scope="node",
-                evidence={"missing_days": missing_days},
+                evidence={"missing_items": missing_items},
             )
         grounded_nodes = output.get("grounded_nodes")
+        item_count = output.get("item_count")
+        required_count = self.min_items
+        if isinstance(item_count, int) and item_count > 0:
+            required_count = max(required_count, item_count)
         if isinstance(grounded_nodes, list):
-            day_like = [x for x in grounded_nodes if isinstance(x, str) and "generate_day" in x.lower()]
-            if len(day_like) < self.min_days:
+            item_like = [
+                x for x in grounded_nodes
+                if isinstance(x, str) and ("generate_item" in x.lower() or "generate_day" in x.lower())
+            ]
+            if len(item_like) < required_count:
                 return ConstraintResult(
                     passed=False,
                     code="coverage_grounded_nodes_insufficient",
-                    message=f"Expected at least {self.min_days} grounded day nodes, got {len(day_like)}.",
+                    message=f"Expected at least {required_count} grounded item nodes, got {len(item_like)}.",
                     failure_type="plan_coverage_incomplete",
                     repair_hint="replan_subtree",
                     violation_scope="node",
                 )
         return ConstraintResult(
             passed=True,
-            code="all_days_present_ok",
-            message="All day coverage constraints passed.",
+            code="all_items_present_ok",
+            message="All item coverage constraints passed.",
         )
+
+
+@dataclass
+class AllDaysPresentConstraint(AllItemsPresentConstraint):
+    min_days: int = 7
+    constraint_type: str = "all_days_present"
+
+    def __post_init__(self) -> None:
+        self.min_items = self.min_days
 
 
 @dataclass
@@ -787,12 +816,15 @@ class PlanTopicCoverageConstraint(Constraint):
             )
 
         dependency_outputs = context.get("dependency_outputs", {})
-        day_payloads: List[str] = []
+        item_payloads: List[str] = []
         core_field_hits = 0
         field_check_total = 0
         required_topics: List[str] = []
+        expected_item_count = output.get("item_count")
+        if not isinstance(expected_item_count, int) or expected_item_count <= 0:
+            expected_item_count = 0
         for dep_id, dep_output in dependency_outputs.items():
-            if not str(dep_id).startswith("generate_day"):
+            if not (str(dep_id).startswith("generate_item") or str(dep_id).startswith("generate_day")):
                 continue
             if not isinstance(dep_output, dict):
                 continue
@@ -807,7 +839,7 @@ class PlanTopicCoverageConstraint(Constraint):
                 ]
             ).strip()
             if merged:
-                day_payloads.append(merged.lower())
+                item_payloads.append(merged.lower())
             goal = str(dep_output.get("goal") or "").lower()
             deliverable = str(dep_output.get("deliverable") or "").lower()
             metric = str(dep_output.get("metric") or "").lower()
@@ -819,15 +851,17 @@ class PlanTopicCoverageConstraint(Constraint):
                 # Mentioning topics only in metric is weak; do not count as dominant coverage.
                 pass
 
-        if len(day_payloads) < 7:
+        if expected_item_count <= 0:
+            expected_item_count = max(len(item_payloads), 1)
+        if len(item_payloads) < expected_item_count:
             return ConstraintResult(
                 passed=False,
-                code="plan_topic_coverage_insufficient_days",
-                message="Topic coverage check requires all generated day nodes.",
+                code="plan_topic_coverage_insufficient_items",
+                message="Topic coverage check requires all generated item nodes.",
                 failure_type="plan_topic_drift",
                 repair_hint="replan_subtree",
                 violation_scope="subtree",
-                evidence={"day_count": len(day_payloads)},
+                evidence={"item_count": len(item_payloads), "expected_item_count": expected_item_count},
             )
 
         query_text = str(context.get("global_context", {}).get("query", "")).lower()
@@ -837,8 +871,8 @@ class PlanTopicCoverageConstraint(Constraint):
         )
         anchors = ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
         anchor_hits = 0
-        for day_text in day_payloads:
-            if any(anchor in day_text for anchor in anchors):
+        for item_text in item_payloads:
+            if any(anchor in item_text for anchor in anchors):
                 anchor_hits += 1
         if require_anchor_topics and anchor_hits < self.min_anchor_hits:
             return ConstraintResult(
@@ -888,15 +922,20 @@ class SchemaSpecificityConstraint(Constraint):
                 severity="warning",
             )
 
-        topic_allocation = output.get("topic_allocation")
+        item_allocation = output.get("item_allocation")
+        if not isinstance(item_allocation, dict):
+            item_allocation = output.get("topic_allocation")
         quality = output.get("quality_criteria")
         deliverable_template = output.get("deliverable_template")
         metric_template = output.get("metric_template")
-        if not isinstance(topic_allocation, dict) or len(topic_allocation) < 7:
+        item_count = output.get("item_count")
+        if not isinstance(item_count, int) or item_count <= 0:
+            item_count = 3
+        if not isinstance(item_allocation, dict) or len(item_allocation) < item_count:
             return ConstraintResult(
                 passed=False,
                 code="schema_topic_allocation_missing",
-                message="Plan schema must include 7-day topic_allocation.",
+                message="Plan schema must include item_allocation for all items.",
                 failure_type="schema_design_failed",
                 repair_hint="build_schema_patch",
                 violation_scope="node",
@@ -1142,15 +1181,15 @@ class NoGenericPlanConstraint(Constraint):
                 repair_hint="replan_subtree",
                 violation_scope="node",
             )
-        day_lines = re.findall(r"day\s*(?:[1-9]|10)\s*:\s*([^\n]+)", merged)
-        if day_lines:
-            norm = [re.sub(r"\bday\s*[1-9]\b", "day", re.sub(r"\s+", " ", x)).strip() for x in day_lines]
+        item_lines = re.findall(r"(?:day|phase|step|milestone|item)\s*(?:[1-9]|10)\s*:\s*([^\n]+)", merged)
+        if item_lines:
+            norm = [re.sub(r"\b(?:day|phase|step|milestone|item)\s*[1-9]\b", "item", re.sub(r"\s+", " ", x)).strip() for x in item_lines]
             diversity = len(set(norm)) / max(len(norm), 1)
             if diversity < 0.55:
                 return ConstraintResult(
                     passed=False,
                     code="generic_plan_repetition",
-                    message="Plan day entries are overly repetitive and template-like.",
+                    message="Plan item entries are overly repetitive and template-like.",
                     failure_type="generic_plan_output",
                     repair_hint="replan_subtree",
                     violation_scope="node",

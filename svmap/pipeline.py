@@ -120,6 +120,9 @@ class RunResult:
     repair_action: str = ""
     repair_success: bool = False
     semantic_gaps: List[str] = field(default_factory=list)
+    plan_shape: str = ""
+    item_count: int = 0
+    item_label: str = ""
 
     def final_answer(self) -> str:
         answer = self.final_output.get("answer") or self.final_output.get("final_response")
@@ -154,6 +157,9 @@ class RunResult:
             "repair_action": self.repair_action,
             "repair_success": self.repair_success,
             "semantic_gaps": list(self.semantic_gaps),
+            "plan_shape": self.plan_shape,
+            "item_count": self.item_count,
+            "item_label": self.item_label,
         }
 
     def to_eval_record(self, record_id: str = "") -> Dict[str, Any]:
@@ -172,6 +178,9 @@ class RunResult:
             "repair_action": self.repair_action,
             "repair_success": bool(self.repair_success),
             "semantic_gaps": list(self.semantic_gaps),
+            "plan_shape": self.plan_shape,
+            "item_count": int(self.item_count),
+            "item_label": self.item_label,
             "final_answer": self.final_answer(),
             "trace_path": self.trace_path or "",
             "elapsed_sec": float(self.elapsed_sec),
@@ -645,6 +654,9 @@ def run_task(config: RunConfig) -> RunResult:
         repair_action=repair_action,
         repair_success=repair_success,
         semantic_gaps=semantic_gaps,
+        plan_shape=str(report.plan_shape or ""),
+        item_count=int(report.item_count or 0),
+        item_label=str(report.item_label or ""),
     )
 
 

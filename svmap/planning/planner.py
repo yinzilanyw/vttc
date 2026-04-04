@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from svmap.models import (
-    AllDaysPresentConstraint,
+    AllItemsPresentConstraint,
     CoverageConstraint,
     FinalStructureConstraint,
     IntentAlignmentConstraint,
@@ -106,6 +106,89 @@ def _default_node_type(capability_tag: str) -> str:
         "reason": "reasoning",
     }
     return mapping.get(capability_tag, "reasoning")
+
+
+def _extract_plan_item_count(query: str) -> Optional[int]:
+    text = str(query or "").lower()
+    patterns = [
+        r"\b(\d+)\s*[- ]?day\b",
+        r"\bday\s*(\d+)\b",
+        r"\b(\d+)\s*days\b",
+        r"\b(\d+)\s*天\b",
+        r"\b(\d+)\s*阶段\b",
+        r"\b(\d+)\s*[- ]?phase\b",
+        r"\b(\d+)\s*步骤\b",
+        r"\b(\d+)\s*[- ]?step\b",
+        r"\b(\d+)\s*里程碑\b",
+        r"\b(\d+)\s*[- ]?milestone\b",
+    ]
+    for pattern in patterns:
+        m = re.search(pattern, text)
+        if not m:
+            continue
+        try:
+            value = int(m.group(1))
+        except ValueError:
+            continue
+        if value > 0:
+            return value
+    return None
+
+
+def _extract_plan_shape(query: str) -> str:
+    text = str(query or "").lower()
+    if any(token in text for token in ["阶段", "phase"]):
+        return "phase_plan"
+    if any(token in text for token in ["步骤", "step"]):
+        return "step_plan"
+    if any(token in text for token in ["里程碑", "milestone"]):
+        return "milestone_plan"
+    return "temporal_plan"
+
+
+def _infer_item_label(query: str, plan_shape: str) -> str:
+    text = str(query or "").lower()
+    if plan_shape == "phase_plan" or "阶段" in text or "phase" in text:
+        return "phase"
+    if plan_shape == "step_plan" or "步骤" in text or "step" in text:
+        return "step"
+    if plan_shape == "milestone_plan" or "里程碑" in text or "milestone" in text:
+        return "milestone"
+    return "day"
+
+
+def _extract_summary_shape(query: str) -> str:
+    text = str(query or "").lower()
+    if any(k in text for k in ["hierarchical", "分层", "层级"]):
+        return "hierarchical_summary"
+    if any(k in text for k in ["section", "sections", "分段"]):
+        return "sectioned_summary"
+    return "single_pass_summary"
+
+
+def _extract_compare_shape(query: str) -> str:
+    text = str(query or "").lower()
+    if any(k in text for k in ["dimension", "criteria", "维度"]):
+        return "dimension_first_compare"
+    if any(k in text for k in ["multiple", "many", "multi", "多个"]):
+        return "multi_entity_compare"
+    return "pairwise_compare"
+
+
+def _extract_calculate_shape(query: str) -> str:
+    text = str(query or "").lower()
+    if any(k in text for k in ["multi-step", "step by step", "多步"]):
+        return "multi_step_calculation"
+    return "single_formula"
+
+
+def _extract_extract_shape(query: str) -> str:
+    text = str(query or "").lower()
+    if any(k in text for k in ["nested", "嵌套"]):
+        return "nested_schema_extract"
+    if any(k in text for k in ["multi-source", "multiple sources", "多源"]):
+        return "multi_source_extract"
+    return "flat_schema_extract"
 
 
 def _multitask_schema() -> Dict[str, Any]:
@@ -405,6 +488,7 @@ class ConstraintAwarePlanner(BasePlanner):
 
     def normalize_requirements_output(self, output: Dict[str, Any]) -> Dict[str, Any]:
         normalized = dict(output)
+        query_text = str(normalized.get("query") or "")
         raw_topics = normalized.get("topics", [])
         topics = [str(x).strip().lower() for x in raw_topics if str(x).strip()] if isinstance(raw_topics, list) else []
         stopwords = {
@@ -460,6 +544,35 @@ class ConstraintAwarePlanner(BasePlanner):
         quality_targets.setdefault("metric_measurability", True)
         quality_targets.setdefault("repo_binding_required", True)
         normalized["quality_targets"] = quality_targets
+
+        plan_shape = str(normalized.get("plan_shape") or _extract_plan_shape(query_text)).strip().lower()
+        if plan_shape not in {"temporal_plan", "phase_plan", "step_plan", "milestone_plan"}:
+            plan_shape = _extract_plan_shape(query_text)
+        item_label = str(normalized.get("item_label") or _infer_item_label(query_text, plan_shape)).strip().lower()
+        if item_label not in {"day", "phase", "step", "milestone", "item"}:
+            item_label = _infer_item_label(query_text, plan_shape)
+
+        requested_count = _extract_plan_item_count(query_text)
+        output_count = normalized.get("item_count")
+        if isinstance(output_count, str) and output_count.isdigit():
+            output_count = int(output_count)
+        if not isinstance(output_count, int) or output_count <= 0:
+            output_count = normalized.get("duration_days")
+        if isinstance(output_count, str) and output_count.isdigit():
+            output_count = int(output_count)
+        if not isinstance(output_count, int) or output_count <= 0:
+            output_count = requested_count or 3
+        if isinstance(requested_count, int) and requested_count > 0:
+            output_count = requested_count
+
+        normalized["plan_shape"] = plan_shape
+        normalized["item_label"] = item_label
+        normalized["item_count"] = output_count
+        normalized["task_form"] = str(normalized.get("task_form") or f"{output_count}-{item_label} {plan_shape}")
+        if plan_shape == "temporal_plan":
+            normalized["duration_days"] = output_count
+        else:
+            normalized.pop("duration_days", None)
         return normalized
 
     def enrich_plan_schema(
@@ -468,6 +581,11 @@ class ConstraintAwarePlanner(BasePlanner):
         requirements_output: Dict[str, Any],
     ) -> Dict[str, Any]:
         enriched = dict(schema_output)
+        plan_shape = str(requirements_output.get("plan_shape") or enriched.get("plan_shape") or "temporal_plan")
+        item_label = str(requirements_output.get("item_label") or enriched.get("item_label") or "day")
+        item_count = requirements_output.get("item_count") or enriched.get("item_count") or requirements_output.get("duration_days") or 3
+        if not isinstance(item_count, int) or item_count <= 0:
+            item_count = 3
         quality = enriched.get("quality_criteria")
         if not isinstance(quality, dict):
             quality = {}
@@ -499,6 +617,53 @@ class ConstraintAwarePlanner(BasePlanner):
         required_fields = requirements_output.get("required_fields")
         if isinstance(required_fields, list) and required_fields:
             enriched["required_fields"] = required_fields
+
+        item_template = enriched.get("item_template")
+        if not isinstance(item_template, dict):
+            item_template = enriched.get("day_template")
+        if not isinstance(item_template, dict):
+            item_template = {
+                "goal": "Item-level objective aligned with query topics.",
+                "deliverable": "Concrete artifact tied to repo updates.",
+                "metric": "Measurable completion threshold.",
+            }
+        enriched["item_template"] = item_template
+        if "day_template" not in enriched:
+            enriched["day_template"] = item_template
+
+        item_allocation = enriched.get("item_allocation")
+        if not isinstance(item_allocation, dict):
+            item_allocation = enriched.get("topic_allocation", {})
+        if not isinstance(item_allocation, dict):
+            item_allocation = {}
+        normalized_allocation: Dict[str, str] = {}
+        for idx in range(1, item_count + 1):
+            key = f"item{idx}"
+            candidate = item_allocation.get(key)
+            if candidate is None:
+                candidate = item_allocation.get(f"day{idx}")
+            if candidate is None and isinstance(enriched.get("progression"), list):
+                progression = enriched.get("progression", [])
+                if idx - 1 < len(progression):
+                    candidate = progression[idx - 1]
+            normalized_allocation[key] = str(candidate or f"{item_label} {idx} objective")
+        enriched["item_allocation"] = normalized_allocation
+        enriched["topic_allocation"] = {k.replace("item", "day"): v for k, v in normalized_allocation.items()}
+
+        progression = enriched.get("progression")
+        if not isinstance(progression, list):
+            progression = []
+        while len(progression) < item_count:
+            progression.append(f"progress {len(progression) + 1}")
+        enriched["progression"] = progression[:item_count]
+
+        enriched["item_count"] = item_count
+        enriched["item_label"] = item_label
+        enriched["plan_shape"] = plan_shape
+        if plan_shape == "temporal_plan":
+            enriched["duration_days"] = item_count
+        else:
+            enriched.pop("duration_days", None)
         return enriched
 
     def build_multitask_schema(self) -> Dict[str, Any]:
@@ -614,14 +779,19 @@ class ConstraintAwarePlanner(BasePlanner):
         family = context.task_family or self.infer_task_family(context.user_query)
         query = context.user_query
         if family == "plan":
-            day_nodes: List[Dict[str, Any]] = []
-            for day in range(1, 8):
-                day_nodes.append(
+            plan_shape = _extract_plan_shape(query)
+            item_label = _infer_item_label(query, plan_shape)
+            item_count = _extract_plan_item_count(query) or 3
+            item_nodes: List[Dict[str, Any]] = []
+            for idx in range(1, item_count + 1):
+                item_nodes.append(
                     {
-                        "id": f"generate_day{day}",
-                        "description": f"Generate structured day {day} plan object.",
+                        "id": f"generate_item{idx}",
+                        "description": f"Generate structured {item_label} {idx} plan object.",
                         "inputs": {
-                            "day": day,
+                            "item_index": idx,
+                            "item_label": item_label,
+                            "plan_shape": plan_shape,
                             "query": query,
                         },
                         "dependencies": ["analyze_requirements", "design_plan_schema"],
@@ -632,7 +802,7 @@ class ConstraintAwarePlanner(BasePlanner):
                         "output_mode": "json",
                         "answer_role": "intermediate",
                         "constraint": [
-                            "required_keys:day,goal,deliverable,metric",
+                            "required_keys:item_index,item_label,goal,deliverable,metric",
                             "non_empty_values",
                             "specific_deliverable",
                             "measurable_metric",
@@ -640,7 +810,8 @@ class ConstraintAwarePlanner(BasePlanner):
                         ],
                         "io": {
                             "output_fields": [
-                                {"name": "day", "field_type": "number", "required": True},
+                                {"name": "item_index", "field_type": "number", "required": True},
+                                {"name": "item_label", "field_type": "string", "required": True},
                                 {"name": "goal", "field_type": "string", "required": True},
                                 {"name": "deliverable", "field_type": "string", "required": True},
                                 {"name": "metric", "field_type": "string", "required": True},
@@ -648,7 +819,7 @@ class ConstraintAwarePlanner(BasePlanner):
                         },
                     }
                 )
-            verify_dependencies = ["design_plan_schema"] + [f"generate_day{day}" for day in range(1, 8)]
+            verify_dependencies = ["design_plan_schema"] + [f"generate_item{idx}" for idx in range(1, item_count + 1)]
             return {
                 "nodes": [
                     {
@@ -665,7 +836,7 @@ class ConstraintAwarePlanner(BasePlanner):
                         "constraint": [
                             (
                                 "required_keys:primary_domain,secondary_focus,task_form,topics,"
-                                "must_cover_topics,forbidden_topic_drift,constraints,required_fields,duration_days,quality_targets"
+                                "must_cover_topics,forbidden_topic_drift,constraints,required_fields,plan_shape,item_count,item_label,quality_targets"
                             ),
                             "non_empty_values",
                         ],
@@ -679,14 +850,16 @@ class ConstraintAwarePlanner(BasePlanner):
                                 {"name": "forbidden_topic_drift", "field_type": "list[string]", "required": True},
                                 {"name": "constraints", "field_type": "list[string]", "required": True},
                                 {"name": "required_fields", "field_type": "list[string]", "required": True},
-                                {"name": "duration_days", "field_type": "number", "required": True},
+                                {"name": "plan_shape", "field_type": "string", "required": True},
+                                {"name": "item_count", "field_type": "number", "required": True},
+                                {"name": "item_label", "field_type": "string", "required": True},
                                 {"name": "quality_targets", "field_type": "json", "required": True},
                             ]
                         },
                     },
                     {
                         "id": "design_plan_schema",
-                        "description": "Design canonical day-level schema and progression for the 7-day plan.",
+                        "description": "Design canonical item-level schema and progression for the plan.",
                         "dependencies": ["analyze_requirements"],
                         "capability_tag": "reason",
                         "candidate_capabilities": ["reason", "synthesize"],
@@ -696,7 +869,7 @@ class ConstraintAwarePlanner(BasePlanner):
                         "answer_role": "intermediate",
                         "constraint": [
                             (
-                                "required_keys:day_template,progression,topic_allocation,required_fields,"
+                                "required_keys:item_template,item_count,item_label,plan_shape,progression,item_allocation,required_fields,"
                                 "quality_criteria,deliverable_template,metric_template"
                             ),
                             "non_empty_values",
@@ -705,9 +878,12 @@ class ConstraintAwarePlanner(BasePlanner):
                         ],
                         "io": {
                             "output_fields": [
-                                {"name": "day_template", "field_type": "json", "required": True},
+                                {"name": "item_template", "field_type": "json", "required": True},
+                                {"name": "item_count", "field_type": "number", "required": True},
+                                {"name": "item_label", "field_type": "string", "required": True},
+                                {"name": "plan_shape", "field_type": "string", "required": True},
                                 {"name": "progression", "field_type": "list[string]", "required": True},
-                                {"name": "topic_allocation", "field_type": "json", "required": True},
+                                {"name": "item_allocation", "field_type": "json", "required": True},
                                 {"name": "required_fields", "field_type": "list[string]", "required": True},
                                 {"name": "quality_criteria", "field_type": "json", "required": True},
                                 {"name": "deliverable_template", "field_type": "json", "required": True},
@@ -715,10 +891,10 @@ class ConstraintAwarePlanner(BasePlanner):
                             ]
                         },
                     },
-                    *day_nodes,
+                    *item_nodes,
                     {
                         "id": "verify_coverage",
-                        "description": "Verify day coverage, field completeness and semantic alignment.",
+                        "description": "Verify item coverage, field completeness and semantic alignment.",
                         "dependencies": verify_dependencies,
                         "capability_tag": "verify",
                         "candidate_capabilities": ["verify", "reason"],
@@ -728,11 +904,11 @@ class ConstraintAwarePlanner(BasePlanner):
                         "answer_role": "intermediate",
                         "constraint": [
                             (
-                                "required_keys:coverage_ok,missing_days,missing_fields,semantic_gaps,grounded_nodes,"
-                                "generic_content_flags,missing_specificity_days,repo_binding_score"
+                                "required_keys:coverage_ok,item_count,item_label,missing_items,missing_fields,semantic_gaps,grounded_nodes,"
+                                "generic_content_flags,missing_specificity_items,repo_binding_score"
                             ),
                             "coverage_constraint",
-                            "all_days_present",
+                            "all_items_present",
                             "plan_topic_coverage",
                             "no_generic_plan",
                             "no_template_placeholder",
@@ -740,20 +916,22 @@ class ConstraintAwarePlanner(BasePlanner):
                         "io": {
                             "output_fields": [
                                 {"name": "coverage_ok", "field_type": "bool", "required": True},
-                                {"name": "missing_days", "field_type": "json", "required": True},
+                                {"name": "item_count", "field_type": "number", "required": True},
+                                {"name": "item_label", "field_type": "string", "required": True},
+                                {"name": "missing_items", "field_type": "json", "required": True},
                                 {"name": "missing_fields", "field_type": "json", "required": True},
                                 {"name": "semantic_gaps", "field_type": "json", "required": True},
                                 {"name": "grounded_nodes", "field_type": "json", "required": True},
                                 {"name": "generic_content_flags", "field_type": "json", "required": True},
-                                {"name": "missing_specificity_days", "field_type": "json", "required": True},
+                                {"name": "missing_specificity_items", "field_type": "json", "required": True},
                                 {"name": "repo_binding_score", "field_type": "number", "required": True},
                             ]
                         },
                     },
                     {
                         "id": "final_response",
-                        "description": "Return final 7-day learning plan using verified day objects.",
-                        "dependencies": ["verify_coverage"] + [f"generate_day{day}" for day in range(1, 8)],
+                        "description": "Return final plan using verified item objects.",
+                        "dependencies": ["verify_coverage"] + [f"generate_item{idx}" for idx in range(1, item_count + 1)],
                         "capability_tag": "synthesize",
                         "candidate_capabilities": ["synthesize", "reason"],
                         "node_type": "final_response",
@@ -763,7 +941,7 @@ class ConstraintAwarePlanner(BasePlanner):
                         "constraint": [
                             "required_keys:answer,used_nodes",
                             "non_empty_values",
-                            "final_structure:min_items=7,required_sections=goal|deliverable|metric,forbid_query_echo=true",
+                            f"final_structure:min_items={item_count},required_sections=goal|deliverable|metric,forbid_query_echo=true",
                             "no_generic_plan",
                         ],
                         "io": {
@@ -776,12 +954,13 @@ class ConstraintAwarePlanner(BasePlanner):
                 ]
             }
         if family == "summary":
+            summary_shape = _extract_summary_shape(query)
             return {
                 "nodes": [
                     {
                         "id": "n1",
                         "description": "Retrieve evidence for summarization.",
-                        "inputs": {"query": query},
+                        "inputs": {"query": query, "summary_shape": summary_shape},
                         "dependencies": [],
                         "capability_tag": "retrieve",
                         "candidate_capabilities": ["retrieve", "extract"],
@@ -794,6 +973,7 @@ class ConstraintAwarePlanner(BasePlanner):
                     {
                         "id": "n2",
                         "description": "Summarize retrieved evidence.",
+                        "inputs": {"summary_shape": summary_shape},
                         "dependencies": ["n1"],
                         "capability_tag": "summarize",
                         "candidate_capabilities": ["summarize", "reason"],
@@ -806,6 +986,7 @@ class ConstraintAwarePlanner(BasePlanner):
                     {
                         "id": "final_response",
                         "description": "Return concise final summary.",
+                        "inputs": {"summary_shape": summary_shape},
                         "dependencies": ["n2"],
                         "capability_tag": "synthesize",
                         "candidate_capabilities": ["synthesize", "summarize"],
@@ -819,12 +1000,13 @@ class ConstraintAwarePlanner(BasePlanner):
             }
 
         if family == "compare":
+            compare_shape = _extract_compare_shape(query)
             return {
                 "nodes": [
                     {
                         "id": "n1",
                         "description": "Retrieve evidence for item A from user query.",
-                        "inputs": {"query": query, "side": "A"},
+                        "inputs": {"query": query, "side": "A", "compare_shape": compare_shape},
                         "dependencies": [],
                         "capability_tag": "retrieve",
                         "candidate_capabilities": ["retrieve", "extract"],
@@ -837,7 +1019,7 @@ class ConstraintAwarePlanner(BasePlanner):
                     {
                         "id": "n2",
                         "description": "Retrieve evidence for item B from user query.",
-                        "inputs": {"query": query, "side": "B"},
+                        "inputs": {"query": query, "side": "B", "compare_shape": compare_shape},
                         "dependencies": [],
                         "capability_tag": "retrieve",
                         "candidate_capabilities": ["retrieve", "extract"],
@@ -850,6 +1032,7 @@ class ConstraintAwarePlanner(BasePlanner):
                     {
                         "id": "n3",
                         "description": "Compare item A and item B using retrieved evidence.",
+                        "inputs": {"compare_shape": compare_shape},
                         "dependencies": ["n1", "n2"],
                         "capability_tag": "compare",
                         "candidate_capabilities": ["compare", "reason"],
@@ -862,6 +1045,7 @@ class ConstraintAwarePlanner(BasePlanner):
                     {
                         "id": "final_response",
                         "description": "Generate final comparison answer.",
+                        "inputs": {"compare_shape": compare_shape},
                         "dependencies": ["n3"],
                         "capability_tag": "synthesize",
                         "candidate_capabilities": ["synthesize", "compare"],
@@ -875,12 +1059,13 @@ class ConstraintAwarePlanner(BasePlanner):
             }
 
         if family == "calculate":
+            calculate_shape = _extract_calculate_shape(query)
             return {
                 "nodes": [
                     {
                         "id": "n1",
                         "description": "Extract numeric expression from query.",
-                        "inputs": {"query": query},
+                        "inputs": {"query": query, "calculate_shape": calculate_shape},
                         "dependencies": [],
                         "capability_tag": "extract",
                         "candidate_capabilities": ["extract", "reason"],
@@ -893,6 +1078,7 @@ class ConstraintAwarePlanner(BasePlanner):
                     {
                         "id": "n2",
                         "description": "Calculate numeric result from expression.",
+                        "inputs": {"calculate_shape": calculate_shape},
                         "dependencies": ["n1"],
                         "capability_tag": "calculate",
                         "candidate_capabilities": ["calculate", "reason"],
@@ -905,6 +1091,7 @@ class ConstraintAwarePlanner(BasePlanner):
                     {
                         "id": "final_response",
                         "description": "Return final calculation answer.",
+                        "inputs": {"calculate_shape": calculate_shape},
                         "dependencies": ["n2"],
                         "capability_tag": "synthesize",
                         "candidate_capabilities": ["synthesize", "calculate"],
@@ -918,12 +1105,13 @@ class ConstraintAwarePlanner(BasePlanner):
             }
 
         if family == "extract":
+            extract_shape = _extract_extract_shape(query)
             return {
                 "nodes": [
                     {
                         "id": "n1",
                         "description": "Retrieve raw content for field extraction.",
-                        "inputs": {"query": query},
+                        "inputs": {"query": query, "extract_shape": extract_shape},
                         "dependencies": [],
                         "capability_tag": "retrieve",
                         "candidate_capabilities": ["retrieve", "extract"],
@@ -936,6 +1124,7 @@ class ConstraintAwarePlanner(BasePlanner):
                     {
                         "id": "n2",
                         "description": "Extract structured fields from content.",
+                        "inputs": {"extract_shape": extract_shape},
                         "dependencies": ["n1"],
                         "capability_tag": "extract",
                         "candidate_capabilities": ["extract", "reason"],
@@ -948,6 +1137,7 @@ class ConstraintAwarePlanner(BasePlanner):
                     {
                         "id": "final_response",
                         "description": "Return extraction result as final answer.",
+                        "inputs": {"extract_shape": extract_shape},
                         "dependencies": ["n2"],
                         "capability_tag": "synthesize",
                         "candidate_capabilities": ["synthesize", "extract"],
@@ -1051,12 +1241,21 @@ class ConstraintAwarePlanner(BasePlanner):
             plan_focus = self.infer_plan_focus(context.user_query)
             if plan_focus:
                 context.metadata["plan_focus"] = plan_focus
+            context.metadata["plan_shape"] = _extract_plan_shape(context.user_query)
+            context.metadata["item_label"] = _infer_item_label(
+                context.user_query,
+                str(context.metadata.get("plan_shape", "temporal_plan")),
+            )
+            context.metadata["item_count"] = _extract_plan_item_count(context.user_query) or 3
         if context.task_family == "plan":
             normalized = self.normalize_planner_output(self._default_plan(context))
             tree = TaskTree.from_dict(normalized)
             tree.metadata["task_family"] = context.task_family
             if context.metadata.get("plan_focus"):
                 tree.metadata["plan_focus"] = context.metadata.get("plan_focus")
+            tree.metadata["plan_shape"] = context.metadata.get("plan_shape", "temporal_plan")
+            tree.metadata["item_label"] = context.metadata.get("item_label", "day")
+            tree.metadata["item_count"] = int(context.metadata.get("item_count", 3))
             self.ensure_final_node(tree)
             return self.attach_intent_specs(tree=tree, context=context)
 
@@ -1066,6 +1265,10 @@ class ConstraintAwarePlanner(BasePlanner):
             tree.metadata["task_family"] = context.task_family
             if context.metadata.get("plan_focus"):
                 tree.metadata["plan_focus"] = context.metadata.get("plan_focus")
+            if context.task_family == "plan":
+                tree.metadata["plan_shape"] = context.metadata.get("plan_shape", "temporal_plan")
+                tree.metadata["item_label"] = context.metadata.get("item_label", "day")
+                tree.metadata["item_count"] = int(context.metadata.get("item_count", 3))
             self.ensure_final_node(tree)
             return self.attach_intent_specs(tree=tree, context=context)
 
@@ -1079,13 +1282,17 @@ class ConstraintAwarePlanner(BasePlanner):
         normalized = self.normalize_planner_output(data)
         if context.task_family == "plan":
             node_ids = [str(node.get("id", "")) for node in normalized.get("nodes", [])]
-            has_day_nodes = any(re.search(r"\bday\s*[1-9]\b", node_id.lower()) for node_id in node_ids)
-            if not has_day_nodes:
+            has_item_nodes = any(re.search(r"generate_(?:item|day)\d+", node_id.lower()) for node_id in node_ids)
+            if not has_item_nodes:
                 normalized = self.normalize_planner_output(self._default_plan(context))
         tree = TaskTree.from_dict(normalized)
         tree.metadata["task_family"] = context.task_family
         if context.metadata.get("plan_focus"):
             tree.metadata["plan_focus"] = context.metadata.get("plan_focus")
+        if context.task_family == "plan":
+            tree.metadata["plan_shape"] = context.metadata.get("plan_shape", "temporal_plan")
+            tree.metadata["item_label"] = context.metadata.get("item_label", "day")
+            tree.metadata["item_count"] = int(context.metadata.get("item_count", 3))
         self.ensure_final_node(tree)
         return self.attach_intent_specs(tree=tree, context=context)
 
@@ -1110,6 +1317,7 @@ class ConstraintAwarePlanner(BasePlanner):
 
     def attach_auto_constraints(self, tree: TaskTree, task_family: str = "") -> None:
         plan_mode = task_family.strip().lower() == "plan"
+        plan_item_count = int(tree.metadata.get("item_count", 3) or 3) if plan_mode else 0
         for node in tree.nodes.values():
             existing_types = {getattr(c, "constraint_type", "") for c in node.spec.constraints}
 
@@ -1118,7 +1326,7 @@ class ConstraintAwarePlanner(BasePlanner):
                     node.spec.constraints.append(
                         FinalStructureConstraint(
                             required_sections=["goal", "deliverable", "metric"] if plan_mode else [],
-                            min_items=7 if plan_mode else 0,
+                            min_items=plan_item_count if plan_mode else 0,
                             forbid_query_echo=True,
                         )
                     )
@@ -1153,8 +1361,8 @@ class ConstraintAwarePlanner(BasePlanner):
             if node.id == "verify_coverage":
                 if "coverage_constraint" not in existing_types:
                     node.spec.constraints.append(CoverageConstraint())
-                if "all_days_present" not in existing_types:
-                    node.spec.constraints.append(AllDaysPresentConstraint())
+                if "all_items_present" not in existing_types:
+                    node.spec.constraints.append(AllItemsPresentConstraint(min_items=plan_item_count or 1))
                 if "plan_topic_coverage" not in existing_types:
                     node.spec.constraints.append(PlanTopicCoverageConstraint())
                 if "no_generic_plan" not in existing_types:
@@ -1181,7 +1389,7 @@ class ConstraintAwarePlanner(BasePlanner):
                     if "no_generic_plan" not in existing_types:
                         node.spec.constraints.append(NoGenericPlanConstraint())
 
-            if plan_mode and node.id.startswith("generate_day"):
+            if plan_mode and (node.id.startswith("generate_item") or node.id.startswith("generate_day")):
                 if "intent_alignment" not in existing_types:
                     node.spec.constraints.append(IntentAlignmentConstraint(target_goal=node.spec.description))
                 if "no_template_placeholder" not in existing_types:
@@ -1244,10 +1452,12 @@ class ConstraintAwarePlanner(BasePlanner):
                 if node.dependencies and "requires_evidence_bearing_upstream" not in intent.required_upstream_intents:
                     intent.required_upstream_intents.append("requires_evidence_bearing_upstream")
 
-            # plan family expects day-by-day coverage.
+            # plan family expects item-by-item coverage.
             if task_family == "plan" and (node.is_final_response() or "plan" in intent.goal.lower()):
-                for day in range(1, 8):
-                    criterion = f"cover_day_{day}"
+                item_count = int(tree.metadata.get("item_count", 3) or 3)
+                item_label = str(tree.metadata.get("item_label", "item") or "item")
+                for idx in range(1, item_count + 1):
+                    criterion = f"cover_{item_label}_{idx}"
                     if criterion not in intent.child_completion_criteria:
                         intent.child_completion_criteria.append(criterion)
                 for section in ["goal", "deliverable", "metric"]:
@@ -1316,17 +1526,18 @@ class ConstraintAwarePlanner(BasePlanner):
             output_semantics["result"] = "numeric calculation result"
         if task_type == "verification":
             success_conditions.extend(["coverage_verified"])
-            output_semantics["coverage_ok"] = "whether all day entries satisfy constraints"
-            output_semantics["missing_days"] = "list of missing day indexes"
+            output_semantics["coverage_ok"] = "whether all item entries satisfy constraints"
+            output_semantics["missing_items"] = "list of missing item indexes"
             output_semantics["missing_fields"] = "list of missing required fields"
             output_semantics["semantic_gaps"] = "semantic quality gaps"
             output_semantics["grounded_nodes"] = "nodes used for verification"
-        if task_type == "aggregation" and "day" in text:
-            success_conditions.extend(["day_plan_generated"])
-            output_semantics["day"] = "day index"
-            output_semantics["goal"] = "day objective"
-            output_semantics["deliverable"] = "day deliverable"
-            output_semantics["metric"] = "day metric"
+        if task_type == "aggregation" and ("item" in text or "day" in text or "phase" in text or "step" in text):
+            success_conditions.extend(["item_plan_generated"])
+            output_semantics["item_index"] = "item index"
+            output_semantics["item_label"] = "item label"
+            output_semantics["goal"] = "item objective"
+            output_semantics["deliverable"] = "item deliverable"
+            output_semantics["metric"] = "item metric"
         if task_type == "final_response":
             success_conditions.extend(["final_response_generated"])
             output_semantics["answer"] = "final user-facing answer"
@@ -1390,8 +1601,11 @@ class ConstraintAwarePlanner(BasePlanner):
 
         task_family = (context.task_family or str(tree.metadata.get("task_family", ""))).strip().lower()
         topo_order = tree.topo_sort()
-        day_ids = [node_id for node_id in topo_order if node_id.startswith("generate_day")]
-        plan_tail_ids = [*day_ids, "verify_coverage", "final_response"]
+        item_ids = [
+            node_id for node_id in topo_order
+            if node_id.startswith("generate_item") or node_id.startswith("generate_day")
+        ]
+        plan_tail_ids = [*item_ids, "verify_coverage", "final_response"]
         plan_full_ids = ["analyze_requirements", "design_plan_schema", *plan_tail_ids]
         plan_schema_ids = ["design_plan_schema", *plan_tail_ids]
 
@@ -1408,7 +1622,8 @@ class ConstraintAwarePlanner(BasePlanner):
             }:
                 target_ids = plan_schema_ids
             elif (
-                failed_node_id.startswith("generate_day")
+                failed_node_id.startswith("generate_item")
+                or failed_node_id.startswith("generate_day")
                 or failed_node_id in {"verify_coverage", "final_response"}
                 or failure_type in {
                     "generic_deliverable",

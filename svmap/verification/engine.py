@@ -57,7 +57,7 @@ class VerifierEngine:
             route_names = ["RequirementsAnalysisVerifier", "IntentVerifier", "SchemaVerifier", "RuleVerifier"]
         elif node_id == "design_plan_schema":
             route_names = ["PlanSchemaVerifier", "IntentVerifier", "SchemaVerifier", "RuleVerifier"]
-        elif node_id.startswith("generate_day"):
+        elif node_id.startswith("generate_item") or node_id.startswith("generate_day"):
             route_names = [
                 "NoPlaceholderVerifier",
                 "LowInformationOutputVerifier",
@@ -123,7 +123,13 @@ class VerifierEngine:
             return "plan_coverage_incomplete"
         if "requirements" in code:
             return "requirements_analysis_failed"
-        if "schema_day_template" in code or "schema_progression" in code or "schema_topic" in code:
+        if (
+            "schema_day_template" in code
+            or "schema_item_template" in code
+            or "schema_progression" in code
+            or "schema_topic" in code
+            or "schema_item_allocation" in code
+        ):
             return "schema_design_failed"
         if "low_information_output" in code or "placeholder" in code:
             return "low_information_output"

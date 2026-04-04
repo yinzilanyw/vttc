@@ -155,7 +155,7 @@ class ConstraintAwareReplanner(BaseReplanner):
             {
                 "description": "Refine plan schema to improve deliverable specificity and repository binding.",
                 "expected_outputs": [
-                    "topic_allocation",
+                    "item_allocation",
                     "quality_criteria",
                     "deliverable_template",
                     "metric_template",
@@ -364,10 +364,10 @@ class ConstraintAwareReplanner(BaseReplanner):
             )
         if failure_type in {"schema_design_failed", "schema_semantics_weak"}:
             return ReplanDecision(
-                action="patch_subgraph",
+                action="replan_subtree",
                 target_node_id=node.id,
-                patch=build_schema_patch(node.id),
-                reason=failure_type,
+                patch=build_decomposition_patch(node.id),
+                reason=f"{failure_type}_requires_rebuild",
                 failure_type=failure.failure_type,
             )
         if failure_type in {"generic_deliverable"}:
@@ -701,6 +701,10 @@ class ConstraintAwareReplanner(BaseReplanner):
         family = str(tree.metadata.get("task_family", "")).strip().lower()
         if family == "plan":
             lowered = (failure_type or "").strip().lower()
+            item_node_ids = [
+                node_id for node_id in tree.nodes.keys()
+                if node_id.startswith("generate_item") or node_id.startswith("generate_day")
+            ]
             if node.id in {"analyze_requirements", "design_plan_schema"} or lowered in {
                 "requirements_analysis_failed",
                 "schema_design_failed",
@@ -711,14 +715,15 @@ class ConstraintAwareReplanner(BaseReplanner):
                     node_ids=[
                         "analyze_requirements",
                         "design_plan_schema",
-                        *[f"generate_day{i}" for i in range(1, 8)],
+                        *item_node_ids,
                         "verify_coverage",
                         "final_response",
                     ],
                 )
                 return
             if (
-                node.id.startswith("generate_day")
+                node.id.startswith("generate_item")
+                or node.id.startswith("generate_day")
                 or node.id in {"verify_coverage", "final_response"}
                 or lowered in {
                     "plan_topic_drift",
@@ -735,7 +740,7 @@ class ConstraintAwareReplanner(BaseReplanner):
                     tree=tree,
                     context=context,
                     node_ids=[
-                        *[f"generate_day{i}" for i in range(1, 8)],
+                        *item_node_ids,
                         "verify_coverage",
                         "final_response",
                     ],
