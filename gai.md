@@ -14,6 +14,81 @@ Assigner 改进
 增加 progression_alignment_metric、DAG versioning & patch tracking，都是前面提到要增强 trace 和 semantic 反馈的落地措施。
 
 改进建议及步骤：
+1. Planner 改进
+a. 增强 TaskIntentSpec
+引入 TaskIntentSpec，替代单一 task_family，输出：
+primary_intent: plan / compare / summarize 等
+operators: ['requirements_analysis', 'schema_design', 'generate_item', 'verify_coverage']
+shape: temporal / phase / step / milestone
+item_count 与 item_label
+topics、must_cover_topics、quality_targets
+目的：即便 query 很复杂，也能为 planner 提供更丰富的信号，而不是单一 family 标签。
+b. 动态生成 DAG
+取消 _default_plan() 的固定模板
+改为 block composition：
+每个 block 对应原子任务节点：requirements_analysis_block、schema_block、item_generation_block、coverage_block、final_block
+根据 TaskIntentSpec 选择 block、重复次数、顺序
+目的：避免因 family 限制导致 item_count 或 progression 不匹配 query
+c. shape 驱动 item 分配
+Plan shape 对应不同生成策略：
+temporal_plan → 按天生成 items
+phase_plan → 按阶段分配任务
+step_plan → 按步骤拆解
+自动生成多天 item，解决运行中 Item count = 1 的问题
+2. Verifier 改进
+a. role-driven routing
+不再只对 plan family 做节点特判
+节点类型/role 决定 verifier：
+requirements_analysis → RequirementsAnalysisVerifier
+schema_design → PlanSchemaVerifier + semantic alignment checks
+generate_item → NoPlaceholderVerifier, GenericOutputVerifier, SchemaVerifier
+verify_coverage / final_response → coverage & grounding verifiers
+目的：泛化到非 plan family 也能支持 verifier 路由
+b. semantic alignment 增强
+在 schema_verifier 中加入：
+query topic coverage check
+progression coherence check
+目的：减少 schema_design_failed 和 semantic gap
+3. Replanner 改进
+a. failure-scope-driven
+以 failure type 为核心，而非 family：
+schema_design_failed → 重置 schema_block + item_generation_block
+plan_topic_drift → patch item generation
+low_information_output → inject constraints
+目的：减少重复 10 次重规划失败
+b. 引入 feedback loops
+refine_plan() 接入 schema verifier 输出
+schema 验证不通过 → 自动更新 TaskIntentSpec topics / quality_targets
+目的：让 planner 能学到上一次失败信息，减少 blind retry
+4. Assigner 改进
+基于 node_role + operators + intent_tags 分配 agent
+Plan family 不再硬编码：
+例如 generate_item 可以根据 item_count 动态分配不同 synthesis agent
+目的：避免 agent 分配死板导致执行不一致
+5. 其他建议
+增加 progression_alignment_metric：
+自动衡量 schema progression 是否覆盖 must_cover_topics
+用作 verifier 输出和 replanner 指标
+增加 DAG versioning + patch tracking：
+当前 trace 显示 11 次 plan version，但没有复盘每次失败原因
+可帮助调试和评估改进效果
+三、实施步骤（优先级顺序）
+步骤	目标	说明
+1	引入 TaskIntentSpec	替代单一 task_family
+2	Planner block 化	每个 block 独立生成 node 集，组合成 DAG
+3	shape 驱动 item 生成	temporal/phase/step 等 shape 决定 item_count 与 item_label
+4	Verifier role 路由	根据 node_role / contract 路由，增强 semantic/structure alignment
+5	Failure-scope replanner	根据 failure type 自动选择重规划范围，减少 blind retry
+6	Assigner role-driven	根据 node_role + operators 分配 agent
+7	Progression alignment metric	用于 verifier 和 replanner feedback loop
+8	DAG versioning & patch tracking	帮助 trace 调试和分析每次计划失败原因
+9	测试与回归	先在 plan family 测试 3 天计划 case，再推广到 summary/compare/extract/calculation
+四、预期效果
+Item count 与 query 期望一致，schema progression 更贴合 topics
+Verification 失败减少，schema_design_failed 几率下降
+Replan 次数降低，repair action 成功率提升
+Plan family 更加泛化，可支持复合意图、动态 shape
+全系统 DAG 生成、agent assigner 和 verifier 路由可复用到非 plan family
 
 1. **TaskIntentSpec 模板**
 2. **Planner block 伪代码**
