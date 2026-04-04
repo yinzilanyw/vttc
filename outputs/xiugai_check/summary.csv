@@ -1,2 +1,0 @@
-total_examples,task_success_rate,structure_success_rate,semantic_success_rate,verification_failure_rate,repair_trigger_rate,repair_success_rate,generic_output_rate,topic_drift_rate,deliverable_specificity_rate,metric_measurability_rate,repo_binding_rate
-1,0.0,0.0,0.0,1.0,1.0,0.0,1.0,0.0,0.0,0.0,0.0
