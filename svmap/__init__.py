@@ -1,6 +1,3 @@
-from .app import main
-
-
 def run_single_from_env(*args, **kwargs):
     from .run_single import run_single_from_env as _impl
 
@@ -12,4 +9,4 @@ def run_batch_from_env(*args, **kwargs):
 
     return _impl(*args, **kwargs)
 
-__all__ = ["main", "run_single_from_env", "run_batch_from_env"]
+__all__ = ["run_single_from_env", "run_batch_from_env"]
