@@ -1,0 +1,667 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775370507.0465574,
+    "payload": {
+      "node_count": 3,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370507.0465574,
+    "payload": {
+      "node_id": "retrieve_context"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370511.9072485,
+    "payload": {
+      "node_id": "retrieve_context",
+      "status": "success",
+      "attempts": 2,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370511.9072485,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370513.1347427,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "company_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370513.1358664,
+    "payload": {
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "reason": "escalate_to_subtree:intent_misalignment",
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370513.1358664,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370513.1358664,
+    "payload": {
+      "node_id": "generate_item1",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "empty_fields:Fields are empty: ['extracted']",
+        "empty_extraction:Extraction result is empty.",
+        "intent_extract_empty:Extract task produced empty extracted content."
+      ],
+      "repair_hint": "patch_subgraph",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370513.135948,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370514.2163055,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "company_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370514.2163055,
+    "payload": {
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "reason": "escalate_to_subtree:intent_misalignment",
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370514.2163055,
+    "payload": {
+      "before_version": 2,
+      "after_version": 3,
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370514.2163055,
+    "payload": {
+      "node_id": "generate_item1",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "empty_fields:Fields are empty: ['extracted']",
+        "empty_extraction:Extraction result is empty.",
+        "intent_extract_empty:Extract task produced empty extracted content."
+      ],
+      "repair_hint": "patch_subgraph",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370514.2163055,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370515.3199606,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "company_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370515.3206642,
+    "payload": {
+      "node_id": "generate_item1",
+      "action": "replan_global",
+      "reason": "escalate_to_global:intent_misalignment",
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "patch_template": ""
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370515.3206642,
+    "payload": {
+      "before_version": 3,
+      "after_version": 4,
+      "node_id": "generate_item1",
+      "action": "replan_global",
+      "saved_downstream_nodes": 1,
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "replan_action": "replan_global",
+      "patch_template": "",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370515.3206642,
+    "payload": {
+      "node_id": "generate_item1",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "empty_fields:Fields are empty: ['extracted']",
+        "empty_extraction:Extraction result is empty.",
+        "intent_extract_empty:Extract task produced empty extracted content."
+      ],
+      "repair_hint": "patch_subgraph",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_global",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370515.3206642,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370516.39856,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "company_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370516.39856,
+    "payload": {
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "reason": "escalate_to_subtree:intent_misalignment",
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370516.39856,
+    "payload": {
+      "before_version": 4,
+      "after_version": 5,
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370516.39856,
+    "payload": {
+      "node_id": "generate_item1",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "empty_fields:Fields are empty: ['extracted']",
+        "empty_extraction:Extraction result is empty.",
+        "intent_extract_empty:Extract task produced empty extracted content."
+      ],
+      "repair_hint": "patch_subgraph",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370516.39856,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370518.0140903,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "company_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370518.0140903,
+    "payload": {
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "reason": "escalate_to_subtree:intent_misalignment",
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370518.0140903,
+    "payload": {
+      "before_version": 5,
+      "after_version": 6,
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370518.0140903,
+    "payload": {
+      "node_id": "generate_item1",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "empty_fields:Fields are empty: ['extracted']",
+        "empty_extraction:Extraction result is empty.",
+        "intent_extract_empty:Extract task produced empty extracted content."
+      ],
+      "repair_hint": "patch_subgraph",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370518.0140903,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370519.2035375,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "company_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370519.2044787,
+    "payload": {
+      "node_id": "generate_item1",
+      "action": "replan_global",
+      "reason": "escalate_to_global:intent_misalignment",
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "patch_template": ""
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370519.2044787,
+    "payload": {
+      "before_version": 6,
+      "after_version": 7,
+      "node_id": "generate_item1",
+      "action": "replan_global",
+      "saved_downstream_nodes": 1,
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "replan_action": "replan_global",
+      "patch_template": "",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370519.2044787,
+    "payload": {
+      "node_id": "generate_item1",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "empty_fields:Fields are empty: ['extracted']",
+        "empty_extraction:Extraction result is empty.",
+        "intent_extract_empty:Extract task produced empty extracted content."
+      ],
+      "repair_hint": "patch_subgraph",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_global",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370519.2049873,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370520.3419738,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "company_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370520.3419738,
+    "payload": {
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "reason": "escalate_to_subtree:intent_misalignment",
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370520.3419738,
+    "payload": {
+      "before_version": 7,
+      "after_version": 8,
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370520.3419738,
+    "payload": {
+      "node_id": "generate_item1",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "empty_fields:Fields are empty: ['extracted']",
+        "empty_extraction:Extraction result is empty.",
+        "intent_extract_empty:Extract task produced empty extracted content."
+      ],
+      "repair_hint": "patch_subgraph",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370520.3419738,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370521.6115706,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "company_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370521.6115706,
+    "payload": {
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "reason": "escalate_to_subtree:intent_misalignment",
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370521.6115706,
+    "payload": {
+      "before_version": 8,
+      "after_version": 9,
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370521.6115706,
+    "payload": {
+      "node_id": "generate_item1",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "empty_fields:Fields are empty: ['extracted']",
+        "empty_extraction:Extraction result is empty.",
+        "intent_extract_empty:Extract task produced empty extracted content."
+      ],
+      "repair_hint": "patch_subgraph",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370521.6115706,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370522.9552577,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "company_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370522.9584656,
+    "payload": {
+      "node_id": "generate_item1",
+      "action": "replan_global",
+      "reason": "escalate_to_global:intent_misalignment",
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "patch_template": ""
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370522.9584656,
+    "payload": {
+      "before_version": 9,
+      "after_version": 10,
+      "node_id": "generate_item1",
+      "action": "replan_global",
+      "saved_downstream_nodes": 1,
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "replan_action": "replan_global",
+      "patch_template": "",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370522.9584656,
+    "payload": {
+      "node_id": "generate_item1",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "empty_fields:Fields are empty: ['extracted']",
+        "empty_extraction:Extraction result is empty.",
+        "intent_extract_empty:Extract task produced empty extracted content."
+      ],
+      "repair_hint": "patch_subgraph",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_global",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370522.9584656,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370524.3264894,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "company_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370524.3264894,
+    "payload": {
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "reason": "escalate_to_subtree:intent_misalignment",
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370524.3264894,
+    "payload": {
+      "before_version": 10,
+      "after_version": 11,
+      "node_id": "generate_item1",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "intent_misalignment",
+      "repair_hint": "patch_subgraph",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v10->v11"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370524.3275454,
+    "payload": {
+      "node_id": "generate_item1",
+      "failure_type": "intent_misalignment",
+      "reasons": [
+        "empty_fields:Fields are empty: ['extracted']",
+        "empty_extraction:Extraction result is empty.",
+        "intent_extract_empty:Extract task produced empty extracted content."
+      ],
+      "repair_hint": "patch_subgraph",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v10->v11"
+    }
+  }
+]

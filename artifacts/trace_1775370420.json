@@ -1,0 +1,1504 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775370340.1082845,
+    "payload": {
+      "node_count": 7,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370340.1082845,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370342.8482015,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370342.8482015,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370343.3567777,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370343.3567777,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370344.9155684,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370344.9155684,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370345.3143225,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370345.3143225,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370348.3180788,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370348.3181627,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370348.8325071,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370348.8325071,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370350.1802628,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370350.1802628,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370350.1802628,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370350.1802628,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370350.1802628,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370350.1802628,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370351.7414453,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370351.7414453,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370353.4367554,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370353.4367554,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370356.6662893,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370356.6668708,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370357.149299,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370357.149299,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370358.8115764,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370358.8126984,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370358.8126984,
+    "payload": {
+      "before_version": 2,
+      "after_version": 3,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370358.8126984,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370358.8126984,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370358.8126984,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370360.3492992,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370360.3494365,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370369.4313898,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370369.4313898,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370369.8094664,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370369.8094664,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370370.2787874,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370370.2787874,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370371.6186051,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370371.6186051,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370371.6196325,
+    "payload": {
+      "before_version": 3,
+      "after_version": 4,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370371.619668,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370371.619668,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370371.619668,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370375.5251145,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370375.5251145,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370375.8866248,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370375.8866248,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370378.4582305,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370378.4582305,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370379.1970642,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370379.1970642,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370381.026646,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370381.02821,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370381.02821,
+    "payload": {
+      "before_version": 4,
+      "after_version": 5,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370381.02821,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370381.0282545,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370381.0282545,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370382.6701841,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370382.6701841,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370383.0570767,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370383.0570767,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370386.2001362,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370386.2001693,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370386.6446984,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370386.6446984,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370388.4781392,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370388.4781392,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370388.4781392,
+    "payload": {
+      "before_version": 5,
+      "after_version": 6,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370388.4781392,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370388.4781392,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370388.4781392,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370390.050516,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370390.050516,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370390.4597595,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370390.4597595,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370393.0545187,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370393.0545187,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370393.511945,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370393.512101,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370394.8882878,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370394.8893845,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370394.8893845,
+    "payload": {
+      "before_version": 6,
+      "after_version": 7,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370394.8893845,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370394.8893845,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370394.8893845,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370396.611907,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370396.611907,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370399.1635706,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370399.1635706,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370399.5428712,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370399.542906,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370399.9987962,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370399.9987962,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370401.290486,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370401.290486,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370401.290486,
+    "payload": {
+      "before_version": 7,
+      "after_version": 8,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370401.290486,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370401.290486,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370401.290486,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370403.1532328,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370403.1532328,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370403.532345,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370403.532345,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370403.8718548,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370403.8718548,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370404.32859,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370404.32859,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370405.7069812,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370405.7069812,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370405.7069812,
+    "payload": {
+      "before_version": 8,
+      "after_version": 9,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370405.7069812,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370405.7069812,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370405.7069812,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370408.1839135,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370408.1839135,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370408.669129,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370408.669129,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370411.5050838,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370411.5050838,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370412.1191242,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370412.1191242,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370414.0673862,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370414.068557,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370414.068557,
+    "payload": {
+      "before_version": 9,
+      "after_version": 10,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370414.068557,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370414.068557,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370414.068557,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370415.6441636,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370415.6441636,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370416.0272994,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370416.0272994,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370418.7377388,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370418.7377388,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370419.3064167,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370419.3064167,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370420.6527333,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370420.6534698,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370420.6534698,
+    "payload": {
+      "before_version": 10,
+      "after_version": 11,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v10->v11"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370420.6534698,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v10->v11"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370420.6534698,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "generic_plan_repetition:Plan item entries are overly repetitive and template-like.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v10->v11"
+    }
+  }
+]

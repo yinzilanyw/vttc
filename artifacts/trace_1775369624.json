@@ -1,0 +1,1444 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775369504.2731884,
+    "payload": {
+      "node_count": 7,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369504.2731884,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369506.7458017,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369506.7458017,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369507.3445644,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369507.3445644,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369509.2259219,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369509.2259219,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369509.5726278,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369509.5726278,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369511.6419442,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369511.6419442,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369517.100079,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775369517.1001303,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775369517.1001303,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775369517.1001303,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775369517.1001303,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369517.1001303,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369521.0518203,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369521.0518203,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369523.2385554,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369523.2385554,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369523.661358,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369523.661358,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369528.0466244,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775369528.0466244,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775369528.0466244,
+    "payload": {
+      "before_version": 2,
+      "after_version": 3,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775369528.0466244,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775369528.0466244,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369528.0466244,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369528.5088418,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369528.5088418,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369530.9430022,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369530.9430022,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369533.5615907,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369533.5615907,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369539.305931,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775369539.305931,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775369539.305931,
+    "payload": {
+      "before_version": 3,
+      "after_version": 4,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775369539.305931,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775369539.305931,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369539.305931,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369539.7665691,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369539.7665691,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369542.114183,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369542.114183,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369543.87892,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369543.87892,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369548.119135,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775369548.1202462,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775369548.1202462,
+    "payload": {
+      "before_version": 4,
+      "after_version": 5,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775369548.1202462,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775369548.1203103,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369548.1203341,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369552.7784233,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369552.7784233,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369555.354026,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369555.354026,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369555.7247703,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369555.7247703,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369561.1182327,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775369561.1187558,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775369561.1187558,
+    "payload": {
+      "before_version": 5,
+      "after_version": 6,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775369561.1187558,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775369561.1187558,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369561.1187558,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369565.7185144,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369565.7185144,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369566.4727802,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369566.4727802,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369566.8343382,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369566.8343382,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369571.5003433,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775369571.50094,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775369571.50094,
+    "payload": {
+      "before_version": 6,
+      "after_version": 7,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775369571.50094,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775369571.50094,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369571.50094,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369576.2707355,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369576.2707355,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369578.8339887,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369578.8339887,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369587.8127942,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369587.8127942,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369594.7855163,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775369594.7855163,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775369594.7855163,
+    "payload": {
+      "before_version": 7,
+      "after_version": 8,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775369594.7855163,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775369594.7855163,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369594.7855163,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369600.137546,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369600.137546,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369600.4650218,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369600.4650218,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369603.067537,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369603.067537,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369610.6486506,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775369610.6486506,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775369610.6486506,
+    "payload": {
+      "before_version": 8,
+      "after_version": 9,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775369610.6486506,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775369610.6486506,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369610.6486506,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369612.7046273,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369612.7046273,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369613.1148121,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369613.1148121,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369613.4641352,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369613.4641352,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369617.9028654,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775369617.903459,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775369617.903459,
+    "payload": {
+      "before_version": 9,
+      "after_version": 10,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775369617.903459,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775369617.903459,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369617.903459,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369618.3272367,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369618.3272367,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369618.6690392,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369618.6690392,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369619.0580227,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775369619.0580227,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775369624.2731655,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775369624.274269,
+    "payload": {
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "reason": "repo_binding_weak",
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775369624.274269,
+    "payload": {
+      "before_version": 10,
+      "after_version": 11,
+      "node_id": "verify_coverage",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 1,
+      "failure_type": "repo_binding_weak",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v10->v11"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775369624.274269,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node",
+        "subtree"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v10->v11"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775369624.274269,
+    "payload": {
+      "node_id": "verify_coverage",
+      "failure_type": "repo_binding_weak",
+      "reasons": [
+        "coverage_not_ok:Coverage verification reported coverage_ok=False.",
+        "plan_topic_drift:Semantic topic gaps detected: ['item1:missing_repo_reference']",
+        "plan_coverage_incomplete:missing_items=[], missing_fields=[]",
+        "plan_coverage_semantic_gaps:['item1:missing_repo_reference']",
+        "repo_binding_weak_score:repo_binding_score is too low: 0.6666666666666666",
+        "repo_binding_weak:repo_binding_score=0.6666666666666666 is below threshold.",
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v10->v11"
+    }
+  }
+]

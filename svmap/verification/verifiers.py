@@ -52,10 +52,20 @@ def _is_plan_query(query: str) -> bool:
 def _detect_plan_item_count(text: str) -> Optional[int]:
     normalized = _normalize_text(text)
     patterns = [
+        # 优先匹配天数
+        r"(\d+)\s*天",
+        r"(\d+)\s*days",
+        # 然后匹配其他类型
+        r"(\d+)\s*个\s*模块",
+        r"(\d+)\s*个\s*任务",
+        r"(\d+)\s*个\s*阶段",
+        r"(\d+)\s*个\s*步骤",
+        r"(\d+)\s*个\s*里程碑",
+        r"(\d+)\s*个\s*目标",
+        # 最后匹配 Day X
+        r"day\s*(\d+)\s*to\s*day\s*(\d+)",
         r"\b(\d+)\s*[- ]?day\b",
         r"\bday\s*(\d+)\b",
-        r"\b(\d+)\s*days\b",
-        r"\b(\d+)\s*天\b",
         r"\b(\d+)\s*[- ]?phase\b",
         r"\b(\d+)\s*阶段\b",
         r"\b(\d+)\s*[- ]?step\b",
@@ -63,17 +73,31 @@ def _detect_plan_item_count(text: str) -> Optional[int]:
         r"\b(\d+)\s*[- ]?milestone\b",
         r"\b(\d+)\s*里程碑\b",
     ]
+    max_count = None
     for pattern in patterns:
-        match = re.search(pattern, normalized)
-        if not match:
-            continue
-        try:
-            value = int(match.group(1))
-        except ValueError:
-            continue
-        if value > 0:
-            return value
-    return None
+        matches = re.findall(pattern, normalized)
+        for match in matches:
+            # 处理捕获组
+            if isinstance(match, tuple):
+                # 对于 day 1 to day 3 这样的模式
+                if len(match) == 2:
+                    try:
+                        start = int(match[0])
+                        end = int(match[1])
+                        if end > start:
+                            if max_count is None or end > max_count:
+                                max_count = end
+                    except ValueError:
+                        pass
+            else:
+                try:
+                    value = int(match)
+                    if value > 0:
+                        if max_count is None or value > max_count:
+                            max_count = value
+                except ValueError:
+                    continue
+    return max_count
 
 
 def _count_rendered_items(text: str, item_label: str) -> int:

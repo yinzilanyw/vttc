@@ -1,0 +1,1524 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775370112.6556077,
+    "payload": {
+      "node_count": 7,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370112.6556077,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370115.1082702,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370115.1082702,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370115.5378478,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370115.5378478,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370117.5538557,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370117.5538557,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370117.9140186,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370117.9141734,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370119.4968417,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370119.4968417,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370119.9708245,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370119.9708245,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370121.4919274,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370121.4920743,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370121.4920743,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370121.4920743,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370121.4920743,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370121.4920743,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370123.0180511,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370123.0180511,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370123.395626,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370123.395626,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370123.8018706,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370123.8018706,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370124.3658714,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370124.3658714,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370125.885086,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370125.8856373,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370125.8856373,
+    "payload": {
+      "before_version": 2,
+      "after_version": 3,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370125.8856373,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370125.8856373,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370125.8856373,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370127.442057,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370127.442057,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370127.8655858,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370127.8655858,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370129.342052,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370129.343151,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370129.805193,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370129.805193,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370131.3136854,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370131.31428,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370131.31428,
+    "payload": {
+      "before_version": 3,
+      "after_version": 4,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370131.31428,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370131.31428,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370131.31428,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370133.0569274,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370133.0569274,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370135.5380194,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370135.5380194,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370138.280944,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370138.280944,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370138.810615,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370138.810615,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370140.2821822,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370140.2832215,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370140.2832215,
+    "payload": {
+      "before_version": 4,
+      "after_version": 5,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370140.2832215,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370140.2832215,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370140.2832215,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370142.0130928,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370142.0130928,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370142.493567,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370142.493567,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370145.520745,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370145.520745,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370146.1670597,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370146.1670597,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370147.8673935,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370147.8673935,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370147.8673935,
+    "payload": {
+      "before_version": 5,
+      "after_version": 6,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370147.8673935,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370147.8673935,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370147.8673935,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370151.4224892,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370151.4224892,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370155.157288,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370155.157288,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370157.8919299,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370157.8920715,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370158.379872,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370158.379872,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370160.3000307,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370160.3000307,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370160.3000307,
+    "payload": {
+      "before_version": 6,
+      "after_version": 7,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370160.3000307,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370160.3000307,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370160.3000307,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370162.1067321,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370162.1067321,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370162.7490199,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370162.7490199,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370165.6364596,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370165.6364596,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370166.086114,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370166.086114,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370167.6243477,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370167.6254585,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370167.6254585,
+    "payload": {
+      "before_version": 7,
+      "after_version": 8,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370167.6254585,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370167.6254585,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370167.6254585,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370169.397512,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370169.397512,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370169.7550917,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370169.7550917,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370170.1417973,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370170.1417973,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370170.5747337,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370170.5747337,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370172.3267128,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370172.3267128,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370172.3267128,
+    "payload": {
+      "before_version": 8,
+      "after_version": 9,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370172.3267128,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370172.3267128,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370172.3267128,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370174.2671325,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370174.2671325,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370174.6296341,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370174.6296341,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370175.015173,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370175.0162373,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370175.459972,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370175.459972,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370177.10478,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370177.1058185,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370177.1058185,
+    "payload": {
+      "before_version": 9,
+      "after_version": 10,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370177.1058185,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370177.1058185,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370177.1058185,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370179.015022,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370179.015022,
+    "payload": {
+      "node_id": "generate_item2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370181.5898116,
+    "payload": {
+      "node_id": "generate_item2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370181.5898116,
+    "payload": {
+      "node_id": "generate_item3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370182.989725,
+    "payload": {
+      "node_id": "generate_item3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370182.989725,
+    "payload": {
+      "node_id": "verify_coverage"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370183.499788,
+    "payload": {
+      "node_id": "verify_coverage",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370183.499788,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370185.5114956,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775370185.5125823,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775370185.5125823,
+    "payload": {
+      "before_version": 10,
+      "after_version": 11,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v10->v11"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775370185.5125823,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v10->v11"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775370185.5125823,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_missing_structure:Final answer misses required sections: ['goal', 'deliverable', 'metric']",
+        "final_answer_missing_structure:Final plan answer must contain 3 day-structured items with goal/deliverable/metric.",
+        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+      ],
+      "repair_hint": "build_final_response_patch",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v10->v11"
+    }
+  }
+]

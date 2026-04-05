@@ -1,0 +1,61 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775370687.3297439,
+    "payload": {
+      "node_count": 3,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370687.3297439,
+    "payload": {
+      "node_id": "retrieve_context"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370693.0559103,
+    "payload": {
+      "node_id": "retrieve_context",
+      "status": "success",
+      "attempts": 2,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370693.0559466,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370693.782692,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "extract_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775370693.782692,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775370694.1375458,
+    "payload": {
+      "node_id": "final_response",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  }
+]
