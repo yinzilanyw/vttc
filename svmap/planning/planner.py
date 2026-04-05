@@ -575,14 +575,7 @@ class ConstraintAwarePlanner(BasePlanner):
             "3) Final node must depend on all sink nodes.\n"
         )
 
-    def infer_task_family_with_model(self, user_query: str) -> str:
-        """使用模型分析任务类型"""
-        # 直接使用基于规则的推断，因为当前的 llm_planner 是为生成任务 DAG 设计的，不适合用于任务类型分析
-        # 未来可以添加专门的任务类型分析模型
-        return self.infer_task_family_with_rules(user_query)
-    
-    def infer_task_family_with_rules(self, user_query: str) -> str:
-        """基于规则的任务类型推断"""
+    def infer_task_family(self, user_query: str) -> str:
         text = user_query.lower().strip()
         
         # 计划任务特殊处理 - 优先识别
@@ -680,10 +673,6 @@ class ConstraintAwarePlanner(BasePlanner):
             return "structured_generation"
         
         return "qa"
-    
-    def infer_task_family(self, user_query: str) -> str:
-        """推断任务类型，优先使用基于规则的分析"""
-        return self.infer_task_family_with_rules(user_query)
 
     def infer_plan_focus(self, user_query: str) -> str:
         text = user_query.lower().strip()
