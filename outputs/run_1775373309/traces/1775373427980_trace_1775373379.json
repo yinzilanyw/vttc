@@ -1,56 +1,73 @@
 [
   {
     "event_type": "plan_generated",
-    "timestamp": 1775370687.3297439,
+    "timestamp": 1775373374.0719552,
     "payload": {
-      "node_count": 3,
+      "node_count": 4,
       "version": 1
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775370687.3297439,
+    "timestamp": 1775373374.0720217,
     "payload": {
       "node_id": "retrieve_context"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775370693.0559103,
+    "timestamp": 1775373378.6511426,
     "payload": {
       "node_id": "retrieve_context",
       "status": "success",
-      "attempts": 2,
+      "attempts": 1,
       "agent": "retrieve_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775370693.0559466,
+    "timestamp": 1775373378.6511912,
     "payload": {
       "node_id": "generate_item1"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775370693.782692,
+    "timestamp": 1775373378.9825773,
     "payload": {
       "node_id": "generate_item1",
       "status": "success",
       "attempts": 1,
-      "agent": "extract_agent"
+      "agent": "summarize_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775370693.782692,
+    "timestamp": 1775373378.9825773,
+    "payload": {
+      "node_id": "verify_output"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775373379.3891714,
+    "payload": {
+      "node_id": "verify_output",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775373379.3891714,
     "payload": {
       "node_id": "final_response"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775370694.1375458,
+    "timestamp": 1775373379.7509325,
     "payload": {
       "node_id": "final_response",
       "status": "success",

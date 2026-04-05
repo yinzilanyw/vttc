@@ -1,0 +1,1098 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775372376.5380695,
+    "payload": {
+      "node_count": 5,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372376.5380695,
+    "payload": {
+      "node_id": "retrieve_left"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372385.7701852,
+    "payload": {
+      "node_id": "retrieve_left",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "search_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372385.7701852,
+    "payload": {
+      "node_id": "retrieve_right"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372393.7964182,
+    "payload": {
+      "node_id": "retrieve_right",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "search_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775372393.7998006,
+    "payload": {
+      "node_id": "retrieve_left",
+      "action": "patch_subgraph",
+      "reason": "factuality-related failure",
+      "failure_type": "semantic",
+      "repair_hint": "",
+      "patch_template": "evidence_retrieval"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775372393.7998006,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "retrieve_left",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 3,
+      "failure_type": "semantic",
+      "repair_hint": "",
+      "replan_action": "patch_subgraph",
+      "patch_template": "evidence_retrieval",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775372393.7998006,
+    "payload": {
+      "node_id": "retrieve_left",
+      "failure_type": "semantic",
+      "reasons": [
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "patch_subgraph",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775372393.8022547,
+    "payload": {
+      "node_id": "retrieve_right",
+      "action": "patch_subgraph",
+      "reason": "factuality-related failure",
+      "failure_type": "semantic",
+      "repair_hint": "",
+      "patch_template": "evidence_retrieval"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775372393.8022547,
+    "payload": {
+      "before_version": 2,
+      "after_version": 3,
+      "node_id": "retrieve_right",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 3,
+      "failure_type": "semantic",
+      "repair_hint": "",
+      "replan_action": "patch_subgraph",
+      "patch_template": "evidence_retrieval",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775372393.8022547,
+    "payload": {
+      "node_id": "retrieve_right",
+      "failure_type": "semantic",
+      "reasons": [
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "patch_subgraph",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372393.8022547,
+    "payload": {
+      "node_id": "ev_retrieve_left_v2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372395.891781,
+    "payload": {
+      "node_id": "ev_retrieve_left_v2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372395.891781,
+    "payload": {
+      "node_id": "ev_retrieve_right_v3"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372398.2883143,
+    "payload": {
+      "node_id": "ev_retrieve_right_v3",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372398.2883143,
+    "payload": {
+      "node_id": "retrieve_left"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372401.1881692,
+    "payload": {
+      "node_id": "retrieve_left",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372401.1881692,
+    "payload": {
+      "node_id": "retrieve_right"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372403.8345892,
+    "payload": {
+      "node_id": "retrieve_right",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372403.8345892,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372404.165206,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "compare_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372404.16527,
+    "payload": {
+      "node_id": "verify_output"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372404.4836652,
+    "payload": {
+      "node_id": "verify_output",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372404.4836652,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372405.7599742,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775372405.761639,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775372405.761639,
+    "payload": {
+      "before_version": 3,
+      "after_version": 4,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775372405.761639,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775372405.761639,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372405.761639,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372406.2537897,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "compare_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372406.2537897,
+    "payload": {
+      "node_id": "verify_output"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372406.6898592,
+    "payload": {
+      "node_id": "verify_output",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372406.6898592,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372407.9383218,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775372407.9384308,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775372407.9384308,
+    "payload": {
+      "before_version": 4,
+      "after_version": 5,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775372407.9384308,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775372407.9384308,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372407.9384308,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372408.294564,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "compare_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372408.294564,
+    "payload": {
+      "node_id": "verify_output"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372408.6521106,
+    "payload": {
+      "node_id": "verify_output",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372408.6522064,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372409.8821144,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775372409.883211,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775372409.883211,
+    "payload": {
+      "before_version": 5,
+      "after_version": 6,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775372409.883211,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775372409.883211,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372409.8833623,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372410.273164,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "compare_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372410.273164,
+    "payload": {
+      "node_id": "verify_output"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372410.6136518,
+    "payload": {
+      "node_id": "verify_output",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372410.6136518,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372411.8790464,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775372411.8791018,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775372411.8791018,
+    "payload": {
+      "before_version": 6,
+      "after_version": 7,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775372411.8791018,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775372411.8791018,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372411.8791018,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372412.2348864,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "compare_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372412.2348864,
+    "payload": {
+      "node_id": "verify_output"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372412.629099,
+    "payload": {
+      "node_id": "verify_output",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372412.629099,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372413.869044,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775372413.869044,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775372413.869044,
+    "payload": {
+      "before_version": 7,
+      "after_version": 8,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775372413.869044,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775372413.869044,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372413.869044,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372414.468192,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "compare_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372414.468192,
+    "payload": {
+      "node_id": "verify_output"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372414.8006656,
+    "payload": {
+      "node_id": "verify_output",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372414.8006656,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372416.0976052,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775372416.0976052,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775372416.0976052,
+    "payload": {
+      "before_version": 8,
+      "after_version": 9,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775372416.0976052,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775372416.0976052,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372416.0976052,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372416.466385,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "compare_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372416.466385,
+    "payload": {
+      "node_id": "verify_output"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372416.7946765,
+    "payload": {
+      "node_id": "verify_output",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372416.7947495,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372418.5255275,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775372418.5255275,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775372418.5255275,
+    "payload": {
+      "before_version": 9,
+      "after_version": 10,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775372418.5255275,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775372418.5255275,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372418.5255275,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372418.875805,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "compare_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372418.875805,
+    "payload": {
+      "node_id": "verify_output"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372419.2122946,
+    "payload": {
+      "node_id": "verify_output",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372419.2122946,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372420.4045365,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775372420.4045365,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "low_information_output",
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775372420.4045365,
+    "payload": {
+      "before_version": 10,
+      "after_version": 11,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "low_information_output",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v10->v11"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775372420.4045365,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v10->v11"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775372420.4045365,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "low_information_output",
+      "reasons": [
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v10->v11"
+    }
+  }
+]

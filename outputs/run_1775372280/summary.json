@@ -1,0 +1,14 @@
+{
+  "total_examples": 10,
+  "task_success_rate": 0.6,
+  "structure_success_rate": 0.6,
+  "semantic_success_rate": 0.6,
+  "verification_failure_rate": 0.9,
+  "repair_trigger_rate": 0.8,
+  "repair_success_rate": 0.5,
+  "generic_output_rate": 0.4,
+  "topic_drift_rate": 0.0,
+  "deliverable_specificity_rate": 0.0,
+  "metric_measurability_rate": 0.0,
+  "repo_binding_rate": 0.0
+}

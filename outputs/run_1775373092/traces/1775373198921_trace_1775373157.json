@@ -1,0 +1,78 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775373152.4044576,
+    "payload": {
+      "node_count": 4,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775373152.4044576,
+    "payload": {
+      "node_id": "retrieve_context"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775373156.5432792,
+    "payload": {
+      "node_id": "retrieve_context",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775373156.5433164,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775373156.8878396,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "summarize_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775373156.8878882,
+    "payload": {
+      "node_id": "verify_output"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775373157.249965,
+    "payload": {
+      "node_id": "verify_output",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775373157.249965,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775373157.6113765,
+    "payload": {
+      "node_id": "final_response",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  }
+]

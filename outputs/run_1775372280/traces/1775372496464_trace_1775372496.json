@@ -1,0 +1,174 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775372487.1836631,
+    "payload": {
+      "node_count": 4,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372487.1836631,
+    "payload": {
+      "node_id": "retrieve_context"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372490.7660396,
+    "payload": {
+      "node_id": "retrieve_context",
+      "status": "success",
+      "attempts": 2,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372490.7660396,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372491.1627884,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "extract_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372491.1627884,
+    "payload": {
+      "node_id": "verify_output"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372491.6025195,
+    "payload": {
+      "node_id": "verify_output",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372491.6025195,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372493.8716762,
+    "payload": {
+      "node_id": "final_response",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775372493.8716762,
+    "payload": {
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "reason": "aggregation_semantic_failure:semantic",
+      "failure_type": "semantic",
+      "repair_hint": "",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775372493.8716762,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "final_response",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 0,
+      "failure_type": "semantic",
+      "repair_hint": "",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775372493.8716762,
+    "payload": {
+      "node_id": "final_response",
+      "failure_type": "semantic",
+      "reasons": [
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372493.8716762,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372494.2055297,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "extract_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372494.2055297,
+    "payload": {
+      "node_id": "verify_output"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372494.5548897,
+    "payload": {
+      "node_id": "verify_output",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372494.5548897,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372496.4173844,
+    "payload": {
+      "node_id": "final_response",
+      "status": "success",
+      "attempts": 3,
+      "agent": "ceo_fallback_agent"
+    }
+  }
+]

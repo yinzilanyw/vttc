@@ -1,109 +1,75 @@
 [
   {
     "event_type": "plan_generated",
-    "timestamp": 1775369885.4834049,
+    "timestamp": 1775372341.172038,
     "payload": {
-      "node_count": 7,
+      "node_count": 5,
       "version": 1
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369885.4834049,
+    "timestamp": 1775372341.172038,
     "payload": {
-      "node_id": "analyze_requirements"
+      "node_id": "retrieve_left"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369888.4499373,
+    "timestamp": 1775372347.4628065,
     "payload": {
-      "node_id": "analyze_requirements",
+      "node_id": "retrieve_left",
       "status": "success",
-      "attempts": 1,
-      "agent": "reason_agent"
+      "attempts": 2,
+      "agent": "retrieve_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369888.4499373,
+    "timestamp": 1775372347.4628065,
     "payload": {
-      "node_id": "design_plan_schema"
+      "node_id": "retrieve_right"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369888.8957343,
+    "timestamp": 1775372354.216871,
     "payload": {
-      "node_id": "design_plan_schema",
+      "node_id": "retrieve_right",
       "status": "success",
-      "attempts": 1,
-      "agent": "reason_agent"
+      "attempts": 2,
+      "agent": "retrieve_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369888.8957686,
+    "timestamp": 1775372354.216871,
     "payload": {
       "node_id": "generate_item1"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369890.9208333,
+    "timestamp": 1775372354.659676,
     "payload": {
       "node_id": "generate_item1",
       "status": "success",
       "attempts": 1,
-      "agent": "synthesize_agent"
+      "agent": "compare_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369890.9208333,
+    "timestamp": 1775372354.659676,
     "payload": {
-      "node_id": "generate_item2"
+      "node_id": "verify_output"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369891.3009148,
+    "timestamp": 1775372355.0307453,
     "payload": {
-      "node_id": "generate_item2",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369891.3009148,
-    "payload": {
-      "node_id": "generate_item3"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369892.7268991,
-    "payload": {
-      "node_id": "generate_item3",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369892.7268991,
-    "payload": {
-      "node_id": "verify_coverage"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369893.2437713,
-    "payload": {
-      "node_id": "verify_coverage",
+      "node_id": "verify_output",
       "status": "success",
       "attempts": 1,
       "agent": "verify_agent"
@@ -111,14 +77,14 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369893.2437713,
+    "timestamp": 1775372355.0307453,
     "payload": {
       "node_id": "final_response"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369894.4617474,
+    "timestamp": 1775372356.7518394,
     "payload": {
       "node_id": "final_response",
       "status": "failed",
@@ -128,7 +94,7 @@
   },
   {
     "event_type": "replan_decision",
-    "timestamp": 1775369894.4628584,
+    "timestamp": 1775372356.7524273,
     "payload": {
       "node_id": "final_response",
       "action": "replan_subtree",
@@ -140,7 +106,7 @@
   },
   {
     "event_type": "graph_delta_recorded",
-    "timestamp": 1775369894.4630039,
+    "timestamp": 1775372356.7524273,
     "payload": {
       "before_version": 1,
       "after_version": 2,
@@ -156,12 +122,13 @@
   },
   {
     "event_type": "constraint_violation",
-    "timestamp": 1775369894.4630039,
+    "timestamp": 1775372356.7524273,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "violation_scope": [
@@ -173,12 +140,13 @@
   },
   {
     "event_type": "plan_quality_failure",
-    "timestamp": 1775369894.4630039,
+    "timestamp": 1775372356.7524273,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "replan_action": "replan_subtree",
@@ -187,67 +155,33 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369894.4630039,
+    "timestamp": 1775372356.7524273,
     "payload": {
       "node_id": "generate_item1"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369896.585567,
+    "timestamp": 1775372357.0884256,
     "payload": {
       "node_id": "generate_item1",
       "status": "success",
       "attempts": 1,
-      "agent": "synthesize_agent"
+      "agent": "compare_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369896.585567,
+    "timestamp": 1775372357.0884256,
     "payload": {
-      "node_id": "generate_item2"
+      "node_id": "verify_output"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369897.0670276,
+    "timestamp": 1775372357.3826025,
     "payload": {
-      "node_id": "generate_item2",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369897.0670276,
-    "payload": {
-      "node_id": "generate_item3"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369898.821043,
-    "payload": {
-      "node_id": "generate_item3",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369898.821043,
-    "payload": {
-      "node_id": "verify_coverage"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369899.2841878,
-    "payload": {
-      "node_id": "verify_coverage",
+      "node_id": "verify_output",
       "status": "success",
       "attempts": 1,
       "agent": "verify_agent"
@@ -255,14 +189,14 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369899.2846992,
+    "timestamp": 1775372357.3826025,
     "payload": {
       "node_id": "final_response"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369900.7258387,
+    "timestamp": 1775372358.6431332,
     "payload": {
       "node_id": "final_response",
       "status": "failed",
@@ -272,7 +206,7 @@
   },
   {
     "event_type": "replan_decision",
-    "timestamp": 1775369900.7269404,
+    "timestamp": 1775372358.6431332,
     "payload": {
       "node_id": "final_response",
       "action": "replan_subtree",
@@ -284,7 +218,7 @@
   },
   {
     "event_type": "graph_delta_recorded",
-    "timestamp": 1775369900.7269404,
+    "timestamp": 1775372358.6431332,
     "payload": {
       "before_version": 2,
       "after_version": 3,
@@ -300,12 +234,13 @@
   },
   {
     "event_type": "constraint_violation",
-    "timestamp": 1775369900.7269404,
+    "timestamp": 1775372358.6431332,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "violation_scope": [
@@ -317,12 +252,13 @@
   },
   {
     "event_type": "plan_quality_failure",
-    "timestamp": 1775369900.7269404,
+    "timestamp": 1775372358.6431332,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "replan_action": "replan_subtree",
@@ -331,67 +267,33 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369900.7270856,
+    "timestamp": 1775372358.6431332,
     "payload": {
       "node_id": "generate_item1"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369902.556707,
+    "timestamp": 1775372358.986273,
     "payload": {
       "node_id": "generate_item1",
       "status": "success",
       "attempts": 1,
-      "agent": "synthesize_agent"
+      "agent": "compare_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369902.556707,
+    "timestamp": 1775372358.986273,
     "payload": {
-      "node_id": "generate_item2"
+      "node_id": "verify_output"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369904.8010924,
+    "timestamp": 1775372359.3432698,
     "payload": {
-      "node_id": "generate_item2",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369904.8010924,
-    "payload": {
-      "node_id": "generate_item3"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369907.690175,
-    "payload": {
-      "node_id": "generate_item3",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369907.690175,
-    "payload": {
-      "node_id": "verify_coverage"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369908.1484656,
-    "payload": {
-      "node_id": "verify_coverage",
+      "node_id": "verify_output",
       "status": "success",
       "attempts": 1,
       "agent": "verify_agent"
@@ -399,14 +301,14 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369908.1484656,
+    "timestamp": 1775372359.3444123,
     "payload": {
       "node_id": "final_response"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369909.5014822,
+    "timestamp": 1775372361.5079627,
     "payload": {
       "node_id": "final_response",
       "status": "failed",
@@ -416,7 +318,7 @@
   },
   {
     "event_type": "replan_decision",
-    "timestamp": 1775369909.5025284,
+    "timestamp": 1775372361.5091062,
     "payload": {
       "node_id": "final_response",
       "action": "replan_subtree",
@@ -428,7 +330,7 @@
   },
   {
     "event_type": "graph_delta_recorded",
-    "timestamp": 1775369909.5025284,
+    "timestamp": 1775372361.5091574,
     "payload": {
       "before_version": 3,
       "after_version": 4,
@@ -444,12 +346,13 @@
   },
   {
     "event_type": "constraint_violation",
-    "timestamp": 1775369909.5025284,
+    "timestamp": 1775372361.5091994,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "violation_scope": [
@@ -461,12 +364,13 @@
   },
   {
     "event_type": "plan_quality_failure",
-    "timestamp": 1775369909.5025284,
+    "timestamp": 1775372361.5091994,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "replan_action": "replan_subtree",
@@ -475,67 +379,33 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369909.5025284,
+    "timestamp": 1775372361.5091994,
     "payload": {
       "node_id": "generate_item1"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369910.8079293,
+    "timestamp": 1775372361.8806381,
     "payload": {
       "node_id": "generate_item1",
       "status": "success",
       "attempts": 1,
-      "agent": "synthesize_agent"
+      "agent": "compare_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369910.8079293,
+    "timestamp": 1775372361.8806381,
     "payload": {
-      "node_id": "generate_item2"
+      "node_id": "verify_output"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369913.2000086,
+    "timestamp": 1775372362.2548516,
     "payload": {
-      "node_id": "generate_item2",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369913.2000086,
-    "payload": {
-      "node_id": "generate_item3"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369914.8000524,
-    "payload": {
-      "node_id": "generate_item3",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369914.8000524,
-    "payload": {
-      "node_id": "verify_coverage"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369915.2527509,
-    "payload": {
-      "node_id": "verify_coverage",
+      "node_id": "verify_output",
       "status": "success",
       "attempts": 1,
       "agent": "verify_agent"
@@ -543,14 +413,14 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369915.2527509,
+    "timestamp": 1775372362.2548516,
     "payload": {
       "node_id": "final_response"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369916.9220586,
+    "timestamp": 1775372363.7277348,
     "payload": {
       "node_id": "final_response",
       "status": "failed",
@@ -560,7 +430,7 @@
   },
   {
     "event_type": "replan_decision",
-    "timestamp": 1775369916.9220586,
+    "timestamp": 1775372363.7283244,
     "payload": {
       "node_id": "final_response",
       "action": "replan_subtree",
@@ -572,7 +442,7 @@
   },
   {
     "event_type": "graph_delta_recorded",
-    "timestamp": 1775369916.9220586,
+    "timestamp": 1775372363.7283244,
     "payload": {
       "before_version": 4,
       "after_version": 5,
@@ -588,12 +458,13 @@
   },
   {
     "event_type": "constraint_violation",
-    "timestamp": 1775369916.9220586,
+    "timestamp": 1775372363.7283244,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "violation_scope": [
@@ -605,12 +476,13 @@
   },
   {
     "event_type": "plan_quality_failure",
-    "timestamp": 1775369916.9220586,
+    "timestamp": 1775372363.7283244,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "replan_action": "replan_subtree",
@@ -619,67 +491,33 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369916.9220586,
+    "timestamp": 1775372363.7283244,
     "payload": {
       "node_id": "generate_item1"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369918.446673,
+    "timestamp": 1775372364.07766,
     "payload": {
       "node_id": "generate_item1",
       "status": "success",
       "attempts": 1,
-      "agent": "synthesize_agent"
+      "agent": "compare_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369918.446673,
+    "timestamp": 1775372364.07766,
     "payload": {
-      "node_id": "generate_item2"
+      "node_id": "verify_output"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369919.0610294,
+    "timestamp": 1775372364.3927562,
     "payload": {
-      "node_id": "generate_item2",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369919.0610294,
-    "payload": {
-      "node_id": "generate_item3"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369919.4116957,
-    "payload": {
-      "node_id": "generate_item3",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369919.4116957,
-    "payload": {
-      "node_id": "verify_coverage"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369920.3597176,
-    "payload": {
-      "node_id": "verify_coverage",
+      "node_id": "verify_output",
       "status": "success",
       "attempts": 1,
       "agent": "verify_agent"
@@ -687,14 +525,14 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369920.3598254,
+    "timestamp": 1775372364.3927948,
     "payload": {
       "node_id": "final_response"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369921.6476502,
+    "timestamp": 1775372365.718121,
     "payload": {
       "node_id": "final_response",
       "status": "failed",
@@ -704,7 +542,7 @@
   },
   {
     "event_type": "replan_decision",
-    "timestamp": 1775369921.6476502,
+    "timestamp": 1775372365.7190154,
     "payload": {
       "node_id": "final_response",
       "action": "replan_subtree",
@@ -716,7 +554,7 @@
   },
   {
     "event_type": "graph_delta_recorded",
-    "timestamp": 1775369921.6476502,
+    "timestamp": 1775372365.7190154,
     "payload": {
       "before_version": 5,
       "after_version": 6,
@@ -732,12 +570,13 @@
   },
   {
     "event_type": "constraint_violation",
-    "timestamp": 1775369921.6487236,
+    "timestamp": 1775372365.7190154,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "violation_scope": [
@@ -749,12 +588,13 @@
   },
   {
     "event_type": "plan_quality_failure",
-    "timestamp": 1775369921.6487236,
+    "timestamp": 1775372365.7190154,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "replan_action": "replan_subtree",
@@ -763,67 +603,33 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369921.6487625,
+    "timestamp": 1775372365.7190154,
     "payload": {
       "node_id": "generate_item1"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369926.2577484,
+    "timestamp": 1775372366.0795138,
     "payload": {
       "node_id": "generate_item1",
       "status": "success",
       "attempts": 1,
-      "agent": "synthesize_agent"
+      "agent": "compare_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369926.2577484,
+    "timestamp": 1775372366.0795138,
     "payload": {
-      "node_id": "generate_item2"
+      "node_id": "verify_output"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369929.413026,
+    "timestamp": 1775372366.4225004,
     "payload": {
-      "node_id": "generate_item2",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369929.413026,
-    "payload": {
-      "node_id": "generate_item3"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369931.9863157,
-    "payload": {
-      "node_id": "generate_item3",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369931.9863157,
-    "payload": {
-      "node_id": "verify_coverage"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369932.6252327,
-    "payload": {
-      "node_id": "verify_coverage",
+      "node_id": "verify_output",
       "status": "success",
       "attempts": 1,
       "agent": "verify_agent"
@@ -831,14 +637,14 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369932.6252327,
+    "timestamp": 1775372366.4225004,
     "payload": {
       "node_id": "final_response"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369933.8699915,
+    "timestamp": 1775372367.5792704,
     "payload": {
       "node_id": "final_response",
       "status": "failed",
@@ -848,7 +654,7 @@
   },
   {
     "event_type": "replan_decision",
-    "timestamp": 1775369933.8699915,
+    "timestamp": 1775372367.5798783,
     "payload": {
       "node_id": "final_response",
       "action": "replan_subtree",
@@ -860,7 +666,7 @@
   },
   {
     "event_type": "graph_delta_recorded",
-    "timestamp": 1775369933.8699915,
+    "timestamp": 1775372367.5798783,
     "payload": {
       "before_version": 6,
       "after_version": 7,
@@ -876,12 +682,13 @@
   },
   {
     "event_type": "constraint_violation",
-    "timestamp": 1775369933.8699915,
+    "timestamp": 1775372367.5798783,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "violation_scope": [
@@ -893,12 +700,13 @@
   },
   {
     "event_type": "plan_quality_failure",
-    "timestamp": 1775369933.8699915,
+    "timestamp": 1775372367.5798783,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "replan_action": "replan_subtree",
@@ -907,67 +715,33 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369933.8699915,
+    "timestamp": 1775372367.5798783,
     "payload": {
       "node_id": "generate_item1"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369938.4005632,
+    "timestamp": 1775372368.1380742,
     "payload": {
       "node_id": "generate_item1",
       "status": "success",
       "attempts": 1,
-      "agent": "synthesize_agent"
+      "agent": "compare_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369938.4005632,
+    "timestamp": 1775372368.1380742,
     "payload": {
-      "node_id": "generate_item2"
+      "node_id": "verify_output"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369938.756118,
+    "timestamp": 1775372368.4614286,
     "payload": {
-      "node_id": "generate_item2",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369938.756118,
-    "payload": {
-      "node_id": "generate_item3"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369939.226801,
-    "payload": {
-      "node_id": "generate_item3",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369939.226801,
-    "payload": {
-      "node_id": "verify_coverage"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369939.677052,
-    "payload": {
-      "node_id": "verify_coverage",
+      "node_id": "verify_output",
       "status": "success",
       "attempts": 1,
       "agent": "verify_agent"
@@ -975,14 +749,14 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369939.677052,
+    "timestamp": 1775372368.4614286,
     "payload": {
       "node_id": "final_response"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369940.9884226,
+    "timestamp": 1775372369.803411,
     "payload": {
       "node_id": "final_response",
       "status": "failed",
@@ -992,7 +766,7 @@
   },
   {
     "event_type": "replan_decision",
-    "timestamp": 1775369940.989023,
+    "timestamp": 1775372369.8038454,
     "payload": {
       "node_id": "final_response",
       "action": "replan_subtree",
@@ -1004,7 +778,7 @@
   },
   {
     "event_type": "graph_delta_recorded",
-    "timestamp": 1775369940.989023,
+    "timestamp": 1775372369.8038454,
     "payload": {
       "before_version": 7,
       "after_version": 8,
@@ -1020,12 +794,13 @@
   },
   {
     "event_type": "constraint_violation",
-    "timestamp": 1775369940.989023,
+    "timestamp": 1775372369.8038454,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "violation_scope": [
@@ -1037,12 +812,13 @@
   },
   {
     "event_type": "plan_quality_failure",
-    "timestamp": 1775369940.989023,
+    "timestamp": 1775372369.8038454,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "replan_action": "replan_subtree",
@@ -1051,67 +827,33 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369940.989023,
+    "timestamp": 1775372369.8038454,
     "payload": {
       "node_id": "generate_item1"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369943.0758688,
+    "timestamp": 1775372370.1461947,
     "payload": {
       "node_id": "generate_item1",
       "status": "success",
       "attempts": 1,
-      "agent": "synthesize_agent"
+      "agent": "compare_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369943.0758688,
+    "timestamp": 1775372370.1461947,
     "payload": {
-      "node_id": "generate_item2"
+      "node_id": "verify_output"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369943.4072747,
+    "timestamp": 1775372370.4697466,
     "payload": {
-      "node_id": "generate_item2",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369943.4072747,
-    "payload": {
-      "node_id": "generate_item3"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369945.9965813,
-    "payload": {
-      "node_id": "generate_item3",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369945.9965813,
-    "payload": {
-      "node_id": "verify_coverage"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369946.6350703,
-    "payload": {
-      "node_id": "verify_coverage",
+      "node_id": "verify_output",
       "status": "success",
       "attempts": 1,
       "agent": "verify_agent"
@@ -1119,14 +861,14 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369946.6350703,
+    "timestamp": 1775372370.4707763,
     "payload": {
       "node_id": "final_response"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369947.8493989,
+    "timestamp": 1775372371.6006162,
     "payload": {
       "node_id": "final_response",
       "status": "failed",
@@ -1136,7 +878,7 @@
   },
   {
     "event_type": "replan_decision",
-    "timestamp": 1775369947.8495498,
+    "timestamp": 1775372371.6006162,
     "payload": {
       "node_id": "final_response",
       "action": "replan_subtree",
@@ -1148,7 +890,7 @@
   },
   {
     "event_type": "graph_delta_recorded",
-    "timestamp": 1775369947.8495498,
+    "timestamp": 1775372371.6006162,
     "payload": {
       "before_version": 8,
       "after_version": 9,
@@ -1164,12 +906,13 @@
   },
   {
     "event_type": "constraint_violation",
-    "timestamp": 1775369947.8495498,
+    "timestamp": 1775372371.6006162,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "violation_scope": [
@@ -1181,12 +924,13 @@
   },
   {
     "event_type": "plan_quality_failure",
-    "timestamp": 1775369947.8495498,
+    "timestamp": 1775372371.6006162,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "replan_action": "replan_subtree",
@@ -1195,67 +939,33 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369947.8495498,
+    "timestamp": 1775372371.6006162,
     "payload": {
       "node_id": "generate_item1"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369950.878149,
+    "timestamp": 1775372371.980608,
     "payload": {
       "node_id": "generate_item1",
       "status": "success",
       "attempts": 1,
-      "agent": "synthesize_agent"
+      "agent": "compare_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369950.878149,
+    "timestamp": 1775372371.980608,
     "payload": {
-      "node_id": "generate_item2"
+      "node_id": "verify_output"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369953.4497254,
+    "timestamp": 1775372372.3197043,
     "payload": {
-      "node_id": "generate_item2",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369953.4497254,
-    "payload": {
-      "node_id": "generate_item3"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369953.8174515,
-    "payload": {
-      "node_id": "generate_item3",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369953.8174515,
-    "payload": {
-      "node_id": "verify_coverage"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369954.2665908,
-    "payload": {
-      "node_id": "verify_coverage",
+      "node_id": "verify_output",
       "status": "success",
       "attempts": 1,
       "agent": "verify_agent"
@@ -1263,14 +973,14 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369954.2665908,
+    "timestamp": 1775372372.3202922,
     "payload": {
       "node_id": "final_response"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369955.746617,
+    "timestamp": 1775372374.3036158,
     "payload": {
       "node_id": "final_response",
       "status": "failed",
@@ -1280,7 +990,7 @@
   },
   {
     "event_type": "replan_decision",
-    "timestamp": 1775369955.746617,
+    "timestamp": 1775372374.3041604,
     "payload": {
       "node_id": "final_response",
       "action": "replan_subtree",
@@ -1292,7 +1002,7 @@
   },
   {
     "event_type": "graph_delta_recorded",
-    "timestamp": 1775369955.746617,
+    "timestamp": 1775372374.3041604,
     "payload": {
       "before_version": 9,
       "after_version": 10,
@@ -1308,12 +1018,13 @@
   },
   {
     "event_type": "constraint_violation",
-    "timestamp": 1775369955.746617,
+    "timestamp": 1775372374.3041604,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "violation_scope": [
@@ -1325,12 +1036,13 @@
   },
   {
     "event_type": "plan_quality_failure",
-    "timestamp": 1775369955.746617,
+    "timestamp": 1775372374.3041604,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "replan_action": "replan_subtree",
@@ -1339,67 +1051,33 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369955.746617,
+    "timestamp": 1775372374.3041604,
     "payload": {
       "node_id": "generate_item1"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369957.3231893,
+    "timestamp": 1775372374.644799,
     "payload": {
       "node_id": "generate_item1",
       "status": "success",
       "attempts": 1,
-      "agent": "synthesize_agent"
+      "agent": "compare_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369957.3231893,
+    "timestamp": 1775372374.644799,
     "payload": {
-      "node_id": "generate_item2"
+      "node_id": "verify_output"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369957.6893525,
+    "timestamp": 1775372375.0190623,
     "payload": {
-      "node_id": "generate_item2",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369957.6893525,
-    "payload": {
-      "node_id": "generate_item3"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369960.5017502,
-    "payload": {
-      "node_id": "generate_item3",
-      "status": "success",
-      "attempts": 1,
-      "agent": "synthesize_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775369960.5017502,
-    "payload": {
-      "node_id": "verify_coverage"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775369961.0605624,
-    "payload": {
-      "node_id": "verify_coverage",
+      "node_id": "verify_output",
       "status": "success",
       "attempts": 1,
       "agent": "verify_agent"
@@ -1407,14 +1085,14 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775369961.0605624,
+    "timestamp": 1775372375.0190623,
     "payload": {
       "node_id": "final_response"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775369962.4108257,
+    "timestamp": 1775372376.4819434,
     "payload": {
       "node_id": "final_response",
       "status": "failed",
@@ -1424,7 +1102,7 @@
   },
   {
     "event_type": "replan_decision",
-    "timestamp": 1775369962.4118657,
+    "timestamp": 1775372376.4819434,
     "payload": {
       "node_id": "final_response",
       "action": "replan_subtree",
@@ -1436,7 +1114,7 @@
   },
   {
     "event_type": "graph_delta_recorded",
-    "timestamp": 1775369962.4118657,
+    "timestamp": 1775372376.4819434,
     "payload": {
       "before_version": 10,
       "after_version": 11,
@@ -1452,12 +1130,13 @@
   },
   {
     "event_type": "constraint_violation",
-    "timestamp": 1775369962.4118657,
+    "timestamp": 1775372376.4819434,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "violation_scope": [
@@ -1469,12 +1148,13 @@
   },
   {
     "event_type": "plan_quality_failure",
-    "timestamp": 1775369962.4118657,
+    "timestamp": 1775372376.4819434,
     "payload": {
       "node_id": "final_response",
       "failure_type": "low_information_output",
       "reasons": [
-        "final_progression_missing:Final plan lacks progressive item-by-item structure."
+        "final_answer_query_echo:Final answer is too similar to original query.",
+        "final_answer_query_echo:Final answer mostly repeats query and adds no useful content."
       ],
       "repair_hint": "replan_subtree",
       "replan_action": "replan_subtree",

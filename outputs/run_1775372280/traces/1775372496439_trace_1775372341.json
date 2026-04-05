@@ -1,51 +1,34 @@
 [
   {
     "event_type": "plan_generated",
-    "timestamp": 1775371063.9743931,
+    "timestamp": 1775372325.6152885,
     "payload": {
-      "node_count": 3,
+      "node_count": 4,
       "version": 1
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775371063.9743931,
+    "timestamp": 1775372325.6152885,
     "payload": {
       "node_id": "retrieve_context"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775371066.202261,
+    "timestamp": 1775372334.438492,
     "payload": {
       "node_id": "retrieve_context",
-      "status": "success",
-      "attempts": 1,
-      "agent": "retrieve_agent"
-    }
-  },
-  {
-    "event_type": "node_start",
-    "timestamp": 1775371066.202261,
-    "payload": {
-      "node_id": "generate_item1"
-    }
-  },
-  {
-    "event_type": "node_end",
-    "timestamp": 1775371068.0117037,
-    "payload": {
-      "node_id": "generate_item1",
       "status": "failed",
       "attempts": 3,
-      "agent": "company_agent"
+      "agent": "search_agent"
     }
   },
   {
     "event_type": "replan_decision",
-    "timestamp": 1775371068.0139472,
+    "timestamp": 1775372334.441312,
     "payload": {
-      "node_id": "generate_item1",
+      "node_id": "retrieve_context",
       "action": "patch_subgraph",
       "reason": "factuality-related failure",
       "failure_type": "semantic",
@@ -55,13 +38,13 @@
   },
   {
     "event_type": "graph_delta_recorded",
-    "timestamp": 1775371068.0139472,
+    "timestamp": 1775372334.441312,
     "payload": {
       "before_version": 1,
       "after_version": 2,
-      "node_id": "generate_item1",
+      "node_id": "retrieve_context",
       "action": "patch_subgraph",
-      "saved_downstream_nodes": 1,
+      "saved_downstream_nodes": 3,
       "failure_type": "semantic",
       "repair_hint": "",
       "replan_action": "patch_subgraph",
@@ -71,9 +54,9 @@
   },
   {
     "event_type": "constraint_violation",
-    "timestamp": 1775371068.0139472,
+    "timestamp": 1775372334.441312,
     "payload": {
-      "node_id": "generate_item1",
+      "node_id": "retrieve_context",
       "failure_type": "semantic",
       "reasons": [
         "semantic_check_failed:Semantic verifier judged the node output as insufficient."
@@ -88,16 +71,16 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775371068.0139472,
+    "timestamp": 1775372334.441312,
     "payload": {
-      "node_id": "ev_generate_item1_v2"
+      "node_id": "ev_retrieve_context_v2"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775371069.521121,
+    "timestamp": 1775372337.2517347,
     "payload": {
-      "node_id": "ev_generate_item1_v2",
+      "node_id": "ev_retrieve_context_v2",
       "status": "success",
       "attempts": 1,
       "agent": "retrieve_agent"
@@ -105,31 +88,65 @@
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775371069.521121,
+    "timestamp": 1775372337.2517347,
+    "payload": {
+      "node_id": "retrieve_context"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372339.9912515,
+    "payload": {
+      "node_id": "retrieve_context",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372339.9912515,
     "payload": {
       "node_id": "generate_item1"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775371069.8551342,
+    "timestamp": 1775372340.3164525,
     "payload": {
       "node_id": "generate_item1",
       "status": "success",
       "attempts": 1,
-      "agent": "extract_agent"
+      "agent": "summarize_agent"
     }
   },
   {
     "event_type": "node_start",
-    "timestamp": 1775371069.8551342,
+    "timestamp": 1775372340.3170016,
+    "payload": {
+      "node_id": "verify_output"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775372340.6452827,
+    "payload": {
+      "node_id": "verify_output",
+      "status": "success",
+      "attempts": 1,
+      "agent": "verify_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775372340.6452827,
     "payload": {
       "node_id": "final_response"
     }
   },
   {
     "event_type": "node_end",
-    "timestamp": 1775371070.298452,
+    "timestamp": 1775372341.1335597,
     "payload": {
       "node_id": "final_response",
       "status": "success",

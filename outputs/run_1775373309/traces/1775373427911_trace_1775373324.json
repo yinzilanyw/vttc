@@ -1,0 +1,140 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775373311.059286,
+    "payload": {
+      "node_count": 3,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775373311.059286,
+    "payload": {
+      "node_id": "retrieve_context"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775373319.7984922,
+    "payload": {
+      "node_id": "retrieve_context",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "search_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775373319.7994924,
+    "payload": {
+      "node_id": "retrieve_context",
+      "action": "patch_subgraph",
+      "reason": "factuality-related failure",
+      "failure_type": "semantic",
+      "repair_hint": "",
+      "patch_template": "evidence_retrieval"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775373319.7994924,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "retrieve_context",
+      "action": "patch_subgraph",
+      "saved_downstream_nodes": 2,
+      "failure_type": "semantic",
+      "repair_hint": "",
+      "replan_action": "patch_subgraph",
+      "patch_template": "evidence_retrieval",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775373319.7994924,
+    "payload": {
+      "node_id": "retrieve_context",
+      "failure_type": "semantic",
+      "reasons": [
+        "semantic_check_failed:Semantic verifier judged the node output as insufficient."
+      ],
+      "repair_hint": "",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "patch_subgraph",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775373319.7994924,
+    "payload": {
+      "node_id": "ev_retrieve_context_v2"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775373321.6382844,
+    "payload": {
+      "node_id": "ev_retrieve_context_v2",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775373321.6382844,
+    "payload": {
+      "node_id": "retrieve_context"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775373323.7415798,
+    "payload": {
+      "node_id": "retrieve_context",
+      "status": "success",
+      "attempts": 1,
+      "agent": "retrieve_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775373323.7415798,
+    "payload": {
+      "node_id": "generate_item1"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775373324.2095385,
+    "payload": {
+      "node_id": "generate_item1",
+      "status": "success",
+      "attempts": 1,
+      "agent": "extract_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775373324.2095385,
+    "payload": {
+      "node_id": "final_response"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775373324.619997,
+    "payload": {
+      "node_id": "final_response",
+      "status": "success",
+      "attempts": 1,
+      "agent": "synthesize_agent"
+    }
+  }
+]

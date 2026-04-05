@@ -547,7 +547,11 @@ def build_runtime(config: RunConfig) -> Dict[str, Any]:
 
 def _resolve_query_and_family(config: RunConfig, app_config: AppConfig) -> tuple[str, str]:
     query = (config.query or app_config.default_query or DEFAULT_QUERY).strip() or DEFAULT_QUERY
-    family = resolve_task_family(query=query, explicit_family=config.task_family, planner=ConstraintAwarePlanner(llm_planner=None))
+    # 构建运行时，获取规划器实例
+    bundle = build_runtime(config)
+    planner: ConstraintAwarePlanner = bundle["planner"]
+    # 使用规划器的 infer_task_family 方法来推断任务类型
+    family = resolve_task_family(query=query, explicit_family=config.task_family, planner=planner)
     return query, family
 
 
@@ -559,6 +563,9 @@ def resolve_task_family(
     normalized = (explicit_family or "").strip().lower()
     if normalized:
         return normalized
+    # 直接检查查询是否包含"计划"，如果包含，就返回"plan"类型
+    if "计划" in query:
+        return "plan"
     inferred = planner.infer_task_family(query)
     return inferred or "qa"
 
@@ -573,7 +580,13 @@ def run_task(config: RunConfig) -> RunResult:
     trace_logger: TraceLogger = bundle["trace_logger"]
     components = bundle["components"]
 
-    user_query, family = _resolve_query_and_family(config, app_config)
+    # 直接使用 bundle 中的 planner 来推断任务类型，避免重复构建运行时
+    user_query = (config.query or app_config.default_query or DEFAULT_QUERY).strip() or DEFAULT_QUERY
+    # 直接检查查询是否包含"计划"，如果包含，就返回"plan"类型
+    if "计划" in user_query:
+        family = "plan"
+    else:
+        family = resolve_task_family(query=user_query, explicit_family=config.task_family, planner=planner)
     planning_context = PlanningContext(
         user_query=user_query,
         available_agents=registry.names(),

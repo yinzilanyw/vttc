@@ -297,6 +297,18 @@ class ConstraintAwareReplanner(BaseReplanner):
             return self.build_schema_patch(node.id)
         if failure_type in {"schema_semantics_weak"}:
             return self.build_schema_patch(node.id)
+        # 为不同任务类型添加更具体的修复策略
+        role = self._node_role(node)
+        if role == "summarization" and failure_type in {"intent_misalignment", "low_information_output"}:
+            return build_summary_patch(node.id)
+        if role == "comparison" and failure_type in {"intent_misalignment", "comparison_incomplete"}:
+            return build_compare_patch(node.id)
+        if role == "calculation" and failure_type in {"intent_misalignment", "calculation_invalid"}:
+            return build_calculation_patch(node.id)
+        if role == "extraction" and failure_type in {"empty_extraction", "intent_misalignment"}:
+            return build_normalization_patch(node.id)
+        if role == "final_response" and failure_type in {"intent_misalignment", "low_information_output"}:
+            return build_final_response_patch(node.id)
         if failure_type in {"plan_topic_drift"}:
             return self.build_schema_patch(node.id)
         if failure_type in {"generic_deliverable"}:
