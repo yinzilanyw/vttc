@@ -86,3 +86,6 @@ class ExecutionReport:
     error: str = ""
     stalled_node_ids: List[str] = field(default_factory=list)
     failure_summary: Dict[str, int] = field(default_factory=dict)
+    task_intent_spec: Dict[str, Any] = field(default_factory=dict)
+    graph_deltas: List[Dict[str, Any]] = field(default_factory=list)
+    patch_tracking: Dict[str, int] = field(default_factory=dict)

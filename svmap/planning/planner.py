@@ -23,9 +23,11 @@ from svmap.models import (
     PlanTopicCoverageConstraint,
     SchemaSpecificityConstraint,
     SpecificDeliverableConstraint,
+    TaskIntentSpec,
     TaskNode,
     TaskTree,
 )
+from .blocks import assemble_task_tree_blocks
 
 
 def _load_openai_client(api_key: str, base_url: str) -> Any:
@@ -189,6 +191,44 @@ def _extract_extract_shape(query: str) -> str:
     if any(k in text for k in ["multi-source", "multiple sources", "多源"]):
         return "multi_source_extract"
     return "flat_schema_extract"
+
+
+def _extract_query_topics(query: str) -> List[str]:
+    text = re.sub(r"[^a-zA-Z0-9_\-\s]", " ", str(query or "").lower())
+    tokens = [token for token in re.split(r"\s+", text) if token]
+    stop = {
+        "a",
+        "an",
+        "the",
+        "to",
+        "for",
+        "with",
+        "in",
+        "on",
+        "of",
+        "and",
+        "or",
+        "by",
+        "is",
+        "are",
+        "be",
+        "build",
+        "design",
+        "plan",
+        "summary",
+        "compare",
+        "calculate",
+        "extract",
+        "question",
+        "query",
+    }
+    topics: List[str] = []
+    for token in tokens:
+        if token.isdigit() or len(token) < 3 or token in stop:
+            continue
+        if token not in topics:
+            topics.append(token)
+    return topics[:8]
 
 
 def _multitask_schema() -> Dict[str, Any]:
@@ -486,6 +526,114 @@ class ConstraintAwarePlanner(BasePlanner):
             return "general_plan"
         return ""
 
+    def infer_intent_spec(self, user_query: str, task_family: str = "") -> TaskIntentSpec:
+        family = (task_family or self.infer_task_family(user_query)).strip().lower()
+        query = str(user_query or "")
+        topics = _extract_query_topics(query)
+        primary = family if family else "qa"
+        shape = None
+        item_count: Optional[int] = None
+        item_label: Optional[str] = None
+        operators: List[str] = []
+        structured_output = False
+        grounded = True
+        multi_entity = False
+        decomposition_needed = False
+        required_fields: List[str] = []
+        quality_targets: Dict[str, bool] = {
+            "non_placeholder": True,
+            "grounded": True,
+        }
+        must_cover_topics = list(topics)
+
+        if family == "plan":
+            shape = _extract_plan_shape(query)
+            item_count = _extract_plan_item_count(query) or 3
+            item_label = _infer_item_label(query, shape)
+            operators = [
+                "requirements_analysis",
+                "schema_design",
+                "generate_item",
+                "verify_coverage",
+                "finalize",
+            ]
+            structured_output = True
+            decomposition_needed = True
+            required_fields = ["goal", "deliverable", "metric"]
+            quality_targets.update(
+                {
+                    "deliverable_specificity": True,
+                    "metric_measurability": True,
+                    "repo_binding_required": True,
+                    "progression_required": True,
+                }
+            )
+        elif family == "summary":
+            primary = "summary"
+            shape = _extract_summary_shape(query)
+            item_count = 1
+            item_label = "summary"
+            operators = ["retrieve", "generate_item", "verify_coverage", "finalize"]
+            required_fields = ["summary"]
+            quality_targets.update({"coverage_required": True})
+        elif family == "compare":
+            primary = "compare"
+            shape = _extract_compare_shape(query)
+            item_count = 1
+            item_label = "comparison"
+            operators = ["retrieve", "generate_item", "verify_coverage", "finalize"]
+            required_fields = ["compared_items", "comparison"]
+            multi_entity = True
+            quality_targets.update({"pairwise_consistency": True})
+        elif family == "calculate":
+            primary = "calculate"
+            shape = _extract_calculate_shape(query)
+            item_count = 1
+            item_label = "calculation"
+            operators = ["generate_item", "verify_coverage", "finalize"]
+            required_fields = ["expression", "result", "calculation_trace"]
+            structured_output = True
+            quality_targets.update({"trace_required": True})
+        elif family in {"extract", "structured_generation"}:
+            primary = family
+            shape = _extract_extract_shape(query)
+            item_count = 1
+            item_label = "record"
+            operators = ["retrieve", "generate_item", "verify_coverage", "finalize"]
+            required_fields = ["extracted"]
+            structured_output = True
+            quality_targets.update({"schema_compliance": True})
+        else:
+            primary = "qa"
+            shape = "single_turn_qa"
+            item_count = 1
+            item_label = "answer"
+            operators = ["retrieve", "generate_item", "finalize"]
+            required_fields = ["answer"]
+            quality_targets.update({"concise_answer": True})
+
+        return TaskIntentSpec(
+            primary_intent=primary,
+            secondary_intents=[],
+            operators=operators,
+            shape=shape,
+            item_count=item_count,
+            item_label=item_label,
+            structured_output=structured_output,
+            grounded=grounded,
+            multi_entity=multi_entity,
+            decomposition_needed=decomposition_needed,
+            topics=topics,
+            must_cover_topics=must_cover_topics,
+            required_fields=required_fields,
+            quality_targets=quality_targets,
+            raw_signals={
+                "task_family": family,
+                "query": query,
+                "plan_focus": self.infer_plan_focus(query) if family == "plan" else "",
+            },
+        )
+
     def normalize_requirements_output(self, output: Dict[str, Any]) -> Dict[str, Any]:
         normalized = dict(output)
         query_text = str(normalized.get("query") or "")
@@ -706,6 +854,46 @@ class ConstraintAwarePlanner(BasePlanner):
             constraints = raw.get("constraint") or raw.get("constraints") or []
             if not isinstance(constraints, list):
                 constraints = []
+            metadata = raw.get("metadata", {}) if isinstance(raw.get("metadata", {}), dict) else {}
+            if "node_role" not in metadata:
+                node_id = str(raw.get("id") or f"n{idx}").lower()
+                inferred_role = ""
+                if node_id == "analyze_requirements":
+                    inferred_role = "requirements_analysis"
+                elif node_id == "design_plan_schema":
+                    inferred_role = "schema_design"
+                elif node_id.startswith("generate_item") or node_id.startswith("generate_day"):
+                    inferred_role = "item_generation"
+                elif node_id in {"verify_coverage", "verify_output"}:
+                    inferred_role = "coverage_verification"
+                elif answer_role == "final" or node_type == "final_response":
+                    inferred_role = "final_response"
+                elif node_type in {"tool_call", "retrieval"}:
+                    inferred_role = "retrieval"
+                elif node_type == "extraction":
+                    inferred_role = "extraction"
+                elif node_type == "summarization":
+                    inferred_role = "summarization"
+                elif node_type == "comparison":
+                    inferred_role = "comparison"
+                elif node_type == "calculation":
+                    inferred_role = "calculation"
+                metadata["node_role"] = inferred_role or "generic"
+            if "operator" not in metadata:
+                role = str(metadata.get("node_role", "")).strip().lower()
+                role_to_operator = {
+                    "requirements_analysis": "requirements_analysis",
+                    "schema_design": "schema_design",
+                    "item_generation": "generate_item",
+                    "coverage_verification": "verify_coverage",
+                    "final_response": "finalize",
+                    "retrieval": "retrieve",
+                    "extraction": "extract",
+                    "summarization": "summarize",
+                    "comparison": "compare",
+                    "calculation": "calculate",
+                }
+                metadata["operator"] = role_to_operator.get(role, "")
 
             normalized_nodes.append(
                 {
@@ -724,7 +912,7 @@ class ConstraintAwarePlanner(BasePlanner):
                     "constraint": constraints,
                     "max_retry": int(raw.get("max_retry", 2)),
                     "io": raw.get("io", {}) if isinstance(raw.get("io", {}), dict) else {},
-                    "metadata": raw.get("metadata", {}) if isinstance(raw.get("metadata", {}), dict) else {},
+                    "metadata": metadata,
                 }
             )
 
@@ -763,11 +951,16 @@ class ConstraintAwarePlanner(BasePlanner):
     def _build_prompt(self, context: PlanningContext) -> str:
         family = context.task_family or self.infer_task_family(context.user_query)
         plan_focus = self.infer_plan_focus(context.user_query) if family == "plan" else ""
+        intent_spec = self.infer_intent_spec(context.user_query, family)
         return (
             "Generate a task DAG in JSON only.\n"
             f"User query: {context.user_query}\n"
             f"Task family: {family}\n"
             f"Plan focus: {plan_focus}\n"
+            f"Primary intent: {intent_spec.primary_intent}\n"
+            f"Operators: {intent_spec.operators}\n"
+            f"Shape: {intent_spec.shape}\n"
+            f"Item count: {intent_spec.item_count}\n"
             f"Available agents: {context.available_agents}\n"
             f"Global goal: {context.global_goal}\n"
             f"Global constraints: {context.global_constraints}\n\n"
@@ -776,523 +969,38 @@ class ConstraintAwarePlanner(BasePlanner):
         )
 
     def _default_plan(self, context: PlanningContext) -> Dict[str, Any]:
-        family = context.task_family or self.infer_task_family(context.user_query)
-        query = context.user_query
-        if family == "plan":
-            plan_shape = _extract_plan_shape(query)
-            item_label = _infer_item_label(query, plan_shape)
-            item_count = _extract_plan_item_count(query) or 3
-            item_nodes: List[Dict[str, Any]] = []
-            for idx in range(1, item_count + 1):
-                item_nodes.append(
-                    {
-                        "id": f"generate_item{idx}",
-                        "description": f"Generate structured {item_label} {idx} plan object.",
-                        "inputs": {
-                            "item_index": idx,
-                            "item_label": item_label,
-                            "plan_shape": plan_shape,
-                            "query": query,
-                        },
-                        "dependencies": ["analyze_requirements", "design_plan_schema"],
-                        "capability_tag": "synthesize",
-                        "candidate_capabilities": ["synthesize", "reason"],
-                        "node_type": "aggregation",
-                        "task_type": "aggregation",
-                        "output_mode": "json",
-                        "answer_role": "intermediate",
-                        "constraint": [
-                            "required_keys:item_index,item_label,goal,deliverable,metric",
-                            "non_empty_values",
-                            "specific_deliverable",
-                            "measurable_metric",
-                            "no_generic_plan",
-                        ],
-                        "io": {
-                            "output_fields": [
-                                {"name": "item_index", "field_type": "number", "required": True},
-                                {"name": "item_label", "field_type": "string", "required": True},
-                                {"name": "goal", "field_type": "string", "required": True},
-                                {"name": "deliverable", "field_type": "string", "required": True},
-                                {"name": "metric", "field_type": "string", "required": True},
-                            ]
-                        },
-                    }
-                )
-            verify_dependencies = ["design_plan_schema"] + [f"generate_item{idx}" for idx in range(1, item_count + 1)]
-            return {
-                "nodes": [
-                    {
-                        "id": "analyze_requirements",
-                        "description": "Analyze requirements from query into structured constraints.",
-                        "inputs": {"query": query},
-                        "dependencies": [],
-                        "capability_tag": "reason",
-                        "candidate_capabilities": ["reason", "synthesize"],
-                        "node_type": "reasoning",
-                        "task_type": "reasoning",
-                        "output_mode": "json",
-                        "answer_role": "intermediate",
-                        "constraint": [
-                            (
-                                "required_keys:primary_domain,secondary_focus,task_form,topics,"
-                                "must_cover_topics,forbidden_topic_drift,constraints,required_fields,plan_shape,item_count,item_label,quality_targets"
-                            ),
-                            "non_empty_values",
-                        ],
-                        "io": {
-                            "output_fields": [
-                                {"name": "primary_domain", "field_type": "string", "required": True},
-                                {"name": "secondary_focus", "field_type": "string", "required": True},
-                                {"name": "task_form", "field_type": "string", "required": True},
-                                {"name": "topics", "field_type": "list[string]", "required": True},
-                                {"name": "must_cover_topics", "field_type": "list[string]", "required": True},
-                                {"name": "forbidden_topic_drift", "field_type": "list[string]", "required": True},
-                                {"name": "constraints", "field_type": "list[string]", "required": True},
-                                {"name": "required_fields", "field_type": "list[string]", "required": True},
-                                {"name": "plan_shape", "field_type": "string", "required": True},
-                                {"name": "item_count", "field_type": "number", "required": True},
-                                {"name": "item_label", "field_type": "string", "required": True},
-                                {"name": "quality_targets", "field_type": "json", "required": True},
-                            ]
-                        },
-                    },
-                    {
-                        "id": "design_plan_schema",
-                        "description": "Design canonical item-level schema and progression for the plan.",
-                        "dependencies": ["analyze_requirements"],
-                        "capability_tag": "reason",
-                        "candidate_capabilities": ["reason", "synthesize"],
-                        "node_type": "reasoning",
-                        "task_type": "reasoning",
-                        "output_mode": "json",
-                        "answer_role": "intermediate",
-                        "constraint": [
-                            (
-                                "required_keys:item_template,item_count,item_label,plan_shape,progression,item_allocation,required_fields,"
-                                "quality_criteria,deliverable_template,metric_template"
-                            ),
-                            "non_empty_values",
-                            "schema_specificity",
-                            "no_generic_plan",
-                        ],
-                        "io": {
-                            "output_fields": [
-                                {"name": "item_template", "field_type": "json", "required": True},
-                                {"name": "item_count", "field_type": "number", "required": True},
-                                {"name": "item_label", "field_type": "string", "required": True},
-                                {"name": "plan_shape", "field_type": "string", "required": True},
-                                {"name": "progression", "field_type": "list[string]", "required": True},
-                                {"name": "item_allocation", "field_type": "json", "required": True},
-                                {"name": "required_fields", "field_type": "list[string]", "required": True},
-                                {"name": "quality_criteria", "field_type": "json", "required": True},
-                                {"name": "deliverable_template", "field_type": "json", "required": True},
-                                {"name": "metric_template", "field_type": "json", "required": True},
-                            ]
-                        },
-                    },
-                    *item_nodes,
-                    {
-                        "id": "verify_coverage",
-                        "description": "Verify item coverage, field completeness and semantic alignment.",
-                        "dependencies": verify_dependencies,
-                        "capability_tag": "verify",
-                        "candidate_capabilities": ["verify", "reason"],
-                        "node_type": "verification",
-                        "task_type": "verification",
-                        "output_mode": "json",
-                        "answer_role": "intermediate",
-                        "constraint": [
-                            (
-                                "required_keys:coverage_ok,item_count,item_label,missing_items,missing_fields,semantic_gaps,grounded_nodes,"
-                                "generic_content_flags,missing_specificity_items,repo_binding_score"
-                            ),
-                            "coverage_constraint",
-                            "all_items_present",
-                            "plan_topic_coverage",
-                            "no_generic_plan",
-                            "no_template_placeholder",
-                        ],
-                        "io": {
-                            "output_fields": [
-                                {"name": "coverage_ok", "field_type": "bool", "required": True},
-                                {"name": "item_count", "field_type": "number", "required": True},
-                                {"name": "item_label", "field_type": "string", "required": True},
-                                {"name": "missing_items", "field_type": "json", "required": True},
-                                {"name": "missing_fields", "field_type": "json", "required": True},
-                                {"name": "semantic_gaps", "field_type": "json", "required": True},
-                                {"name": "grounded_nodes", "field_type": "json", "required": True},
-                                {"name": "generic_content_flags", "field_type": "json", "required": True},
-                                {"name": "missing_specificity_items", "field_type": "json", "required": True},
-                                {"name": "repo_binding_score", "field_type": "number", "required": True},
-                            ]
-                        },
-                    },
-                    {
-                        "id": "final_response",
-                        "description": "Return final plan using verified item objects.",
-                        "dependencies": ["verify_coverage"] + [f"generate_item{idx}" for idx in range(1, item_count + 1)],
-                        "capability_tag": "synthesize",
-                        "candidate_capabilities": ["synthesize", "reason"],
-                        "node_type": "final_response",
-                        "task_type": "final_response",
-                        "output_mode": "text",
-                        "answer_role": "final",
-                        "constraint": [
-                            "required_keys:answer,used_nodes",
-                            "non_empty_values",
-                            f"final_structure:min_items={item_count},required_sections=goal|deliverable|metric,forbid_query_echo=true",
-                            "no_generic_plan",
-                        ],
-                        "io": {
-                            "output_fields": [
-                                {"name": "answer", "field_type": "string", "required": True},
-                                {"name": "used_nodes", "field_type": "json", "required": True},
-                            ]
-                        },
-                    },
-                ]
-            }
-        if family == "summary":
-            summary_shape = _extract_summary_shape(query)
-            return {
-                "nodes": [
-                    {
-                        "id": "n1",
-                        "description": "Retrieve evidence for summarization.",
-                        "inputs": {"query": query, "summary_shape": summary_shape},
-                        "dependencies": [],
-                        "capability_tag": "retrieve",
-                        "candidate_capabilities": ["retrieve", "extract"],
-                        "node_type": "tool_call",
-                        "task_type": "tool_call",
-                        "output_mode": "json",
-                        "answer_role": "intermediate",
-                        "constraint": ["required_keys:evidence", "non_empty_values"],
-                    },
-                    {
-                        "id": "n2",
-                        "description": "Summarize retrieved evidence.",
-                        "inputs": {"summary_shape": summary_shape},
-                        "dependencies": ["n1"],
-                        "capability_tag": "summarize",
-                        "candidate_capabilities": ["summarize", "reason"],
-                        "node_type": "summarization",
-                        "task_type": "summarization",
-                        "output_mode": "text",
-                        "answer_role": "intermediate",
-                        "constraint": ["required_keys:summary", "non_empty_values"],
-                    },
-                    {
-                        "id": "final_response",
-                        "description": "Return concise final summary.",
-                        "inputs": {"summary_shape": summary_shape},
-                        "dependencies": ["n2"],
-                        "capability_tag": "synthesize",
-                        "candidate_capabilities": ["synthesize", "summarize"],
-                        "node_type": "final_response",
-                        "task_type": "final_response",
-                        "output_mode": "text",
-                        "answer_role": "final",
-                        "constraint": ["required_keys:answer", "non_empty_values"],
-                    },
-                ]
-            }
-
-        if family == "compare":
-            compare_shape = _extract_compare_shape(query)
-            return {
-                "nodes": [
-                    {
-                        "id": "n1",
-                        "description": "Retrieve evidence for item A from user query.",
-                        "inputs": {"query": query, "side": "A", "compare_shape": compare_shape},
-                        "dependencies": [],
-                        "capability_tag": "retrieve",
-                        "candidate_capabilities": ["retrieve", "extract"],
-                        "node_type": "tool_call",
-                        "task_type": "tool_call",
-                        "output_mode": "json",
-                        "answer_role": "intermediate",
-                        "constraint": ["required_keys:evidence", "non_empty_values"],
-                    },
-                    {
-                        "id": "n2",
-                        "description": "Retrieve evidence for item B from user query.",
-                        "inputs": {"query": query, "side": "B", "compare_shape": compare_shape},
-                        "dependencies": [],
-                        "capability_tag": "retrieve",
-                        "candidate_capabilities": ["retrieve", "extract"],
-                        "node_type": "tool_call",
-                        "task_type": "tool_call",
-                        "output_mode": "json",
-                        "answer_role": "intermediate",
-                        "constraint": ["required_keys:evidence", "non_empty_values"],
-                    },
-                    {
-                        "id": "n3",
-                        "description": "Compare item A and item B using retrieved evidence.",
-                        "inputs": {"compare_shape": compare_shape},
-                        "dependencies": ["n1", "n2"],
-                        "capability_tag": "compare",
-                        "candidate_capabilities": ["compare", "reason"],
-                        "node_type": "comparison",
-                        "task_type": "comparison",
-                        "output_mode": "table",
-                        "answer_role": "intermediate",
-                        "constraint": ["required_keys:comparison", "non_empty_values"],
-                    },
-                    {
-                        "id": "final_response",
-                        "description": "Generate final comparison answer.",
-                        "inputs": {"compare_shape": compare_shape},
-                        "dependencies": ["n3"],
-                        "capability_tag": "synthesize",
-                        "candidate_capabilities": ["synthesize", "compare"],
-                        "node_type": "final_response",
-                        "task_type": "final_response",
-                        "output_mode": "text",
-                        "answer_role": "final",
-                        "constraint": ["required_keys:answer", "non_empty_values"],
-                    },
-                ]
-            }
-
-        if family == "calculate":
-            calculate_shape = _extract_calculate_shape(query)
-            return {
-                "nodes": [
-                    {
-                        "id": "n1",
-                        "description": "Extract numeric expression from query.",
-                        "inputs": {"query": query, "calculate_shape": calculate_shape},
-                        "dependencies": [],
-                        "capability_tag": "extract",
-                        "candidate_capabilities": ["extract", "reason"],
-                        "node_type": "extraction",
-                        "task_type": "extraction",
-                        "output_mode": "json",
-                        "answer_role": "intermediate",
-                        "constraint": ["required_keys:expression", "non_empty_values"],
-                    },
-                    {
-                        "id": "n2",
-                        "description": "Calculate numeric result from expression.",
-                        "inputs": {"calculate_shape": calculate_shape},
-                        "dependencies": ["n1"],
-                        "capability_tag": "calculate",
-                        "candidate_capabilities": ["calculate", "reason"],
-                        "node_type": "calculation",
-                        "task_type": "calculation",
-                        "output_mode": "number",
-                        "answer_role": "intermediate",
-                        "constraint": ["required_keys:result", "non_empty_values"],
-                    },
-                    {
-                        "id": "final_response",
-                        "description": "Return final calculation answer.",
-                        "inputs": {"calculate_shape": calculate_shape},
-                        "dependencies": ["n2"],
-                        "capability_tag": "synthesize",
-                        "candidate_capabilities": ["synthesize", "calculate"],
-                        "node_type": "final_response",
-                        "task_type": "final_response",
-                        "output_mode": "text",
-                        "answer_role": "final",
-                        "constraint": ["required_keys:answer", "non_empty_values"],
-                    },
-                ]
-            }
-
-        if family == "extract":
-            extract_shape = _extract_extract_shape(query)
-            return {
-                "nodes": [
-                    {
-                        "id": "n1",
-                        "description": "Retrieve raw content for field extraction.",
-                        "inputs": {"query": query, "extract_shape": extract_shape},
-                        "dependencies": [],
-                        "capability_tag": "retrieve",
-                        "candidate_capabilities": ["retrieve", "extract"],
-                        "node_type": "tool_call",
-                        "task_type": "tool_call",
-                        "output_mode": "json",
-                        "answer_role": "intermediate",
-                        "constraint": ["required_keys:evidence", "non_empty_values"],
-                    },
-                    {
-                        "id": "n2",
-                        "description": "Extract structured fields from content.",
-                        "inputs": {"extract_shape": extract_shape},
-                        "dependencies": ["n1"],
-                        "capability_tag": "extract",
-                        "candidate_capabilities": ["extract", "reason"],
-                        "node_type": "extraction",
-                        "task_type": "extraction",
-                        "output_mode": "json",
-                        "answer_role": "intermediate",
-                        "constraint": ["required_keys:extracted", "non_empty_values"],
-                    },
-                    {
-                        "id": "final_response",
-                        "description": "Return extraction result as final answer.",
-                        "inputs": {"extract_shape": extract_shape},
-                        "dependencies": ["n2"],
-                        "capability_tag": "synthesize",
-                        "candidate_capabilities": ["synthesize", "extract"],
-                        "node_type": "final_response",
-                        "task_type": "final_response",
-                        "output_mode": "text",
-                        "answer_role": "final",
-                        "constraint": ["required_keys:answer", "non_empty_values"],
-                    },
-                ]
-            }
-
-        if family == "structured_generation":
-            return {
-                "nodes": [
-                    {
-                        "id": "n1",
-                        "description": "Retrieve facts needed for structured generation.",
-                        "inputs": {"query": query},
-                        "dependencies": [],
-                        "capability_tag": "retrieve",
-                        "candidate_capabilities": ["retrieve", "extract"],
-                        "node_type": "tool_call",
-                        "task_type": "tool_call",
-                        "output_mode": "json",
-                        "answer_role": "intermediate",
-                        "constraint": ["required_keys:evidence", "non_empty_values"],
-                    },
-                    {
-                        "id": "n2",
-                        "description": "Transform evidence into structured fields.",
-                        "dependencies": ["n1"],
-                        "capability_tag": "extract",
-                        "candidate_capabilities": ["extract", "reason"],
-                        "node_type": "extraction",
-                        "task_type": "extraction",
-                        "output_mode": "json",
-                        "answer_role": "intermediate",
-                        "constraint": ["required_keys:extracted", "non_empty_values"],
-                    },
-                    {
-                        "id": "final_response",
-                        "description": "Return final structured answer.",
-                        "dependencies": ["n2"],
-                        "capability_tag": "synthesize",
-                        "candidate_capabilities": ["synthesize", "extract"],
-                        "node_type": "final_response",
-                        "task_type": "final_response",
-                        "output_mode": "text",
-                        "answer_role": "final",
-                        "constraint": ["required_keys:answer", "non_empty_values"],
-                    },
-                ]
-            }
-
-        return {
-            "nodes": [
-                {
-                    "id": "n1",
-                    "description": "Retrieve evidence relevant to the question.",
-                    "inputs": {"query": query},
-                    "dependencies": [],
-                    "capability_tag": "retrieve",
-                    "candidate_capabilities": ["retrieve", "extract"],
-                    "node_type": "tool_call",
-                    "task_type": "tool_call",
-                    "output_mode": "json",
-                    "answer_role": "intermediate",
-                    "constraint": ["required_keys:evidence", "non_empty_values"],
-                },
-                {
-                    "id": "n2",
-                    "description": "Extract core answer facts from evidence.",
-                    "dependencies": ["n1"],
-                    "capability_tag": "extract",
-                    "candidate_capabilities": ["extract", "reason"],
-                    "node_type": "extraction",
-                    "task_type": "extraction",
-                    "output_mode": "json",
-                    "answer_role": "intermediate",
-                    "constraint": ["required_keys:ceo", "non_empty_values"],
-                },
-                {
-                    "id": "final_response",
-                    "description": "Generate final answer for the user.",
-                    "dependencies": ["n2"],
-                    "capability_tag": "synthesize",
-                    "candidate_capabilities": ["synthesize", "reason"],
-                    "node_type": "final_response",
-                    "task_type": "final_response",
-                    "output_mode": "text",
-                    "answer_role": "final",
-                    "constraint": ["required_keys:answer", "non_empty_values"],
-                },
-            ]
-        }
+        spec = self.infer_intent_spec(
+            user_query=context.user_query,
+            task_family=context.task_family or self.infer_task_family(context.user_query),
+        )
+        context.metadata["task_intent_spec"] = spec.to_dict()
+        return assemble_task_tree_blocks(spec=spec, query=context.user_query)
 
     def plan(self, context: PlanningContext) -> TaskTree:
         context.task_family = context.task_family or self.infer_task_family(context.user_query)
-        if context.task_family == "plan":
-            plan_focus = self.infer_plan_focus(context.user_query)
-            if plan_focus:
-                context.metadata["plan_focus"] = plan_focus
-            context.metadata["plan_shape"] = _extract_plan_shape(context.user_query)
-            context.metadata["item_label"] = _infer_item_label(
-                context.user_query,
-                str(context.metadata.get("plan_shape", "temporal_plan")),
-            )
-            context.metadata["item_count"] = _extract_plan_item_count(context.user_query) or 3
-        if context.task_family == "plan":
-            normalized = self.normalize_planner_output(self._default_plan(context))
-            tree = TaskTree.from_dict(normalized)
-            tree.metadata["task_family"] = context.task_family
-            if context.metadata.get("plan_focus"):
-                tree.metadata["plan_focus"] = context.metadata.get("plan_focus")
-            tree.metadata["plan_shape"] = context.metadata.get("plan_shape", "temporal_plan")
-            tree.metadata["item_label"] = context.metadata.get("item_label", "day")
-            tree.metadata["item_count"] = int(context.metadata.get("item_count", 3))
-            self.ensure_final_node(tree)
-            return self.attach_intent_specs(tree=tree, context=context)
+        intent_spec = self.infer_intent_spec(
+            user_query=context.user_query,
+            task_family=context.task_family,
+        )
+        context.metadata["task_intent_spec"] = intent_spec.to_dict()
+        context.metadata["plan_shape"] = intent_spec.shape or ""
+        context.metadata["item_label"] = intent_spec.item_label or ""
+        context.metadata["item_count"] = int(intent_spec.item_count or 1)
+        plan_focus = self.infer_plan_focus(context.user_query) if context.task_family == "plan" else ""
+        if plan_focus:
+            context.metadata["plan_focus"] = plan_focus
 
-        if self.llm_planner is None:
-            normalized = self.normalize_planner_output(self._default_plan(context))
-            tree = TaskTree.from_dict(normalized)
-            tree.metadata["task_family"] = context.task_family
-            if context.metadata.get("plan_focus"):
-                tree.metadata["plan_focus"] = context.metadata.get("plan_focus")
-            if context.task_family == "plan":
-                tree.metadata["plan_shape"] = context.metadata.get("plan_shape", "temporal_plan")
-                tree.metadata["item_label"] = context.metadata.get("item_label", "day")
-                tree.metadata["item_count"] = int(context.metadata.get("item_count", 3))
-            self.ensure_final_node(tree)
-            return self.attach_intent_specs(tree=tree, context=context)
+        # Use intent+block composition as the primary planner path across all task families.
+        normalized = self.normalize_planner_output(self._default_plan(context))
 
-        raw = self.llm_planner(self._build_prompt(context))
-        if isinstance(raw, str):
-            data = json.loads(raw)
-        elif isinstance(raw, dict):
-            data = raw
-        else:
-            raise TypeError("llm_planner must return a JSON string or dict.")
-        normalized = self.normalize_planner_output(data)
-        if context.task_family == "plan":
-            node_ids = [str(node.get("id", "")) for node in normalized.get("nodes", [])]
-            has_item_nodes = any(re.search(r"generate_(?:item|day)\d+", node_id.lower()) for node_id in node_ids)
-            if not has_item_nodes:
-                normalized = self.normalize_planner_output(self._default_plan(context))
         tree = TaskTree.from_dict(normalized)
         tree.metadata["task_family"] = context.task_family
+        tree.metadata["task_intent_spec"] = intent_spec.to_dict()
+        tree.metadata["plan_shape"] = context.metadata.get("plan_shape", "")
+        tree.metadata["item_label"] = context.metadata.get("item_label", "")
+        tree.metadata["item_count"] = int(context.metadata.get("item_count", 1))
         if context.metadata.get("plan_focus"):
             tree.metadata["plan_focus"] = context.metadata.get("plan_focus")
-        if context.task_family == "plan":
-            tree.metadata["plan_shape"] = context.metadata.get("plan_shape", "temporal_plan")
-            tree.metadata["item_label"] = context.metadata.get("item_label", "day")
-            tree.metadata["item_count"] = int(context.metadata.get("item_count", 3))
         self.ensure_final_node(tree)
         return self.attach_intent_specs(tree=tree, context=context)
 
@@ -1306,7 +1014,12 @@ class ConstraintAwarePlanner(BasePlanner):
             if node.spec.intent is None:
                 node.spec.intent = self.infer_intent_from_description(node=node)
             if not node.spec.intent_tags:
-                node.spec.intent_tags = [node.spec.capability_tag, node.spec.task_type]
+                node_role = self._resolve_node_role(node)
+                operator = str(node.metadata.get("operator", "")).strip().lower()
+                tags = [node.spec.capability_tag, node.spec.task_type, node_role]
+                if operator:
+                    tags.append(operator)
+                node.spec.intent_tags = [tag for tag in tags if tag]
         self.attach_auto_constraints(
             tree=tree,
             task_family=context.task_family or str(tree.metadata.get("task_family", "")),
@@ -1315,11 +1028,39 @@ class ConstraintAwarePlanner(BasePlanner):
         self.ensure_final_node(tree)
         return tree
 
+    def _resolve_node_role(self, node: TaskNode) -> str:
+        metadata_role = str(node.metadata.get("node_role", "")).strip().lower()
+        if metadata_role:
+            return metadata_role
+        node_id = node.id.lower()
+        if node_id == "analyze_requirements":
+            return "requirements_analysis"
+        if node_id == "design_plan_schema":
+            return "schema_design"
+        if node_id.startswith("generate_item") or node_id.startswith("generate_day"):
+            return "item_generation"
+        if node_id in {"verify_coverage", "verify_output"}:
+            return "coverage_verification"
+        if node.is_final_response():
+            return "final_response"
+        if node.spec.task_type in {"tool_call", "retrieval"}:
+            return "retrieval"
+        if node.spec.task_type == "extraction":
+            return "extraction"
+        if node.spec.task_type == "summarization":
+            return "summarization"
+        if node.spec.task_type == "comparison":
+            return "comparison"
+        if node.spec.task_type == "calculation":
+            return "calculation"
+        return "generic"
+
     def attach_auto_constraints(self, tree: TaskTree, task_family: str = "") -> None:
         plan_mode = task_family.strip().lower() == "plan"
         plan_item_count = int(tree.metadata.get("item_count", 3) or 3) if plan_mode else 0
         for node in tree.nodes.values():
             existing_types = {getattr(c, "constraint_type", "") for c in node.spec.constraints}
+            node_role = self._resolve_node_role(node)
 
             if node.is_final_response():
                 if "final_structure" not in existing_types:
@@ -1358,22 +1099,23 @@ class ConstraintAwarePlanner(BasePlanner):
                     )
                 )
 
-            if node.id == "verify_coverage":
-                if "coverage_constraint" not in existing_types:
+            if node_role == "coverage_verification":
+                is_plan_coverage_node = plan_mode or node.id == "verify_coverage"
+                if is_plan_coverage_node and "coverage_constraint" not in existing_types:
                     node.spec.constraints.append(CoverageConstraint())
-                if "all_items_present" not in existing_types:
+                if is_plan_coverage_node and "all_items_present" not in existing_types:
                     node.spec.constraints.append(AllItemsPresentConstraint(min_items=plan_item_count or 1))
-                if "plan_topic_coverage" not in existing_types:
+                if is_plan_coverage_node and "plan_topic_coverage" not in existing_types:
                     node.spec.constraints.append(PlanTopicCoverageConstraint())
-                if "no_generic_plan" not in existing_types:
+                if is_plan_coverage_node and "no_generic_plan" not in existing_types:
                     node.spec.constraints.append(NoGenericPlanConstraint())
                 if "no_template_placeholder" not in existing_types:
                     node.spec.constraints.append(NoTemplatePlaceholderConstraint())
 
-            if plan_mode and node.id in {"analyze_requirements", "design_plan_schema"}:
+            if plan_mode and node_role in {"requirements_analysis", "schema_design"}:
                 if "intent_alignment" not in existing_types:
                     node.spec.constraints.append(IntentAlignmentConstraint(target_goal=node.spec.description))
-                if node.id == "analyze_requirements" and "non_trivial_transform" not in existing_types:
+                if node_role == "requirements_analysis" and "non_trivial_transform" not in existing_types:
                     node.spec.constraints.append(
                         NonTrivialTransformationConstraint(
                             input_field="query",
@@ -1381,7 +1123,7 @@ class ConstraintAwarePlanner(BasePlanner):
                             similarity_threshold=0.9,
                         )
                     )
-                if node.id == "design_plan_schema":
+                if node_role == "schema_design":
                     if "schema_specificity" not in existing_types:
                         node.spec.constraints.append(SchemaSpecificityConstraint())
                     if "no_template_placeholder" not in existing_types:
@@ -1389,7 +1131,7 @@ class ConstraintAwarePlanner(BasePlanner):
                     if "no_generic_plan" not in existing_types:
                         node.spec.constraints.append(NoGenericPlanConstraint())
 
-            if plan_mode and (node.id.startswith("generate_item") or node.id.startswith("generate_day")):
+            if plan_mode and node_role == "item_generation":
                 if "intent_alignment" not in existing_types:
                     node.spec.constraints.append(IntentAlignmentConstraint(target_goal=node.spec.description))
                 if "no_template_placeholder" not in existing_types:
@@ -1500,6 +1242,7 @@ class ConstraintAwarePlanner(BasePlanner):
     def infer_intent_from_description(self, node: TaskNode) -> IntentSpec:
         text = node.spec.description.lower()
         task_type = node.spec.task_type
+        node_role = self._resolve_node_role(node)
         success_conditions: List[str] = []
         evidence_requirements: List[str] = []
         output_semantics: Dict[str, str] = {}
@@ -1526,11 +1269,14 @@ class ConstraintAwarePlanner(BasePlanner):
             output_semantics["result"] = "numeric calculation result"
         if task_type == "verification":
             success_conditions.extend(["coverage_verified"])
-            output_semantics["coverage_ok"] = "whether all item entries satisfy constraints"
-            output_semantics["missing_items"] = "list of missing item indexes"
-            output_semantics["missing_fields"] = "list of missing required fields"
-            output_semantics["semantic_gaps"] = "semantic quality gaps"
-            output_semantics["grounded_nodes"] = "nodes used for verification"
+            if node_role == "coverage_verification" and node.id == "verify_coverage":
+                output_semantics["coverage_ok"] = "whether all item entries satisfy constraints"
+                output_semantics["missing_items"] = "list of missing item indexes"
+                output_semantics["missing_fields"] = "list of missing required fields"
+                output_semantics["semantic_gaps"] = "semantic quality gaps"
+                output_semantics["grounded_nodes"] = "nodes used for verification"
+            else:
+                output_semantics["verified"] = "verification status flag"
         if task_type == "aggregation" and ("item" in text or "day" in text or "phase" in text or "step" in text):
             success_conditions.extend(["item_plan_generated"])
             output_semantics["item_index"] = "item index"
@@ -1599,48 +1345,56 @@ class ConstraintAwarePlanner(BasePlanner):
             if isinstance(reasons, list):
                 failure_type = " ".join(str(x).strip().lower() for x in reasons if str(x).strip())
 
-        task_family = (context.task_family or str(tree.metadata.get("task_family", ""))).strip().lower()
         topo_order = tree.topo_sort()
-        item_ids = [
-            node_id for node_id in topo_order
-            if node_id.startswith("generate_item") or node_id.startswith("generate_day")
-        ]
-        plan_tail_ids = [*item_ids, "verify_coverage", "final_response"]
-        plan_full_ids = ["analyze_requirements", "design_plan_schema", *plan_tail_ids]
-        plan_schema_ids = ["design_plan_schema", *plan_tail_ids]
+        role_map: Dict[str, str] = {
+            node_id: self._resolve_node_role(node)
+            for node_id, node in tree.nodes.items()
+        }
+        item_ids = [node_id for node_id, role in role_map.items() if role == "item_generation"]
+        coverage_ids = [node_id for node_id, role in role_map.items() if role == "coverage_verification"]
+        final_ids = [node_id for node_id, role in role_map.items() if role == "final_response"]
+        requirements_ids = [node_id for node_id, role in role_map.items() if role == "requirements_analysis"]
+        schema_ids = [node_id for node_id, role in role_map.items() if role == "schema_design"]
 
-        target_ids: List[str] = []
-        if task_family == "plan":
-            if failed_node_id == "analyze_requirements" or failure_type in {
-                "requirements_analysis_failed",
-                "topic_extraction_noisy",
-            }:
-                target_ids = plan_full_ids
-            elif failed_node_id == "design_plan_schema" or failure_type in {
-                "schema_design_failed",
-                "schema_semantics_weak",
-            }:
-                target_ids = plan_schema_ids
-            elif (
-                failed_node_id.startswith("generate_item")
-                or failed_node_id.startswith("generate_day")
-                or failed_node_id in {"verify_coverage", "final_response"}
-                or failure_type in {
-                    "generic_deliverable",
-                    "non_actionable_metric",
-                    "repo_binding_weak",
-                    "plan_topic_drift",
-                    "generic_plan_output",
-                    "low_information_output",
-                }
-            ):
-                target_ids = plan_tail_ids
+        failed_role = role_map.get(failed_node_id, "generic")
+        target_id_set: set[str] = set()
+        if failed_role == "requirements_analysis" or failure_type in {
+            "requirements_analysis_failed",
+            "topic_extraction_noisy",
+        }:
+            target_id_set.update(requirements_ids)
+            target_id_set.update(schema_ids)
+            target_id_set.update(item_ids)
+            target_id_set.update(coverage_ids)
+            target_id_set.update(final_ids)
+        elif failed_role == "schema_design" or failure_type in {
+            "schema_design_failed",
+            "schema_semantics_weak",
+        }:
+            target_id_set.update(schema_ids)
+            target_id_set.update(item_ids)
+            target_id_set.update(coverage_ids)
+            target_id_set.update(final_ids)
+        elif failed_role in {"item_generation", "coverage_verification", "final_response"} or failure_type in {
+            "generic_deliverable",
+            "non_actionable_metric",
+            "repo_binding_weak",
+            "plan_topic_drift",
+            "generic_plan_output",
+            "low_information_output",
+            "comparison_incomplete",
+            "calculation_invalid",
+            "coverage_incomplete",
+        }:
+            if item_ids:
+                target_id_set.update(item_ids)
+            target_id_set.update(coverage_ids)
+            target_id_set.update(final_ids)
 
-        if not target_ids:
-            subtree_ids = [failed_node_id, *tree.get_downstream_nodes(failed_node_id)]
-            target_ids = [node_id for node_id in topo_order if node_id in subtree_ids]
-        else:
-            target_ids = [node_id for node_id in topo_order if node_id in set(target_ids)]
+        if not target_id_set:
+            target_id_set.update([failed_node_id, *tree.get_downstream_nodes(failed_node_id)])
+
+        target_ids = [node_id for node_id in topo_order if node_id in target_id_set]
 
         replacements: List[TaskNode] = []
         for node_id in target_ids:

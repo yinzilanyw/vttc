@@ -46,6 +46,9 @@ class MetricsSummary:
     metric_measurability_rate: float = 0.0
     repo_binding_rate: float = 0.0
     plan_repair_trigger_rate: float = 0.0
+    progression_alignment_rate: float = 0.0
+    dag_patch_event_count: int = 0
+    dag_version_count: int = 1
 
 
 class MetricsCollector:
@@ -82,6 +85,23 @@ class MetricsCollector:
             return True
         tokens = ["%", "<=", ">=", "at least", "within", "pass rate", "accuracy", "latency", "count"]
         return any(token in lowered for token in tokens)
+
+    def _compute_progression_alignment(self, report: ExecutionReport) -> float:
+        if report.task_family != "plan":
+            return 1.0 if report.success else 0.0
+        verify_record = report.node_records.get("verify_coverage")
+        if verify_record is None or not isinstance(verify_record.output, dict):
+            return 1.0 if report.success else 0.0
+        output = verify_record.output
+        item_count = int(output.get("item_count", report.item_count or 1) or 1)
+        missing_items = output.get("missing_items", [])
+        missing_fields = output.get("missing_fields", [])
+        semantic_gaps = output.get("semantic_gaps", [])
+        missing_items_count = len(missing_items) if isinstance(missing_items, list) else 0
+        missing_fields_count = len(missing_fields) if isinstance(missing_fields, list) else 0
+        semantic_gap_count = len(semantic_gaps) if isinstance(semantic_gaps, list) else 0
+        penalty = (missing_items_count + 0.5 * missing_fields_count + 0.8 * semantic_gap_count) / max(item_count, 1)
+        return max(0.0, 1.0 - min(1.0, penalty))
 
     def summarize(self, report: ExecutionReport) -> MetricsSummary:
         total_nodes = max(len(report.node_records), 1)
@@ -264,6 +284,9 @@ class MetricsCollector:
             metric_measurability_rate=metric_measurability_rate,
             repo_binding_rate=repo_binding_rate,
             plan_repair_trigger_rate=(repair_trigger_rate if family == "plan" else 0.0),
+            progression_alignment_rate=self._compute_progression_alignment(report),
+            dag_patch_event_count=len(getattr(report, "graph_deltas", []) or []),
+            dag_version_count=int(getattr(report, "plan_versions", 1) or 1),
         )
 
     def collect_verification_quality(self, traces: List[Dict[str, Any]]) -> Dict[str, float]:

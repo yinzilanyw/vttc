@@ -110,6 +110,85 @@ class ConstraintAwareReplanner(BaseReplanner):
         self.planner = planner
         self.scorer = scorer or ReplanScorer()
 
+    def _node_role(self, node: TaskNode) -> str:
+        metadata_role = str(node.metadata.get("node_role", "")).strip().lower()
+        if metadata_role:
+            return metadata_role
+        node_id = node.id.lower()
+        if node_id == "analyze_requirements":
+            return "requirements_analysis"
+        if node_id == "design_plan_schema":
+            return "schema_design"
+        if node_id.startswith("generate_item") or node_id.startswith("generate_day"):
+            return "item_generation"
+        if node_id in {"verify_coverage", "verify_output"}:
+            return "coverage_verification"
+        if node.is_final_response():
+            return "final_response"
+        if node.spec.task_type in {"tool_call", "retrieval"}:
+            return "retrieval"
+        if node.spec.task_type == "extraction":
+            return "extraction"
+        if node.spec.task_type == "summarization":
+            return "summarization"
+        if node.spec.task_type == "comparison":
+            return "comparison"
+        if node.spec.task_type == "calculation":
+            return "calculation"
+        return "generic"
+
+    def failure_scope_inference(
+        self,
+        node: TaskNode,
+        tree: TaskTree,
+        failure_type: str,
+    ) -> List[str]:
+        topo_order = tree.topo_sort()
+        lowered = str(failure_type or "").strip().lower()
+        role = self._node_role(node)
+        role_ids: Dict[str, List[str]] = {}
+        for node_id, candidate in tree.nodes.items():
+            role_ids.setdefault(self._node_role(candidate), []).append(node_id)
+        target_ids: set[str] = set()
+
+        if role == "requirements_analysis" or lowered in {"requirements_analysis_failed", "topic_extraction_noisy"}:
+            for key in [
+                "requirements_analysis",
+                "schema_design",
+                "item_generation",
+                "coverage_verification",
+                "quality_verification",
+                "final_response",
+            ]:
+                target_ids.update(role_ids.get(key, []))
+        elif role == "schema_design" or lowered in {"schema_design_failed", "schema_semantics_weak"}:
+            for key in [
+                "schema_design",
+                "item_generation",
+                "coverage_verification",
+                "quality_verification",
+                "final_response",
+            ]:
+                target_ids.update(role_ids.get(key, []))
+        elif role in {"item_generation", "coverage_verification", "quality_verification", "final_response"} or lowered in {
+            "plan_topic_drift",
+            "generic_deliverable",
+            "non_actionable_metric",
+            "repo_binding_weak",
+            "generic_plan_output",
+            "low_information_output",
+            "coverage_incomplete",
+            "comparison_incomplete",
+            "calculation_invalid",
+            "semantic_gap",
+        }:
+            for key in ["item_generation", "coverage_verification", "quality_verification", "final_response"]:
+                target_ids.update(role_ids.get(key, []))
+
+        if not target_ids:
+            target_ids.update([node.id, *tree.get_downstream_nodes(node.id)])
+        return [node_id for node_id in topo_order if node_id in target_ids]
+
     def replan_for_missing_final_response(self, node: TaskNode) -> ReplanCandidate:
         return ReplanCandidate(
             action="patch_subgraph",
@@ -229,6 +308,12 @@ class ConstraintAwareReplanner(BaseReplanner):
         if failure_type in {"generic_plan_output"}:
             return build_decomposition_patch(node.id)
         if failure_type in {"low_information_output"}:
+            return build_decomposition_patch(node.id)
+        if failure_type in {"comparison_incomplete"}:
+            return build_compare_patch(node.id)
+        if failure_type in {"calculation_invalid"}:
+            return build_calculation_patch(node.id)
+        if failure_type in {"coverage_incomplete"}:
             return build_decomposition_patch(node.id)
         if failure_type in {"requirements_analysis_failed", "plan_coverage_incomplete", "final_placeholder_output"}:
             return build_decomposition_patch(node.id)
@@ -424,6 +509,30 @@ class ConstraintAwareReplanner(BaseReplanner):
                 target_node_id=node.id,
                 patch=build_decomposition_patch(node.id),
                 reason="low_information_output",
+                failure_type=failure.failure_type,
+            )
+        if failure_type in {"comparison_incomplete"}:
+            return ReplanDecision(
+                action="patch_subgraph",
+                target_node_id=node.id,
+                patch=build_compare_patch(node.id),
+                reason="comparison_incomplete",
+                failure_type=failure.failure_type,
+            )
+        if failure_type in {"calculation_invalid"}:
+            return ReplanDecision(
+                action="patch_subgraph",
+                target_node_id=node.id,
+                patch=build_calculation_patch(node.id),
+                reason="calculation_invalid",
+                failure_type=failure.failure_type,
+            )
+        if failure_type in {"coverage_incomplete"}:
+            return ReplanDecision(
+                action="replan_subtree",
+                target_node_id=node.id,
+                patch=build_decomposition_patch(node.id),
+                reason="coverage_incomplete",
                 failure_type=failure.failure_type,
             )
 
@@ -698,54 +807,20 @@ class ConstraintAwareReplanner(BaseReplanner):
         context: ExecutionContext,
         failure_type: str = "",
     ) -> None:
-        family = str(tree.metadata.get("task_family", "")).strip().lower()
-        if family == "plan":
-            lowered = (failure_type or "").strip().lower()
-            item_node_ids = [
-                node_id for node_id in tree.nodes.keys()
-                if node_id.startswith("generate_item") or node_id.startswith("generate_day")
-            ]
-            if node.id in {"analyze_requirements", "design_plan_schema"} or lowered in {
-                "requirements_analysis_failed",
-                "schema_design_failed",
-            }:
-                self._reset_plan_range(
-                    tree=tree,
-                    context=context,
-                    node_ids=[
-                        "analyze_requirements",
-                        "design_plan_schema",
-                        *item_node_ids,
-                        "verify_coverage",
-                        "final_response",
-                    ],
-                )
-                return
-            if (
-                node.id.startswith("generate_item")
-                or node.id.startswith("generate_day")
-                or node.id in {"verify_coverage", "final_response"}
-                or lowered in {
-                    "plan_topic_drift",
-                    "generic_deliverable",
-                    "non_actionable_metric",
-                    "repo_binding_weak",
-                    "generic_plan_output",
-                    "low_information_output",
-                    "final_topic_drift",
-                    "plan_coverage_incomplete",
-                }
-            ):
-                self._reset_plan_range(
-                    tree=tree,
-                    context=context,
-                    node_ids=[
-                        *item_node_ids,
-                        "verify_coverage",
-                        "final_response",
-                    ],
-                )
-                return
+        reset_targets = self.failure_scope_inference(
+            node=node,
+            tree=tree,
+            failure_type=failure_type,
+        )
+        if reset_targets:
+            self._reset_node_range(
+                tree=tree,
+                context=context,
+                node_ids=reset_targets,
+                failure_type=failure_type,
+            )
+            self._apply_feedback_loop(tree=tree, failure_type=failure_type)
+            return
 
         if self.planner is None:
             self._apply_patch_subgraph(target=node, tree=tree, context=context)
@@ -785,11 +860,12 @@ class ConstraintAwareReplanner(BaseReplanner):
         for nid in affected_before:
             context.node_outputs.pop(nid, None)
 
-    def _reset_plan_range(
+    def _reset_node_range(
         self,
         tree: TaskTree,
         context: ExecutionContext,
         node_ids: List[str],
+        failure_type: str = "",
     ) -> None:
         before_version = tree.version
         touched: List[str] = []
@@ -804,14 +880,37 @@ class ConstraintAwareReplanner(BaseReplanner):
         if touched:
             tree.version += 1
             tree.record_graph_delta(
-                action="plan_range_reset",
+                action="scope_range_reset",
                 payload={
                     "action": "subtree_replan",
+                    "failure_type": failure_type,
                     "affected_nodes": touched,
                     "before_version": before_version,
                     "after_version": tree.version,
                 },
             )
+
+    def _apply_feedback_loop(self, tree: TaskTree, failure_type: str) -> None:
+        intent_spec = tree.metadata.get("task_intent_spec", {})
+        if not isinstance(intent_spec, dict):
+            return
+        quality_targets = intent_spec.get("quality_targets", {})
+        if not isinstance(quality_targets, dict):
+            quality_targets = {}
+
+        lowered = str(failure_type or "").strip().lower()
+        if lowered in {"schema_design_failed", "schema_semantics_weak"}:
+            quality_targets["schema_specificity"] = True
+            quality_targets["progression_required"] = True
+        if lowered in {"plan_topic_drift", "final_topic_drift", "semantic_gap"}:
+            quality_targets["topic_alignment_strict"] = True
+        if lowered in {"low_information_output", "generic_plan_output"}:
+            quality_targets["anti_generic_output"] = True
+        if lowered in {"repo_binding_weak"}:
+            quality_targets["repo_binding_required"] = True
+
+        intent_spec["quality_targets"] = quality_targets
+        tree.metadata["task_intent_spec"] = intent_spec
 
     def apply_global_replan(
         self,
@@ -918,8 +1017,7 @@ class ConstraintAwareReplanner(BaseReplanner):
         context: ExecutionContext,
         failure_type: str = "",
     ) -> None:
-        family = str(tree.metadata.get("task_family", "")).strip().lower()
-        if family == "plan" and template_name in {"schema_patch", "metric_patch"}:
+        if template_name in {"schema_patch", "metric_patch"}:
             remap = failure_type.strip().lower()
             if not remap:
                 remap = "plan_topic_drift" if template_name == "schema_patch" else "non_actionable_metric"

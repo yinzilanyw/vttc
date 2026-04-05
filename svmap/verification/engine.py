@@ -35,6 +35,33 @@ class VerifierEngine:
             selected.append(verifier)
         return selected
 
+    def _node_role(self, node: TaskNode) -> str:
+        metadata_role = str(node.metadata.get("node_role", "")).strip().lower()
+        if metadata_role:
+            return metadata_role
+        node_id = node.id.lower()
+        if node_id == "analyze_requirements":
+            return "requirements_analysis"
+        if node_id == "design_plan_schema":
+            return "schema_design"
+        if node_id.startswith("generate_item") or node_id.startswith("generate_day"):
+            return "item_generation"
+        if node_id in {"verify_coverage", "verify_output"}:
+            return "coverage_verification"
+        if node.is_final_response():
+            return "final_response"
+        if node.spec.task_type in {"tool_call", "retrieval"}:
+            return "retrieval"
+        if node.spec.task_type == "extraction":
+            return "extraction"
+        if node.spec.task_type == "summarization":
+            return "summarization"
+        if node.spec.task_type == "comparison":
+            return "comparison"
+        if node.spec.task_type == "calculation":
+            return "calculation"
+        return "generic"
+
     def select_verifiers_for_node(
         self,
         node: TaskNode,
@@ -42,22 +69,29 @@ class VerifierEngine:
         scope: str = "node",
     ) -> List[BaseVerifier]:
         selected = self._select_verifiers(scope=scope, task_type=node.spec.task_type)
-        task_family = ""
-        tree = context.get("task_tree")
-        if isinstance(tree, TaskTree):
-            task_family = str(tree.metadata.get("task_family", "")).strip().lower()
-        if not task_family:
-            task_family = str(context.get("task_family", "")).strip().lower()
-        if task_family != "plan" or scope != "node":
+        if scope != "node":
             return selected
 
-        node_id = node.id.lower()
+        role = self._node_role(node)
         route_names: List[str] = []
-        if node_id == "analyze_requirements":
-            route_names = ["RequirementsAnalysisVerifier", "IntentVerifier", "SchemaVerifier", "RuleVerifier"]
-        elif node_id == "design_plan_schema":
-            route_names = ["PlanSchemaVerifier", "IntentVerifier", "SchemaVerifier", "RuleVerifier"]
-        elif node_id.startswith("generate_item") or node_id.startswith("generate_day"):
+        if role == "requirements_analysis":
+            route_names = [
+                "RequirementsAnalysisVerifier",
+                "LowInformationOutputVerifier",
+                "IntentVerifier",
+                "SchemaVerifier",
+                "RuleVerifier",
+            ]
+        elif role == "schema_design":
+            route_names = [
+                "PlanSchemaVerifier",
+                "LowInformationOutputVerifier",
+                "GenericOutputVerifier",
+                "IntentVerifier",
+                "SchemaVerifier",
+                "RuleVerifier",
+            ]
+        elif role == "item_generation":
             route_names = [
                 "NoPlaceholderVerifier",
                 "LowInformationOutputVerifier",
@@ -66,7 +100,7 @@ class VerifierEngine:
                 "SchemaVerifier",
                 "RuleVerifier",
             ]
-        elif node_id == "verify_coverage":
+        elif role == "coverage_verification":
             route_names = [
                 "PlanCoverageVerifier",
                 "RepoBindingVerifier",
@@ -76,7 +110,15 @@ class VerifierEngine:
                 "SchemaVerifier",
                 "RuleVerifier",
             ]
-        elif node.is_final_response():
+        elif role == "quality_verification":
+            route_names = [
+                "LowInformationOutputVerifier",
+                "GenericOutputVerifier",
+                "IntentVerifier",
+                "SchemaVerifier",
+                "RuleVerifier",
+            ]
+        elif role == "final_response":
             route_names = [
                 "FinalResponseVerifier",
                 "RepoBindingVerifier",
@@ -86,8 +128,20 @@ class VerifierEngine:
                 "SchemaVerifier",
                 "RuleVerifier",
             ]
+        elif role == "retrieval":
+            route_names = ["RetrievalVerifier", "SchemaVerifier", "RuleVerifier"]
+        elif role == "extraction":
+            route_names = ["ExtractionVerifier", "LowInformationOutputVerifier", "SchemaVerifier", "RuleVerifier"]
+        elif role == "summarization":
+            route_names = ["SummarizationVerifier", "LowInformationOutputVerifier", "SchemaVerifier", "RuleVerifier"]
+        elif role == "comparison":
+            route_names = ["ComparisonVerifier", "LowInformationOutputVerifier", "SchemaVerifier", "RuleVerifier"]
+        elif role == "calculation":
+            route_names = ["CalculationVerifier", "SchemaVerifier", "RuleVerifier"]
+
         if not route_names:
             return selected
+
         routed = [v for v in selected if v.__class__.__name__ in route_names]
         passthrough = [v for v in selected if v.__class__.__name__ in {"SemanticVerifier"}]
         merged = routed + [v for v in passthrough if v not in routed]
@@ -121,6 +175,8 @@ class VerifierEngine:
             return "plan_topic_drift"
         if "plan_coverage" in code:
             return "plan_coverage_incomplete"
+        if "coverage_missing_flag" in code or "coverage_not_ok" in code:
+            return "coverage_incomplete"
         if "requirements" in code:
             return "requirements_analysis_failed"
         if (
@@ -137,6 +193,14 @@ class VerifierEngine:
             return "intent_misalignment"
         if "echo_retrieval" in code:
             return "echo_retrieval"
+        if "comparison_items_missing" in code or "comparison_text_missing" in code:
+            return "comparison_incomplete"
+        if (
+            "calculation_result_not_numeric" in code
+            or "calculation_expression_invalid" in code
+            or "calculation_trace_missing" in code
+        ):
+            return "calculation_invalid"
         if "empty_extraction" in code:
             return "empty_extraction"
         if "schema" in code or "type" in code or "required" in code:
@@ -156,6 +220,9 @@ class VerifierEngine:
             "internal_execution_error",
             "requirements_analysis_failed",
             "schema_design_failed",
+            "calculation_invalid",
+            "comparison_incomplete",
+            "coverage_incomplete",
             "generic_deliverable",
             "non_actionable_metric",
             "repo_binding_weak",

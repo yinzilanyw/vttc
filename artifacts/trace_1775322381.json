@@ -1,0 +1,793 @@
+[
+  {
+    "event_type": "plan_generated",
+    "timestamp": 1775322295.6995811,
+    "payload": {
+      "node_count": 5,
+      "version": 1
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775322295.6995811,
+    "payload": {
+      "node_id": "analyze_requirements"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775322297.6027973,
+    "payload": {
+      "node_id": "analyze_requirements",
+      "status": "success",
+      "attempts": 1,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775322297.6027973,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775322301.5678616,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775322301.5678616,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "reason": "schema_design_failed_requires_rebuild",
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775322301.5678616,
+    "payload": {
+      "before_version": 1,
+      "after_version": 2,
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 3,
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775322301.5678616,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775322301.5678616,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v1->v2"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775322301.5678616,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775322306.9743395,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775322306.9743395,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "reason": "schema_design_failed_requires_rebuild",
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775322306.9743395,
+    "payload": {
+      "before_version": 2,
+      "after_version": 3,
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 3,
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775322306.9743395,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775322306.9743395,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v2->v3"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775322306.9743395,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775322317.2626815,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775322317.2626815,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "reason": "schema_design_failed_requires_rebuild",
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775322317.2626815,
+    "payload": {
+      "before_version": 3,
+      "after_version": 4,
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 3,
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775322317.2626815,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics.",
+        "semantic_check_failed:Missing 'item_template' key in output (required by 'required_keys' constraint).; Output contains 'topic_allocation' which is not part of the required keys and may indicate schema deviation.; The 'item_template' provided in constraints is not present in the output; instead, it appears as a description inside the output's 'item_template' value, suggesting misalignment.; Intent alignment issue: The progression and item_allocation mention 'multi-agent basics' but do not clearly cover all 'must_cover_topics' such as 'verifiable task trees', 'verification', and 'replanning'.; The 'no_generic_plan' constraint may be violated as the plan lacks specificity in linking deliverables to actual repository changes beyond generic statements.; The 'must_reference_repo_changes' quality criterion is asserted but no concrete reference to repo changes is evident in the output."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775322317.2626815,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics.",
+        "semantic_check_failed:Missing 'item_template' key in output (required by 'required_keys' constraint).; Output contains 'topic_allocation' which is not part of the required keys and may indicate schema deviation.; The 'item_template' provided in constraints is not present in the output; instead, it appears as a description inside the output's 'item_template' value, suggesting misalignment.; Intent alignment issue: The progression and item_allocation mention 'multi-agent basics' but do not clearly cover all 'must_cover_topics' such as 'verifiable task trees', 'verification', and 'replanning'.; The 'no_generic_plan' constraint may be violated as the plan lacks specificity in linking deliverables to actual repository changes beyond generic statements.; The 'must_reference_repo_changes' quality criterion is asserted but no concrete reference to repo changes is evident in the output."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v3->v4"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775322317.2626815,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775322320.191642,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775322320.191642,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "reason": "schema_design_failed_requires_rebuild",
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775322320.191642,
+    "payload": {
+      "before_version": 4,
+      "after_version": 5,
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 3,
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775322320.191642,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775322320.191642,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v4->v5"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775322320.191642,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775322329.4417772,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775322329.4417772,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "reason": "schema_design_failed_requires_rebuild",
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775322329.4417772,
+    "payload": {
+      "before_version": 5,
+      "after_version": 6,
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 3,
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775322329.4417772,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics.",
+        "semantic_check_failed:Missing required key: 'topic_allocation' is not in required_keys but appears in output; Schema specificity violation: 'topic_allocation' is present but not declared in required_keys; Intent alignment issue: Output does not explicitly ensure coverage of all 'must_cover_topics' from context (e.g., 'verification', 'replanning' not clearly addressed in progression or item_allocation); No generic plan constraint potentially violated: Plan lacks sufficient detail to confirm avoidance of generic structure given the breadth of must_cover_topics within a single day; Quality criteria 'must_reference_repo_changes' is asserted but no repo changes are specified in deliverable or metric"
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775322329.4417772,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics.",
+        "semantic_check_failed:Missing required key: 'topic_allocation' is not in required_keys but appears in output; Schema specificity violation: 'topic_allocation' is present but not declared in required_keys; Intent alignment issue: Output does not explicitly ensure coverage of all 'must_cover_topics' from context (e.g., 'verification', 'replanning' not clearly addressed in progression or item_allocation); No generic plan constraint potentially violated: Plan lacks sufficient detail to confirm avoidance of generic structure given the breadth of must_cover_topics within a single day; Quality criteria 'must_reference_repo_changes' is asserted but no repo changes are specified in deliverable or metric"
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v5->v6"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775322329.4417772,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775322346.109088,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775322346.109088,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "reason": "schema_design_failed_requires_rebuild",
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775322346.109088,
+    "payload": {
+      "before_version": 6,
+      "after_version": 7,
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 3,
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775322346.109088,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics.",
+        "semantic_check_failed:Missing required key: 'topic_allocation' is not in required_keys list but appears in output; Schema specificity issue: 'topic_allocation' is present but not declared in required_keys; Intent alignment issue: Output does not explicitly ensure coverage of all 'must_cover_topics' (e.g., 'replanning' is missing from progression or item_allocation); No explicit reference to repo changes in deliverable or metric as required by quality_criteria.must_reference_repo_changes"
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775322346.109088,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics.",
+        "semantic_check_failed:Missing required key: 'topic_allocation' is not in required_keys list but appears in output; Schema specificity issue: 'topic_allocation' is present but not declared in required_keys; Intent alignment issue: Output does not explicitly ensure coverage of all 'must_cover_topics' (e.g., 'replanning' is missing from progression or item_allocation); No explicit reference to repo changes in deliverable or metric as required by quality_criteria.must_reference_repo_changes"
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v6->v7"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775322346.109088,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775322355.8323934,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775322355.8323934,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "reason": "schema_design_failed_requires_rebuild",
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775322355.8323934,
+    "payload": {
+      "before_version": 7,
+      "after_version": 8,
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 3,
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775322355.8323934,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775322355.8323934,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v7->v8"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775322355.8323934,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775322363.2787788,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775322363.2798111,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "reason": "schema_design_failed_requires_rebuild",
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775322363.2798111,
+    "payload": {
+      "before_version": 8,
+      "after_version": 9,
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 3,
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775322363.2798111,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775322363.2798111,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v8->v9"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775322363.2798111,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775322372.5859966,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775322372.5869956,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "reason": "schema_design_failed_requires_rebuild",
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775322372.5869956,
+    "payload": {
+      "before_version": 9,
+      "after_version": 10,
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 3,
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775322372.5869956,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775322372.5869956,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v9->v10"
+    }
+  },
+  {
+    "event_type": "node_start",
+    "timestamp": 1775322372.5869956,
+    "payload": {
+      "node_id": "design_plan_schema"
+    }
+  },
+  {
+    "event_type": "node_end",
+    "timestamp": 1775322381.9421737,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "status": "failed",
+      "attempts": 3,
+      "agent": "reason_agent"
+    }
+  },
+  {
+    "event_type": "replan_decision",
+    "timestamp": 1775322381.9421737,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "reason": "schema_design_failed_requires_rebuild",
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "patch_template": "decomposition"
+    }
+  },
+  {
+    "event_type": "graph_delta_recorded",
+    "timestamp": 1775322381.9421737,
+    "payload": {
+      "before_version": 10,
+      "after_version": 11,
+      "node_id": "design_plan_schema",
+      "action": "replan_subtree",
+      "saved_downstream_nodes": 3,
+      "failure_type": "schema_design_failed",
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "patch_template": "decomposition",
+      "graph_delta_summary": "v10->v11"
+    }
+  },
+  {
+    "event_type": "constraint_violation",
+    "timestamp": 1775322381.9421737,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "violation_scope": [
+        "node"
+      ],
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v10->v11"
+    }
+  },
+  {
+    "event_type": "plan_quality_failure",
+    "timestamp": 1775322381.9421737,
+    "payload": {
+      "node_id": "design_plan_schema",
+      "failure_type": "schema_design_failed",
+      "reasons": [
+        "schema_topic_misalignment:Plan schema progression is weakly aligned with query topics."
+      ],
+      "repair_hint": "replan_subtree",
+      "replan_action": "replan_subtree",
+      "graph_delta_summary": "v10->v11"
+    }
+  }
+]

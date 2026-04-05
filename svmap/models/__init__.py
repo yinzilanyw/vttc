@@ -32,6 +32,7 @@ from .execution import (
     NodeFailure,
     RuntimeBudget,
 )
+from .task_intent import TaskIntentSpec
 from .task_node import ExecutionPolicy, FieldSpec, IntentSpec, NodeIO, NodeSpec, TaskNode
 from .task_tree import TaskTree
 
@@ -69,6 +70,7 @@ __all__ = [
     "SchemaSpecificityConstraint",
     "SpecificDeliverableConstraint",
     "RuntimeBudget",
+    "TaskIntentSpec",
     "SubtreeConstraint",
     "TaskNode",
     "TaskTree",

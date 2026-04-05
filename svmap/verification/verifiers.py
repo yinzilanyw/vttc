@@ -1087,7 +1087,8 @@ class RequirementsAnalysisVerifier(BaseVerifier):
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> List[ConstraintResult]:
-        if node.id != "analyze_requirements":
+        node_role = _normalize_text(str(node.metadata.get("node_role", "")))
+        if node.id != "analyze_requirements" and node_role != "requirements_analysis":
             return []
         results: List[ConstraintResult] = []
         topics = output.get("topics")
@@ -1348,7 +1349,8 @@ class PlanSchemaVerifier(BaseVerifier):
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> List[ConstraintResult]:
-        if node.id != "design_plan_schema":
+        node_role = _normalize_text(str(node.metadata.get("node_role", "")))
+        if node.id != "design_plan_schema" and node_role != "schema_design":
             return []
         results: List[ConstraintResult] = []
         item_template = output.get("item_template")
@@ -1574,7 +1576,8 @@ class PlanCoverageVerifier(BaseVerifier):
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> List[ConstraintResult]:
-        if node.id != "verify_coverage":
+        node_role = _normalize_text(str(node.metadata.get("node_role", "")))
+        if node.id != "verify_coverage" and node_role != "coverage_verification":
             return []
         results: List[ConstraintResult] = []
         coverage_ok = bool(output.get("coverage_ok", True))
@@ -1800,7 +1803,13 @@ class NoPlaceholderVerifier(BaseVerifier):
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> List[ConstraintResult]:
-        if not (node.id.startswith("generate_item") or node.id.startswith("generate_day") or node.id == "final_response"):
+        node_role = _normalize_text(str(node.metadata.get("node_role", "")))
+        if not (
+            node.id.startswith("generate_item")
+            or node.id.startswith("generate_day")
+            or node.id == "final_response"
+            or node_role in {"item_generation", "final_response"}
+        ):
             return []
         fields: List[str] = []
         for key in ["goal", "deliverable", "metric", "answer", "final_response"]:
@@ -1851,6 +1860,21 @@ class LowInformationOutputVerifier(BaseVerifier):
                     violation_scope="node",
                 )
             ]
+        if node.spec.task_type == "final_response":
+            dep_outputs = context.get("dependency_outputs", {})
+            has_compact_upstream = False
+            if isinstance(dep_outputs, dict):
+                for dep_output in dep_outputs.values():
+                    if not isinstance(dep_output, dict):
+                        continue
+                    if isinstance(dep_output.get("result"), (int, float)):
+                        has_compact_upstream = True
+                        break
+                    if dep_output.get("extracted") or dep_output.get("comparison") or dep_output.get("summary"):
+                        has_compact_upstream = True
+                        break
+            if has_compact_upstream:
+                return []
         if len(_normalize_text(merged)) < 48 and node.spec.task_type in {"aggregation", "summarization", "final_response"}:
             return [
                 ConstraintResult(
@@ -1907,7 +1931,8 @@ class RepoBindingVerifier(BaseVerifier):
         output: Dict[str, Any],
         context: Dict[str, Any],
     ) -> List[ConstraintResult]:
-        if node.id == "verify_coverage":
+        node_role = _normalize_text(str(node.metadata.get("node_role", "")))
+        if node.id == "verify_coverage" or node_role == "coverage_verification":
             score = output.get("repo_binding_score")
             if isinstance(score, (int, float)) and float(score) < 0.7:
                 return [

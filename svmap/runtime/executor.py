@@ -420,6 +420,8 @@ class ExecutionRuntime:
                     failure_type = "plan_topic_drift"
                 elif "plan_coverage" in code or "coverage_" in code:
                     failure_type = "plan_coverage_incomplete"
+                elif "coverage_missing_flag" in code or "coverage_not_ok" in code:
+                    failure_type = "coverage_incomplete"
                 elif "requirements_" in code:
                     failure_type = "requirements_analysis_failed"
                 elif (
@@ -444,6 +446,14 @@ class ExecutionRuntime:
                     failure_type = "final_query_echo"
                 elif "echo_retrieval" in code:
                     failure_type = "echo_retrieval"
+                elif "comparison_items_missing" in code or "comparison_text_missing" in code:
+                    failure_type = "comparison_incomplete"
+                elif (
+                    "calculation_result_not_numeric" in code
+                    or "calculation_expression_invalid" in code
+                    or "calculation_trace_missing" in code
+                ):
+                    failure_type = "calculation_invalid"
                 elif "empty_extraction" in code:
                     failure_type = "empty_extraction"
                 elif "ground" in code:
@@ -491,6 +501,18 @@ class ExecutionRuntime:
             return 0.0
         return float(sum(saved) / max(len(saved), 1))
 
+    def _collect_patch_tracking(self, tree: TaskTree) -> Dict[str, int]:
+        counts: Dict[str, int] = {}
+        for delta in tree.graph_deltas:
+            action = str(delta.get("action", "")).strip()
+            payload = delta.get("payload", {})
+            patch_template = ""
+            if isinstance(payload, dict):
+                patch_template = str(payload.get("patch_template", "")).strip()
+            key = patch_template or action or "unknown"
+            counts[key] = counts.get(key, 0) + 1
+        return counts
+
     def _build_report(
         self,
         *,
@@ -533,6 +555,9 @@ class ExecutionRuntime:
             error=error,
             stalled_node_ids=stalled_node_ids,
             failure_summary=failure_summary,
+            task_intent_spec=dict(tree.metadata.get("task_intent_spec", {}) or {}),
+            graph_deltas=list(tree.graph_deltas),
+            patch_tracking=self._collect_patch_tracking(tree),
         )
 
     def execute(self, tree: TaskTree, context: ExecutionContext) -> ExecutionReport:

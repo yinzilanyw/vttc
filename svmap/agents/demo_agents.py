@@ -67,13 +67,19 @@ def _ensure_required_fields(node: TaskNode, output: Dict[str, Any]) -> Dict[str,
 
 def _parse_simple_expression(text: str) -> Optional[str]:
     cleaned = text.replace(",", " ")
-    match = re.search(r"([0-9][0-9 +\-*/().]+)", cleaned)
-    if not match:
-        return None
-    expr = match.group(1).strip()
-    if re.fullmatch(r"[0-9+\-*/(). ]+", expr) is None:
-        return None
-    return expr
+    candidates = re.findall(r"[0-9+\-*/(). ]+", cleaned)
+    for candidate in candidates:
+        expr = candidate.strip()
+        if not expr:
+            continue
+        if not re.search(r"\d", expr):
+            continue
+        if not re.search(r"[+\-*/]", expr):
+            continue
+        if re.fullmatch(r"[0-9+\-*/(). ]+", expr) is None:
+            continue
+        return expr
+    return None
 
 
 def _extract_query_topics(query: str) -> List[str]:
