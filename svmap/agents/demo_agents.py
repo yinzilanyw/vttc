@@ -135,69 +135,28 @@ def _extract_query_topics(query: str) -> List[str]:
 def _extract_plan_item_count(query: str) -> Optional[int]:
     text = _safe_str(query).lower()
     patterns = [
-        # 天数相关
-        r"(\d+)\s*天",
-        r"(\d+)\s*days",
-        r"(\d+)\s*day",
-        # 任务相关
-        r"包含\s*(\d+)\s*个\s*关键\s*任务",
-        r"(\d+)\s*个\s*关键\s*任务",
-        r"(\d+)\s*个\s*任务",
-        # 模块相关
-        r"包含\s*(\d+)\s*个\s*模块",
-        r"(\d+)\s*个\s*模块",
-        # 阶段相关
-        r"(\d+)\s*个\s*阶段",
-        r"(\d+)\s*阶段",
-        r"(\d+)\s*phase",
-        # 步骤相关
-        r"(\d+)\s*个\s*步骤",
-        r"(\d+)\s*步骤",
-        r"(\d+)\s*step",
-        # 里程碑相关
-        r"(\d+)\s*个\s*里程碑",
-        r"(\d+)\s*里程碑",
-        r"(\d+)\s*milestone",
-        # 目标相关
-        r"(\d+)\s*个\s*目标",
-        r"(\d+)\s*目标",
-        r"(\d+)\s*goal",
+        r"\b(\d+)\s*[- ]?day\b",
+        r"\bday\s*(\d+)\b",
+        r"\b(\d+)\s*(?:days)\b",
+        r"\b(\d+)\s*天\b",
+        r"\b(\d+)\s*阶段\b",
+        r"\b(\d+)\s*[- ]?phase\b",
+        r"\b(\d+)\s*步骤\b",
+        r"\b(\d+)\s*[- ]?step\b",
+        r"\b(\d+)\s*里程碑\b",
+        r"\b(\d+)\s*[- ]?milestone\b",
     ]
-    max_count = None
     for pattern in patterns:
-        matches = re.findall(pattern, text)
-        for match in matches:
-            try:
-                value = int(match)
-                if value > 0:
-                    if max_count is None or value > max_count:
-                        max_count = value
-            except ValueError:
-                continue
-    # 特殊处理 Day 1-3 这样的模式
-    day_range_pattern = r"day\s*(\d+)\s*to\s*day\s*(\d+)" 
-    match = re.search(day_range_pattern, text)
-    if match:
+        m = re.search(pattern, text)
+        if not m:
+            continue
         try:
-            start = int(match.group(1))
-            end = int(match.group(2))
-            if end > start:
-                if max_count is None or end > max_count:
-                    max_count = end
+            value = int(m.group(1))
         except ValueError:
-            pass
-    # 处理 "3 天内" 这样的模式
-    within_pattern = r"(\d+)\s*天内"
-    match = re.search(within_pattern, text)
-    if match:
-        try:
-            value = int(match.group(1))
-            if value > 0:
-                if max_count is None or value > max_count:
-                    max_count = value
-        except ValueError:
-            pass
-    return max_count
+            continue
+        if value > 0:
+            return value
+    return None
 
 
 def _extract_plan_shape(query: str) -> str:
@@ -371,12 +330,6 @@ def _is_repo_bound_text(text: str) -> bool:
     return any(tok in lowered for tok in repo_ref_tokens)
 
 
-def _is_plan_query(query: str) -> bool:
-    """判断查询是否是计划任务"""
-    plan_tokens = ["计划", "规划", "设计", "安排", "schedule", "plan", "design", "arrange"]
-    return any(tok in _safe_str(query).lower() for tok in plan_tokens)
-
-
 def _parse_item_index(node_id: str) -> Optional[int]:
     m = re.search(r"generate_item(\d+)", node_id.lower())
     if not m:
@@ -537,55 +490,23 @@ class ExtractAgent(BaseAgent):
         )
         combined = f"{query} {_flatten_dependency_text(dependency_outputs)}"
 
-        # 从依赖输出中提取各种可能的信息
-        answer = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["answer", "summary", "evidence"]))
         founder = _safe_str(
             _find_value_from_dependency_outputs(dependency_outputs, ["founder", "person", "subject"])
         )
         company = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["company", "organization"]))
-        ceo = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["ceo", "president", "校长"]))
+        ceo = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["ceo", "answer"]))
 
-        # 尝试从依赖输出中提取更多类型的信息
-        location = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["location", "地址", "地点"]))
-        date = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["date", "时间", "日期"]))
-        number = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["number", "数量", "数值"]))
-        definition = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["definition", "定义", "含义"]))
+        if not founder:
+            m = re.search(r"founded by\s+([A-Za-z .'-]+)\??", combined, re.IGNORECASE)
+            founder = m.group(1).strip() if m else ""
 
         extracted: Dict[str, Any] = {}
-        
-        # 优先使用 answer 作为提取结果
-        if answer:
-            extracted["answer"] = answer
-        
-        # 添加其他可能的字段
         if founder:
             extracted["founder"] = founder
         if company:
             extracted["company"] = company
         if ceo:
             extracted["ceo"] = ceo
-            extracted["president"] = ceo
-            extracted["校长"] = ceo
-        if location:
-            extracted["location"] = location
-        if date:
-            extracted["date"] = date
-        if number:
-            extracted["number"] = number
-        if definition:
-            extracted["definition"] = definition
-
-        # 如果没有提取到任何信息，尝试从 summary 或 evidence 中提取
-        if not extracted:
-            summary = _safe_str(_find_value_from_dependency_outputs(dependency_outputs, ["summary", "evidence"]))
-            if summary:
-                # 直接使用 summary 作为答案
-                extracted["answer"] = summary
-
-        # 确保 extracted 不为空
-        if not extracted:
-            # 如果所有方法都失败，使用查询本身作为答案
-            extracted["answer"] = query
 
         output = {
             "extracted": extracted,
@@ -614,47 +535,17 @@ class SummarizeAgent(BaseAgent):
             or _safe_str(inputs.get("global_context", {}).get("summary_shape"))
             or "single_pass_summary"
         )
-        
-        # 从依赖输出中提取各种可能的文本内容
-        parts = []
         if dependency_outputs:
+            parts = []
             for dep_output in dependency_outputs.values():
                 if isinstance(dep_output, dict):
-                    # 尝试从多个字段中提取文本
-                    text_fields = ["summary", "evidence", "answer", "extracted", "content", "text"]
-                    for field in text_fields:
-                        if field in dep_output:
-                            value = dep_output[field]
-                            if isinstance(value, str) and value.strip():
-                                parts.append(value.strip())
-                            elif isinstance(value, dict):
-                                # 尝试从字典中提取文本
-                                for k, v in value.items():
-                                    if isinstance(v, str) and v.strip():
-                                        parts.append(f"{k}: {v.strip()}")
-                elif isinstance(dep_output, str):
-                    parts.append(dep_output.strip())
-        
-        # 如果没有从依赖输出中提取到文本，尝试从输入中获取
-        if not parts:
-            text_input = _safe_str(inputs.get("node_inputs", {}).get("text"))
-            if text_input:
-                parts.append(text_input)
-            else:
-                query = _safe_str(inputs.get("global_context", {}).get("query"))
-                if query:
-                    parts.append(query)
-        
-        # 生成总结
-        if parts:
-            # 对于多个部分，生成结构化总结
-            if len(parts) > 1:
-                summary = "\n".join([f"- {part}" for part in parts])
-            else:
-                summary = parts[0]
+                    piece = dep_output.get("summary") or dep_output.get("evidence") or str(dep_output)
+                    parts.append(str(piece))
+            summary = " | ".join(parts)
         else:
-            summary = "No content available."
-        
+            summary = _safe_str(inputs.get("node_inputs", {}).get("text"))
+        summary = summary.strip() or "No upstream content available."
+
         output = {
             "summary": summary[:2000],
             "coverage_keys": list(dependency_outputs.keys()),
@@ -681,73 +572,20 @@ class CompareAgent(BaseAgent):
             or _safe_str(inputs.get("global_context", {}).get("compare_shape"))
             or "pairwise_compare"
         )
-        
-        # 从依赖输出中提取比较项
         items = []
-        item_details = {}
-        
         for dep_id, dep_output in dependency_outputs.items():
             if isinstance(dep_output, dict):
-                # 尝试从多个字段中提取比较项
-                item_fields = ["company", "name", "item", "object", "subject", "entity"]
-                candidate = None
-                for field in item_fields:
-                    if field in dep_output and dep_output[field]:
-                        candidate = _safe_str(dep_output[field])
-                        break
-                if not candidate:
-                    candidate = dep_id
-                items.append(candidate)
-                # 提取项目详情
-                item_details[candidate] = {k: v for k, v in dep_output.items() if v}
+                candidate = dep_output.get("company") or dep_output.get("name") or dep_id
             else:
-                candidate = str(dep_output)
-                items.append(candidate)
+                candidate = dep_id
+            items.append(str(candidate))
 
-        # 如果没有从依赖输出中提取到比较项，尝试从输入中获取
         if not items:
             seed_items = inputs.get("node_inputs", {}).get("items")
             if isinstance(seed_items, list):
                 items = [str(x) for x in seed_items if str(x).strip()]
-            else:
-                # 尝试从查询中提取比较项
-                query = _safe_str(inputs.get("global_context", {}).get("query"))
-                if query:
-                    # 简单的模式匹配，提取可能的比较项
-                    # 例如："比较A和B" -> ["A", "B"]
-                    import re
-                    matches = re.findall(r"(?:比较|对比|vs|versus)\s*(.+?)\s*(?:和|与|vs|versus)\s*(.+?)(?:\s*$|\s*的|\s*比较)", query)
-                    if matches:
-                        for match in matches:
-                            items.extend([m.strip() for m in match if m.strip()])
 
-        # 生成比较结果
-        if items:
-            if len(items) == 2:
-                # 两个项目的比较
-                comparison = f"比较 {items[0]} 和 {items[1]}：\n"
-                # 尝试从详情中提取比较点
-                if items[0] in item_details and items[1] in item_details:
-                    details1 = item_details[items[0]]
-                    details2 = item_details[items[1]]
-                    common_keys = set(details1.keys()) & set(details2.keys())
-                    for key in common_keys:
-                        if key not in ["source", "shape"]:
-                            comparison += f"- {key}: {details1[key]} vs {details2[key]}\n"
-                else:
-                    comparison += f"- 项目1: {items[0]}\n- 项目2: {items[1]}"
-            else:
-                # 多个项目的比较
-                comparison = f"比较项目：{', '.join(items)}\n"
-                for i, item in enumerate(items, 1):
-                    comparison += f"- 项目{i}: {item}\n"
-                    if item in item_details:
-                        for key, value in item_details[item].items():
-                            if key not in ["source", "shape"] and isinstance(value, str):
-                                comparison += f"  * {key}: {value}\n"
-        else:
-            comparison = "没有找到可比较的项目"
-
+        comparison = f"Compared: {', '.join(items)}" if items else "Compared: none"
         output = {
             "compared_items": items,
             "comparison": comparison,
@@ -777,53 +615,19 @@ class CalculateAgent(BaseAgent):
             or _safe_str(inputs.get("global_context", {}).get("calculate_shape"))
             or "single_formula"
         )
-        
-        # 尝试从查询中提取表达式
         if not expression:
             expression = _parse_simple_expression(query) or ""
-            
-        # 如果没有找到表达式，尝试识别常见的计算问题
-        if not expression and query:
-            import re
-            # 识别加法："3加5等于多少"
-            add_match = re.search(r"(\d+)\s*(?:加|)\s*(\d+)", query)
-            if add_match:
-                a, b = int(add_match.group(1)), int(add_match.group(2))
-                expression = f"{a}+{b}"
-            # 识别减法："10减3等于多少"
-            sub_match = re.search(r"(\d+)\s*(?:减|-)\s*(\d+)", query)
-            if sub_match:
-                a, b = int(sub_match.group(1)), int(sub_match.group(2))
-                expression = f"{a}-{b}"
-            # 识别乘法："4乘6等于多少"
-            mul_match = re.search(r"(\d+)\s*(?:乘|\*)\s*(\d+)", query)
-            if mul_match:
-                a, b = int(mul_match.group(1)), int(mul_match.group(2))
-                expression = f"{a}*{b}"
-            # 识别除法："8除以2等于多少"
-            div_match = re.search(r"(\d+)\s*(?:除以|/)\s*(\d+)", query)
-            if div_match:
-                a, b = int(div_match.group(1)), int(div_match.group(2))
-                expression = f"{a}/{b}"
-        
         result: float | int = 0
         error = ""
         if expression:
             try:
-                # 安全的计算，只允许基本的数学运算
-                safe_globals = {"__builtins__": {}}
-                safe_locals = {}
-                result = eval(expression, safe_globals, safe_locals)  # noqa: S307
+                result = eval(expression, {"__builtins__": {}}, {})  # noqa: S307
             except Exception as exc:  # pragma: no cover
                 error = str(exc)
-        
-        # 生成计算 trace
-        calculation_trace = f"{expression}={result}" if expression else "no_expression"
-        
         output = {
             "expression": expression,
             "result": result,
-            "calculation_trace": calculation_trace,
+            "calculation_trace": f"{expression}={result}" if expression else "no_expression",
             "calculate_shape": calculate_shape,
             "source": "calculate_agent",
         }
@@ -912,15 +716,7 @@ class SynthesizeAgent(BaseAgent):
                 quality_criteria.get("deliverable_must_be_specific", False)
                 or quality_targets.get("deliverable_specificity", False)
             ) and not _is_specific_deliverable(deliverable):
-                # 为不同的天数生成具体的 deliverable
-                if item_idx == 1:
-                    deliverable = f"Day 1 (temporal_plan): update svmap/planning/planner.py and write artifacts/item1_requirements.md for {assigned_topic}. Include modified file paths in the daily artifact note."
-                elif item_idx == 2:
-                    deliverable = f"Day 2 (temporal_plan): implement runnable orchestration updates in svmap/pipeline.py and svmap/runtime/executor.py with artifacts/item2_trace.json for {assigned_topic}. Include modified file paths in the daily artifact note."
-                elif item_idx == 3:
-                    deliverable = f"Day 3 (temporal_plan): update svmap/models/task_node.py and svmap/models/task_tree.py and add DAG validator unit tests for {assigned_topic}. Include modified file paths in the daily artifact note."
-                else:
-                    deliverable = f"Create a code module and unit test bundle for {assigned_topic}."
+                deliverable = f"Create a code module and unit test bundle for {assigned_topic}."
             if deliverable_template.get("must_include_file_or_module", False) and not any(
                 tok in deliverable.lower() for tok in ["file", "module", "script", ".py"]
             ):
@@ -979,11 +775,8 @@ class SynthesizeAgent(BaseAgent):
                         if isinstance(nid, str) and nid not in used_nodes:
                             used_nodes.append(nid)
             item_objects = sorted(item_objects, key=lambda x: int(x.get("item_index", x.get("day", 0) or 0)))
-            # 检查是否是计划任务
-            is_plan_task = _is_plan_query(query)
-            
-            if is_plan_task and item_objects:
-                # 处理计划任务
+            if item_objects:
+                lines: List[str] = []
                 seen_nodes = set()
                 dedup_used_nodes: List[str] = []
                 for nid in used_nodes:
@@ -992,31 +785,13 @@ class SynthesizeAgent(BaseAgent):
                     seen_nodes.add(nid)
                     dedup_used_nodes.append(nid)
                 item_label_title = item_label.title()
-                
-                # 生成符合验证器预期格式的输出
-                lines: List[str] = []
-                
-                # 按天生成计划，使用验证器期望的格式
-                for i, item in enumerate(item_objects, 1):
+                for item in item_objects:
                     idx = item.get("item_index", item.get("day"))
-                    goal = _safe_str(item.get('goal'))
-                    deliverable = _safe_str(item.get('deliverable'))
-                    metric = _safe_str(item.get('metric'))
-                    lines.append(f"{item_label_title} {idx}: goal={goal}; deliverable={deliverable}; metric={metric}")
-                
-                # 添加端到端 case study 和 ablation 实验
-                lines.append("")
-                lines.append("## 端到端 Case Study")
-                lines.append("- 场景：完整的多智能体任务规划流程")
-                lines.append("- 步骤：需求分析 → 计划设计 → 任务执行 → 验证覆盖 → 最终输出")
-                lines.append("- 评估指标：结构正确性、语义贴合度、可验证性、重规划能力")
-                lines.append("")
-                lines.append("## Ablation 实验")
-                lines.append("- 变体1：完整系统（包含所有验证和修复机制）")
-                lines.append("- 变体2：无质量验证（仅结构验证）")
-                lines.append("- 变体3：无重规划机制（仅单次执行）")
-                lines.append("- 评估指标：计划质量、执行效率、错误修复能力")
-                
+                    lines.append(
+                        f"{item_label_title} {idx}: goal={_safe_str(item.get('goal'))}; "
+                        f"deliverable={_safe_str(item.get('deliverable'))}; "
+                        f"metric={_safe_str(item.get('metric'))}"
+                    )
                 answer = "\n".join(lines)
                 output = {
                     "answer": answer,
@@ -1026,48 +801,6 @@ class SynthesizeAgent(BaseAgent):
                     "item_count": len(item_objects),
                     "used_nodes": dedup_used_nodes or list(dependency_outputs.keys()),
                     "coverage_verification": coverage_verification,
-                }
-                return _ensure_required_fields(node=node, output=output)
-            else:
-                # 处理非计划任务（如问答任务）
-                seen_nodes = set()
-                dedup_used_nodes: List[str] = []
-                for nid in used_nodes:
-                    if nid in seen_nodes:
-                        continue
-                    seen_nodes.add(nid)
-                    dedup_used_nodes.append(nid)
-                
-                # 从依赖输出中提取答案
-                answer = ""
-                for dep_output in dependency_outputs.values():
-                    if isinstance(dep_output, dict):
-                        # 优先使用 answer 字段
-                        if "answer" in dep_output and dep_output["answer"]:
-                            answer = _safe_str(dep_output["answer"])
-                            break
-                        # 其次使用 extracted 中的 answer 字段
-                        elif "extracted" in dep_output and isinstance(dep_output["extracted"], dict):
-                            if "answer" in dep_output["extracted"] and dep_output["extracted"]["answer"]:
-                                answer = _safe_str(dep_output["extracted"]["answer"])
-                                break
-                        # 再次使用 summary 或 evidence 字段
-                        elif "summary" in dep_output and dep_output["summary"]:
-                            answer = _safe_str(dep_output["summary"])
-                            break
-                        elif "evidence" in dep_output and dep_output["evidence"]:
-                            answer = _safe_str(dep_output["evidence"])
-                            break
-                
-                # 如果没有提取到答案，使用查询本身
-                if not answer:
-                    answer = query
-                
-                output = {
-                    "answer": answer,
-                    "final_response": answer,
-                    "source": "synthesize_agent",
-                    "used_nodes": dedup_used_nodes or list(dependency_outputs.keys()),
                 }
                 return _ensure_required_fields(node=node, output=output)
 
@@ -1114,203 +847,66 @@ class ReasonAgent(BaseAgent):
         dependency_outputs = inputs.get("dependency_outputs", {})
 
         if node.id == "analyze_requirements":
-            # 让大模型分析查询并生成计划相关参数
-            prompt = f"""
-请分析以下用户查询，提取计划相关的结构化信息：
-
-用户查询：{query}
-
-请以 JSON 格式输出以下字段：
-1. primary_domain: 主要领域（如 "multi-agent systems", "general planning" 等）
-2. secondary_focus: 次要焦点（如 "verifiable task trees", "query-specific structure" 等）
-3. task_form: 任务形式（格式："数量-标签 形状"，如 "3-day temporal_plan"）
-4. plan_shape: 计划形状（如 "temporal_plan", "module_plan", "task_plan", "process_plan", "phase_plan", "goal_plan" 等）
-5. item_count: 计划项数量（整数，如 3 表示 3 天或 3 个模块等）
-6. item_label: 计划项标签（如 "day", "module", "task", "process", "phase", "goal" 等）
-7. topics: 主题列表（从查询中提取的关键主题）
-8. must_cover_topics: 必须覆盖的主题列表
-9. forbidden_topic_drift: 禁止的主题偏离列表
-10. constraints: 约束条件列表
-11. required_fields: 必需字段列表
-12. quality_targets: 质量目标（包含 deliverable_specificity, metric_measurability, repo_binding_required 等）
-
-注意：
-- 请准确识别计划的类型和数量
-- 如果查询中提到具体的天数、模块数、任务数等，请提取准确的数字
-- forbidden_topic_drift 请包含以下内容：
-  ["pure async/event-loop curriculum without task-tree verification", "generic runtime-only optimization track", "high-level generic software plan with no concrete artifacts"]
-- 确保输出的 JSON 格式正确，字段完整
-"""
-            
-            # 调用大模型生成分析结果
-            try:
-                # 使用实际的模型 API
-                if hasattr(self, 'client') and self.client:
-                    # 调用模型
-                    response = self.client.chat.completions.create(
-                        model="tongyi-xiaomi-analysis-pro",
-                        messages=[
-                            {"role": "system", "content": "你是一个专业的需求分析助手，擅长从用户查询中提取结构化的计划信息。"},
-                            {"role": "user", "content": prompt}
-                        ],
-                        temperature=0.3,
-                        response_format={"type": "json_object"}
-                    )
-                    
-                    # 提取模型输出
-                    import json
-                    model_output = response.choices[0].message.content
-                    output = json.loads(model_output)
-                else:
-                    # 如果没有模型客户端，使用基于关键词的分析
-                    query_lower = query.lower()
-                    # 分析计划类型
-                    if any(token in query_lower for token in ["天", "days", "day"]):
-                        plan_shape = "temporal_plan"
-                        item_label = "day"
-                    elif any(token in query_lower for token in ["模块", "module"]):
-                        plan_shape = "module_plan"
-                        item_label = "module"
-                    elif any(token in query_lower for token in ["任务", "task"]):
-                        plan_shape = "task_plan"
-                        item_label = "task"
-                    elif any(token in query_lower for token in ["流程", "process"]):
-                        plan_shape = "process_plan"
-                        item_label = "process"
-                    elif any(token in query_lower for token in ["阶段", "phase"]):
-                        plan_shape = "phase_plan"
-                        item_label = "phase"
-                    elif any(token in query_lower for token in ["目标", "goal"]):
-                        plan_shape = "goal_plan"
-                        item_label = "goal"
-                    else:
-                        plan_shape = "temporal_plan"
-                        item_label = "day"
-                    
-                    # 分析计划数量
-                    import re
-                    item_count = 3  # 默认值
-                    # 匹配数字
-                    number_patterns = [
-                        r"(\d+)\s*天",
-                        r"(\d+)\s*个\s*模块",
-                        r"(\d+)\s*个\s*任务",
-                        r"(\d+)\s*个\s*阶段",
-                        r"(\d+)\s*个\s*目标",
-                        r"day\s*1\s*to\s*day\s*(\d+)"
+            query_lower = query.lower()
+            plan_shape = _extract_plan_shape(query)
+            item_label = _infer_item_label(query, plan_shape)
+            item_count = _extract_plan_item_count(query) or 3
+            svmap_focus = any(
+                token in query_lower
+                for token in ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
+            )
+            must_cover_topics = []
+            if svmap_focus:
+                must_cover_topics.extend(
+                    [
+                        "multi-agent workflow",
+                        "verifiable task trees",
+                        "planning",
+                        "verification",
+                        "replanning",
                     ]
-                    for pattern in number_patterns:
-                        match = re.search(pattern, query_lower)
-                        if match:
-                            try:
-                                item_count = int(match.group(1))
-                                break
-                            except:
-                                pass
-                    
-                    # 构建输出
-                    svmap_focus = any(
-                        token in query_lower
-                        for token in ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
-                    )
-                    must_cover_topics = []
-                    if svmap_focus:
-                        must_cover_topics.extend(["multi-agent workflow", "verifiable task trees", "planning", "verification", "replanning"])
-                    for topic in topics:
-                        if topic not in must_cover_topics:
-                            must_cover_topics.append(topic)
-                    
-                    output = {
-                        "primary_domain": "multi-agent systems" if svmap_focus else (topics[0] if topics else "general planning"),
-                        "secondary_focus": "verifiable task trees" if svmap_focus else "query-specific structure",
-                        "task_form": f"{item_count}-{item_label} {plan_shape}",
-                        "topics": topics or ["general"],
-                        "must_cover_topics": must_cover_topics[:5],
-                        "forbidden_topic_drift": [
-                            "pure async/event-loop curriculum without task-tree verification",
-                            "generic runtime-only optimization track",
-                            "high-level generic software plan with no concrete artifacts"
-                        ],
-                        "constraints": [f"item_count={item_count}"],
-                        "required_fields": ["goal", "deliverable", "metric"],
-                        "plan_shape": plan_shape,
-                        "item_count": item_count,
-                        "item_label": item_label,
-                        "quality_targets": {
-                            "deliverable_specificity": True,
-                            "metric_measurability": True,
-                            "repo_binding_required": True
-                        }
-                    }
-                
-                # 确保必要字段存在
-                output.setdefault("source", "reason_agent")
-                if output.get("plan_shape") == "temporal_plan":
-                    output["duration_days"] = output.get("item_count", 3)
-                
-                return _ensure_required_fields(node=node, output=output)
-            except Exception as e:
-                # 出错时使用备用逻辑
-                query_lower = query.lower()
-                plan_shape = _extract_plan_shape(query)
-                item_label = _infer_item_label(query, plan_shape)
-                item_count = _extract_plan_item_count(query) or 3
-                svmap_focus = any(
-                    token in query_lower
-                    for token in ["multi-agent", "workflow", "verifiable", "task tree", "task trees"]
                 )
-                must_cover_topics = []
-                if svmap_focus:
-                    must_cover_topics.extend(
-                        [
-                            "multi-agent workflow",
-                            "verifiable task trees",
-                            "planning",
-                            "verification",
-                            "replanning",
-                        ]
-                    )
-                for topic in topics:
-                    if topic not in must_cover_topics:
-                        must_cover_topics.append(topic)
-                must_cover_topics = must_cover_topics[:5]
-                constraints = []
-                if item_count > 0:
-                    constraints.append(f"item_count={item_count}")
-                if "goal" in query.lower():
-                    constraints.append("include_goal_field")
-                if "deliverable" in query.lower():
-                    constraints.append("include_deliverable_field")
-                if "metric" in query.lower():
-                    constraints.append("include_metric_field")
-                primary_domain = "multi-agent systems" if svmap_focus else (topics[0] if topics else "general planning")
-                secondary_focus = "verifiable task trees" if svmap_focus else "query-specific structure"
-                output = {
-                    "primary_domain": primary_domain,
-                    "secondary_focus": secondary_focus,
-                    "task_form": f"{item_count}-{item_label} {plan_shape}",
-                    "topics": topics or ["general"],
-                    "must_cover_topics": must_cover_topics,
-                    "forbidden_topic_drift": [
-                        "pure async/event-loop curriculum without task-tree verification",
-                        "generic runtime-only optimization track",
-                        "high-level generic software plan with no concrete artifacts",
-                    ],
-                    "constraints": constraints or ["respond_to_user_query"],
-                    "required_fields": ["goal", "deliverable", "metric"],
-                    "plan_shape": plan_shape,
-                    "item_count": item_count,
-                    "item_label": item_label,
-                    "quality_targets": {
-                        "deliverable_specificity": True,
-                        "metric_measurability": True,
-                        "repo_binding_required": True,
-                    },
-                    "source": "reason_agent",
-                }
-                if plan_shape == "temporal_plan":
-                    output["duration_days"] = item_count
-                return _ensure_required_fields(node=node, output=output)
+            for topic in topics:
+                if topic not in must_cover_topics:
+                    must_cover_topics.append(topic)
+            must_cover_topics = must_cover_topics[:5]
+            constraints = []
+            if item_count > 0:
+                constraints.append(f"item_count={item_count}")
+            if "goal" in query.lower():
+                constraints.append("include_goal_field")
+            if "deliverable" in query.lower():
+                constraints.append("include_deliverable_field")
+            if "metric" in query.lower():
+                constraints.append("include_metric_field")
+            primary_domain = "multi-agent systems" if svmap_focus else (topics[0] if topics else "general planning")
+            secondary_focus = "verifiable task trees" if svmap_focus else "query-specific structure"
+            output = {
+                "primary_domain": primary_domain,
+                "secondary_focus": secondary_focus,
+                "task_form": f"{item_count}-{item_label} {plan_shape}",
+                "topics": topics or ["general"],
+                "must_cover_topics": must_cover_topics,
+                "forbidden_topic_drift": [
+                    "pure async/event-loop curriculum without task-tree verification",
+                    "generic runtime-only optimization track",
+                    "high-level generic software plan with no concrete artifacts",
+                ],
+                "constraints": constraints or ["respond_to_user_query"],
+                "required_fields": ["goal", "deliverable", "metric"],
+                "plan_shape": plan_shape,
+                "item_count": item_count,
+                "item_label": item_label,
+                "quality_targets": {
+                    "deliverable_specificity": True,
+                    "metric_measurability": True,
+                    "repo_binding_required": True,
+                },
+                "source": "reason_agent",
+            }
+            if plan_shape == "temporal_plan":
+                output["duration_days"] = item_count
+            return _ensure_required_fields(node=node, output=output)
 
         if node.id == "design_plan_schema":
             req = {}

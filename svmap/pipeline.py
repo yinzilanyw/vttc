@@ -547,10 +547,6 @@ def build_runtime(config: RunConfig) -> Dict[str, Any]:
 
 def _resolve_query_and_family(config: RunConfig, app_config: AppConfig) -> tuple[str, str]:
     query = (config.query or app_config.default_query or DEFAULT_QUERY).strip() or DEFAULT_QUERY
-    # 直接检查查询是否包含"计划"，如果包含，就返回"plan"类型
-    if "计划" in query:
-        return query, "plan"
-    # 否则使用原来的逻辑
     family = resolve_task_family(query=query, explicit_family=config.task_family, planner=ConstraintAwarePlanner(llm_planner=None))
     return query, family
 

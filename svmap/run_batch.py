@@ -43,11 +43,6 @@ def _env_optional_bool(name: str) -> Optional[bool]:
 
 
 def load_examples(dataset_path: str, limit: int = 100, task_family_override: str = "") -> List[Dict[str, str]]:
-    from svmap.planning import ConstraintAwarePlanner
-    
-    # 创建规划器实例用于任务类型推断
-    planner = ConstraintAwarePlanner(llm_planner=None)
-    
     examples: List[Dict[str, str]] = []
     with open(dataset_path, "r", encoding="utf-8-sig") as f:
         for idx, raw in enumerate(f, start=1):
@@ -58,18 +53,11 @@ def load_examples(dataset_path: str, limit: int = 100, task_family_override: str
             query = str(item.get("query", "")).strip()
             if not query:
                 continue
-            
-            # 确定任务类型
-            if task_family_override.strip():
-                # 如果指定了覆盖值，使用覆盖值
-                family = task_family_override.strip().lower()
-            elif item.get("task_family"):
-                # 如果数据集中指定了任务类型，使用指定值
-                family = str(item.get("task_family")).strip().lower()
-            else:
-                # 否则自动推断任务类型
-                family = planner.infer_task_family(query)
-            
+            family = (
+                task_family_override.strip().lower()
+                or str(item.get("task_family", "qa")).strip().lower()
+                or "qa"
+            )
             sample_id = str(item.get("id", f"sample_{idx:04d}")).strip() or f"sample_{idx:04d}"
             examples.append({"id": sample_id, "query": query, "task_family": family})
             if len(examples) >= limit:

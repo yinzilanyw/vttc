@@ -52,20 +52,10 @@ def _is_plan_query(query: str) -> bool:
 def _detect_plan_item_count(text: str) -> Optional[int]:
     normalized = _normalize_text(text)
     patterns = [
-        # 优先匹配天数
-        r"(\d+)\s*天",
-        r"(\d+)\s*days",
-        # 然后匹配其他类型
-        r"(\d+)\s*个\s*模块",
-        r"(\d+)\s*个\s*任务",
-        r"(\d+)\s*个\s*阶段",
-        r"(\d+)\s*个\s*步骤",
-        r"(\d+)\s*个\s*里程碑",
-        r"(\d+)\s*个\s*目标",
-        # 最后匹配 Day X
-        r"day\s*(\d+)\s*to\s*day\s*(\d+)",
         r"\b(\d+)\s*[- ]?day\b",
         r"\bday\s*(\d+)\b",
+        r"\b(\d+)\s*days\b",
+        r"\b(\d+)\s*天\b",
         r"\b(\d+)\s*[- ]?phase\b",
         r"\b(\d+)\s*阶段\b",
         r"\b(\d+)\s*[- ]?step\b",
@@ -73,31 +63,17 @@ def _detect_plan_item_count(text: str) -> Optional[int]:
         r"\b(\d+)\s*[- ]?milestone\b",
         r"\b(\d+)\s*里程碑\b",
     ]
-    max_count = None
     for pattern in patterns:
-        matches = re.findall(pattern, normalized)
-        for match in matches:
-            # 处理捕获组
-            if isinstance(match, tuple):
-                # 对于 day 1 to day 3 这样的模式
-                if len(match) == 2:
-                    try:
-                        start = int(match[0])
-                        end = int(match[1])
-                        if end > start:
-                            if max_count is None or end > max_count:
-                                max_count = end
-                    except ValueError:
-                        pass
-            else:
-                try:
-                    value = int(match)
-                    if value > 0:
-                        if max_count is None or value > max_count:
-                            max_count = value
-                except ValueError:
-                    continue
-    return max_count
+        match = re.search(pattern, normalized)
+        if not match:
+            continue
+        try:
+            value = int(match.group(1))
+        except ValueError:
+            continue
+        if value > 0:
+            return value
+    return None
 
 
 def _count_rendered_items(text: str, item_label: str) -> int:
@@ -601,8 +577,6 @@ class IntentVerifier(BaseVerifier):
             return "calculate"
         if "extract" in merged:
             return "extract"
-        if "qa" in merged or "question" in merged or "answer" in merged:
-            return "qa"
         return ""
 
     def verify(
@@ -658,8 +632,6 @@ class IntentVerifier(BaseVerifier):
         family = self._intent_family(node)
         query = _as_text(context.get("global_context", {}).get("query"))
         answer_text = _as_text(output.get("answer") or output.get("final_response") or output.get("summary"))
-        
-        # 根据任务类型应用不同的验证规则
         if family == "plan":
             enforce_plan_structure = node.is_final_response()
             if not enforce_plan_structure:
@@ -681,9 +653,7 @@ class IntentVerifier(BaseVerifier):
                 answer_text,
                 item_label=_as_text(output.get("item_label")) or "item",
             )
-            # 更灵活的计划结构验证
-            expected_item_count = _detect_plan_item_count(query) or 3
-            if rendered_items < max(2, expected_item_count // 2) and not isinstance(output.get("items"), list) and not isinstance(output.get("days"), list):
+            if rendered_items < 3 and not isinstance(output.get("items"), list) and not isinstance(output.get("days"), list):
                 node.mark_intent_violated("plan output missing item structure")
                 return [
                     ConstraintResult(
@@ -697,8 +667,7 @@ class IntentVerifier(BaseVerifier):
                 ]
         elif family == "summary":
             summary = _as_text(output.get("summary") or output.get("answer"))
-            # 更灵活的摘要长度验证
-            if len(summary) < 10:
+            if len(summary) < 16:
                 return [
                     ConstraintResult(
                         passed=False,
@@ -735,22 +704,17 @@ class IntentVerifier(BaseVerifier):
                         violation_scope="node",
                     )
                 ]
-            # 更灵活的计算结果验证
-            result = output.get("result")
-            if not isinstance(result, (int, float)):
-                # 尝试从字符串中提取数值
-                result_str = _as_text(result)
-                if not result_str:
-                    return [
-                        ConstraintResult(
-                            passed=False,
-                            code="intent_calculation_missing_result",
-                            message="Calculation task missing numeric result.",
-                            failure_type="intent_misalignment",
-                            repair_hint="replan_subtree",
-                            violation_scope="node",
-                        )
-                    ]
+            if not isinstance(output.get("result"), (int, float)):
+                return [
+                    ConstraintResult(
+                        passed=False,
+                        code="intent_calculation_missing_result",
+                        message="Calculation task missing numeric result.",
+                        failure_type="intent_misalignment",
+                        repair_hint="replan_subtree",
+                        violation_scope="node",
+                    )
+                ]
         elif family == "extract":
             extracted = output.get("extracted")
             if not isinstance(extracted, dict) or not any(v not in (None, "", [], {}) for v in extracted.values()):
@@ -759,20 +723,6 @@ class IntentVerifier(BaseVerifier):
                         passed=False,
                         code="intent_extract_empty",
                         message="Extract task produced empty extracted content.",
-                        failure_type="intent_misalignment",
-                        repair_hint="patch_subgraph",
-                        violation_scope="node",
-                    )
-                ]
-        elif family == "qa":
-            # 对问答任务的验证
-            answer = _as_text(output.get("answer") or output.get("final_response"))
-            if not answer or len(answer) < 2:
-                return [
-                    ConstraintResult(
-                        passed=False,
-                        code="intent_qa_missing_answer",
-                        message="QA task missing answer.",
                         failure_type="intent_misalignment",
                         repair_hint="patch_subgraph",
                         violation_scope="node",
@@ -1155,12 +1105,12 @@ class RequirementsAnalysisVerifier(BaseVerifier):
         forbidden_topic_drift = output.get("forbidden_topic_drift")
         quality_targets = output.get("quality_targets")
 
-        if not isinstance(topics, list) or len(topics) < 2:
+        if not isinstance(topics, list) or len(topics) < 3:
             results.append(
                 ConstraintResult(
                     passed=False,
                     code="requirements_topics_too_weak",
-                    message="Requirements analysis must extract at least 2 topics.",
+                    message="Requirements analysis must extract at least 3 topics.",
                     failure_type="requirements_analysis_failed",
                     repair_hint="replan_subtree",
                     violation_scope="node",
@@ -1177,24 +1127,12 @@ class RequirementsAnalysisVerifier(BaseVerifier):
                     violation_scope="node",
                 )
             )
-        # 更灵活的必填字段验证
-        if not isinstance(required_fields, list):
+        if not isinstance(required_fields, list) or not {"goal", "deliverable", "metric"}.issubset(set(required_fields)):
             results.append(
                 ConstraintResult(
                     passed=False,
                     code="requirements_required_fields_missing",
-                    message="required_fields must be a list.",
-                    failure_type="requirements_analysis_failed",
-                    repair_hint="replan_subtree",
-                    violation_scope="node",
-                )
-            )
-        elif not {"goal", "deliverable"}.issubset(set(required_fields)):
-            results.append(
-                ConstraintResult(
-                    passed=False,
-                    code="requirements_required_fields_missing",
-                    message="required_fields must include at least goal and deliverable.",
+                    message="required_fields must include goal/deliverable/metric.",
                     failure_type="requirements_analysis_failed",
                     repair_hint="replan_subtree",
                     violation_scope="node",
@@ -1441,8 +1379,7 @@ class PlanSchemaVerifier(BaseVerifier):
                 )
             )
         item_template_map = item_template if isinstance(item_template, dict) else {}
-        # 更灵活的模板字段验证
-        missing_fields = [x for x in ["goal", "deliverable"] if x not in item_template_map]
+        missing_fields = [x for x in ["goal", "deliverable", "metric"] if x not in item_template_map]
         if missing_fields:
             results.append(
                 ConstraintResult(
@@ -1548,13 +1485,12 @@ class PlanSchemaVerifier(BaseVerifier):
                         violation_scope="node",
                     )
                 )
-        # 更灵活的必填字段验证
-        if not isinstance(required_fields, list) or not {"goal", "deliverable"}.issubset(set(required_fields)):
+        if not isinstance(required_fields, list) or not {"goal", "deliverable", "metric"}.issubset(set(required_fields)):
             results.append(
                 ConstraintResult(
                     passed=False,
                     code="schema_required_fields_missing",
-                    message="Plan schema required_fields must include at least goal and deliverable.",
+                    message="Plan schema required_fields must include goal/deliverable/metric.",
                     failure_type="schema_design_failed",
                     repair_hint="build_schema_patch",
                     violation_scope="node",

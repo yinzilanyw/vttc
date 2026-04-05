@@ -369,26 +369,57 @@ class ExecutionRuntime:
         context: ExecutionContext,
     ) -> List[NodeExecutionRecord]:
         records: List[NodeExecutionRecord] = []
-        for node in ready_nodes:
-            self.ensure_node_assignment(node)
-            if self.trace_logger:
-                self.trace_logger.log_event("node_start", {"node_id": node.id})
-            node.status = "running"
-            if node.is_final_response():
-                record = self.execute_final_response_node(node=node, tree=tree, context=context)
-            else:
-                record = self.execute_node(node=node, tree=tree, context=context)
-            if self.trace_logger:
-                self.trace_logger.log_event(
-                    "node_end",
-                    {
-                        "node_id": node.id,
-                        "status": record.status,
-                        "attempts": record.attempts,
-                        "agent": record.agent_used,
-                    },
-                )
-            records.append(record)
+        
+        if self.parallel and len(ready_nodes) > 1:
+            import concurrent.futures
+            
+            def execute_node_wrapper(node):
+                self.ensure_node_assignment(node)
+                if self.trace_logger:
+                    self.trace_logger.log_event("node_start", {"node_id": node.id})
+                node.status = "running"
+                if node.is_final_response():
+                    record = self.execute_final_response_node(node=node, tree=tree, context=context)
+                else:
+                    record = self.execute_node(node=node, tree=tree, context=context)
+                if self.trace_logger:
+                    self.trace_logger.log_event(
+                        "node_end",
+                        {
+                            "node_id": node.id,
+                            "status": record.status,
+                            "attempts": record.attempts,
+                            "agent": record.agent_used,
+                        },
+                    )
+                return record
+            
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future_to_node = {executor.submit(execute_node_wrapper, node): node for node in ready_nodes}
+                for future in concurrent.futures.as_completed(future_to_node):
+                    record = future.result()
+                    records.append(record)
+        else:
+            for node in ready_nodes:
+                self.ensure_node_assignment(node)
+                if self.trace_logger:
+                    self.trace_logger.log_event("node_start", {"node_id": node.id})
+                node.status = "running"
+                if node.is_final_response():
+                    record = self.execute_final_response_node(node=node, tree=tree, context=context)
+                else:
+                    record = self.execute_node(node=node, tree=tree, context=context)
+                if self.trace_logger:
+                    self.trace_logger.log_event(
+                        "node_end",
+                        {
+                            "node_id": node.id,
+                            "status": record.status,
+                            "attempts": record.attempts,
+                            "agent": record.agent_used,
+                        },
+                    )
+                records.append(record)
         return records
 
     def infer_failure_type(self, verification_results: List[Any]) -> str:

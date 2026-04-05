@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -111,145 +112,50 @@ def _default_node_type(capability_tag: str) -> str:
 
 def _extract_plan_item_count(query: str) -> Optional[int]:
     text = str(query or "").lower()
-    
-    # 数字类型计划项提取
     patterns = [
-        r"包含\s*(\d+)\s*个\s*关键\s*任务",
-        r"包含\s*(\d+)\s*个\s*关键\s*模块",
-        r"包含\s*(\d+)\s*个\s*关键\s*阶段",
-        r"(\d+)\s*个\s*关键\s*任务",
-        r"(\d+)\s*个\s*关键\s*模块",
-        r"(\d+)\s*个\s*关键\s*阶段",
-        r"(\d+)\s*个\s*任务",
-        r"(\d+)\s*个\s*模块",
-        r"(\d+)\s*个\s*阶段",
-        r"(\d+)\s*个\s*步骤",
-        r"(\d+)\s*个\s*里程碑",
-        r"(\d+)\s*个\s*目标",
-        r"(\d+)\s*天",
-        r"(\d+)\s*days",
-        r"(\d+)\s*[- ]?day",
-        r"day\s*(\d+)",
-        r"(\d+)\s*[- ]?phase",
-        r"(\d+)\s*[- ]?step",
-        r"(\d+)\s*[- ]?milestone",
-        r"(\d+)\s*[- ]?module",
-        r"(\d+)\s*[- ]?task",
-        r"(\d+)\s*[- ]?goal",
+        r"\b(\d+)\s*[- ]?day\b",
+        r"\bday\s*(\d+)\b",
+        r"\b(\d+)\s*days\b",
+        r"\b(\d+)\s*天\b",
+        r"\b(\d+)\s*阶段\b",
+        r"\b(\d+)\s*[- ]?phase\b",
+        r"\b(\d+)\s*步骤\b",
+        r"\b(\d+)\s*[- ]?step\b",
+        r"\b(\d+)\s*里程碑\b",
+        r"\b(\d+)\s*[- ]?milestone\b",
     ]
-    max_count = None
     for pattern in patterns:
-        matches = re.findall(pattern, text)
-        for match in matches:
-            # 处理 re.findall 返回的捕获组
-            if isinstance(match, tuple):
-                for m in match:
-                    try:
-                        value = int(m)
-                        if value > 0:
-                            if max_count is None or value > max_count:
-                                max_count = value
-                    except ValueError:
-                        continue
-            else:
-                try:
-                    value = int(match)
-                    if value > 0:
-                        if max_count is None or value > max_count:
-                            max_count = value
-                except ValueError:
-                    continue
-    
-    # 非数字类型计划项处理
-    if max_count is None:
-        # 处理"多个"、"若干"等描述
-        multiple_keywords = ["多个", "若干", " several ", " multiple ", " many ", " some "]
-        if any(keyword in text for keyword in multiple_keywords):
-            return 3  # 默认返回3个
-        
-        # 处理"几个"、"几个"等描述
-        few_keywords = ["几个", "数个", " a few ", " a couple of "]
-        if any(keyword in text for keyword in few_keywords):
-            return 2  # 默认返回2个
-        
-        # 处理"单个"、"一个"等描述
-        single_keywords = ["单个", "一个", " a single ", " one "]
-        if any(keyword in text for keyword in single_keywords):
-            return 1  # 返回1个
-    
-    return max_count
+        m = re.search(pattern, text)
+        if not m:
+            continue
+        try:
+            value = int(m.group(1))
+        except ValueError:
+            continue
+        if value > 0:
+            return value
+    return None
 
 
 def _extract_plan_shape(query: str) -> str:
     text = str(query or "").lower()
-    # 时间相关优先（包含天数）
-    if any(token in text for token in ["天", "days", "day"]):
-        return "temporal_plan"
-    # 流程相关
-    if any(token in text for token in ["流程", "process", "workflow"]):
-        return "process_plan"
-    # 任务相关（优先于项目）
-    if any(token in text for token in ["任务", "task", "activity", "活动"]):
-        return "task_plan"
-    # 模块相关
-    if any(token in text for token in ["模块", "module", "组件", "component"]):
-        return "module_plan"
-    # 目标相关
-    if any(token in text for token in ["目标", "goal", "objective"]):
-        return "goal_plan"
-    # 阶段相关
-    if any(token in text for token in ["阶段", "phase", "stage"]):
+    if any(token in text for token in ["阶段", "phase"]):
         return "phase_plan"
-    # 步骤相关
     if any(token in text for token in ["步骤", "step"]):
         return "step_plan"
-    # 里程碑相关
     if any(token in text for token in ["里程碑", "milestone"]):
         return "milestone_plan"
-    # 项目相关（最后）
-    if any(token in text for token in ["项目", "project"]):
-        return "project_plan"
     return "temporal_plan"
 
 
 def _infer_item_label(query: str, plan_shape: str) -> str:
     text = str(query or "").lower()
-    shape_to_label = {
-        "phase_plan": "phase",
-        "step_plan": "step",
-        "milestone_plan": "milestone",
-        "module_plan": "module",
-        "task_plan": "task",
-        "goal_plan": "goal",
-        "stage_plan": "stage",
-        "process_plan": "process",
-        "project_plan": "project",
-        "temporal_plan": "day"
-    }
-    
-    # 优先从计划形状映射
-    if plan_shape in shape_to_label:
-        return shape_to_label[plan_shape]
-    
-    # 从查询文本中推断
-    if any(token in text for token in ["阶段", "phase"]):
+    if plan_shape == "phase_plan" or "阶段" in text or "phase" in text:
         return "phase"
-    if any(token in text for token in ["步骤", "step"]):
+    if plan_shape == "step_plan" or "步骤" in text or "step" in text:
         return "step"
-    if any(token in text for token in ["里程碑", "milestone"]):
+    if plan_shape == "milestone_plan" or "里程碑" in text or "milestone" in text:
         return "milestone"
-    if any(token in text for token in ["模块", "module"]):
-        return "module"
-    if any(token in text for token in ["任务", "task"]):
-        return "task"
-    if any(token in text for token in ["目标", "goal"]):
-        return "goal"
-    if any(token in text for token in ["阶段", "stage"]):
-        return "stage"
-    if any(token in text for token in ["流程", "process"]):
-        return "process"
-    if any(token in text for token in ["项目", "project"]):
-        return "project"
     return "day"
 
 
@@ -495,39 +401,15 @@ class BailianSemanticJudge:
                 },
             },
         )
-        try:
-            # 尝试解析 JSON 响应
-            response_text = _extract_chat_completion_text(response)
-            # 查找 JSON 的开始和结束位置
-            start_idx = response_text.find('{')
-            end_idx = response_text.rfind('}')
-            if start_idx != -1 and end_idx != -1:
-                json_text = response_text[start_idx:end_idx+1]
-                verdict = json.loads(json_text)
-                reasons = verdict.get("reasons", [])
-                reason = "; ".join(reasons) if isinstance(reasons, list) else str(reasons)
-                return {
-                    "passed": bool(verdict.get("passed", False)),
-                    "reason": reason,
-                    "confidence": float(verdict.get("confidence", 0.7)),
-                    "repair_hint": str(verdict.get("repair_hint", "")),
-                }
-            else:
-                # 如果找不到 JSON，返回默认值
-                return {
-                    "passed": True,
-                    "reason": "Could not parse JSON response",
-                    "confidence": 0.5,
-                    "repair_hint": "",
-                }
-        except json.JSONDecodeError:
-            # 如果 JSON 解析失败，返回默认值
-            return {
-                "passed": True,
-                "reason": "JSON decode error",
-                "confidence": 0.5,
-                "repair_hint": "",
-            }
+        verdict = json.loads(_extract_chat_completion_text(response))
+        reasons = verdict.get("reasons", [])
+        reason = "; ".join(reasons) if isinstance(reasons, list) else str(reasons)
+        return {
+            "passed": bool(verdict.get("passed", False)),
+            "reason": reason,
+            "confidence": float(verdict.get("confidence", 0.7)),
+            "repair_hint": str(verdict.get("repair_hint", "")),
+        }
 
 
 @dataclass
@@ -577,101 +459,49 @@ class ConstraintAwarePlanner(BasePlanner):
 
     def infer_task_family(self, user_query: str) -> str:
         text = user_query.lower().strip()
-        
-        # 计划任务特殊处理 - 优先识别
-        if "计划" in text:
+        if any(
+            k in text
+            for k in [
+                "learning plan",
+                "7-day",
+                "daily goals",
+                "deliverables",
+                "metric",
+                "roadmap",
+                "plan",
+            ]
+        ):
             return "plan"
-        
-        # 分析类任务
-        analysis_keywords = [
-            "analyze", "analysis", "分析", "评估", "review", "review",
-            "评估报告", "分析报告", "审查", "研究", "性能瓶颈"
-        ]
-        if any(k in text for k in analysis_keywords):
-            return "analysis"
-        
-        # 总结类
-        if any(k in text for k in ["summarize", "summary", "tl;dr", "概括", "总结", "综述"]):
-            return "summary"
-        
-        # 比较类
-        compare_keywords = ["compare", "difference", "vs", "versus", "对比", "比较", "对比分析"]
-        if any(k in text for k in compare_keywords):
-            return "compare"
-        
-        # 计算类
-        calculation_keywords = [
-            "calculate", "compute", "total", "sum", "multiply", "plus", 
-            "precision", "recall", "rate", "ratio", "比例", "计算", 
-            "减", "加", "乘", "除", "统计", "估算", "预算"
-        ]
-        if any(k in text for k in calculation_keywords):
-            return "calculate"
-        
-        # 提取类
-        if any(k in text for k in ["extract", "fields", "json", "结构化", "提取", "抽取"]):
-            return "extract"
-        
-        # 规划类任务 - 扩展支持更多类型
-        planning_keywords = [
-            "learning plan", "7-day", "daily goals", "deliverables", "metric", 
-            "roadmap", "plan", "规划", "安排", "部署", "实施", "执行", 
-            "development plan", "implementation plan", "action plan", "strategy",
-            "项目计划", "开发计划", "实施计划", "行动计划", "策略", "方案",
-            "上线计划", "季度目标", "业务流程计划", "推进计划", "制定计划",
-            "天研发推进计划", "研发推进计划"
-        ]
-        
-        # 设计类任务
-        design_keywords = ["design", "架构", "architecture", "系统设计", "架构设计", "界面设计", "设计"]
-        
-        # 优化类任务
-        optimization_keywords = ["optimize", "优化", "改进", "improve", "enhance", "性能优化", "效率提升", "改进方案"]
-        
-        # 检查关键词出现次数
-        plan_count = sum(1 for k in planning_keywords if k in text)
-        design_count = sum(1 for k in design_keywords if k in text)
-        optimization_count = sum(1 for k in optimization_keywords if k in text)
-        
-        # 特殊情况处理
-        # 学习计划
-        if "学习计划" in text:
-            return "plan"
-        # 对比分析
-        if "对比分析" in text:
-            return "compare"
-        # 提升效率的方案
-        if "提升效率" in text and "方案" in text:
-            return "optimization"
-        # 将这些数据结构化
-        if "结构化" in text:
-            return "extract"
-        
-        # 基于关键词频率和语义判断
-        if plan_count > design_count and plan_count > optimization_count:
-            # 明确的计划任务
-            return "plan"
-        elif design_count > plan_count and design_count > optimization_count:
-            # 明确的设计任务
-            return "design"
-        elif optimization_count > plan_count and optimization_count > design_count:
-            # 明确的优化任务
-            return "optimization"
-        elif plan_count > 0 and "设计" in text:
-            # 设计计划 -> 视为计划任务
-            return "plan"
-        elif plan_count > 0 and "优化" in text:
-            # 优化计划 -> 视为计划任务
-            return "plan"
-        elif design_count > 0:
-            return "design"
-        elif optimization_count > 0:
-            return "optimization"
-        
-        # 结构化生成
         if any(k in text for k in ["structured generation", "schema", "json schema", "format as json"]):
             return "structured_generation"
-        
+        if any(k in text for k in ["summarize", "summary", "tl;dr", "概括", "总结"]):
+            return "summary"
+        if any(k in text for k in ["compare", "difference", "vs", "versus", "对比", "比较"]):
+            return "compare"
+        if any(
+            k in text
+            for k in [
+                "calculate",
+                "compute",
+                "total",
+                "sum",
+                "multiply",
+                "plus",
+                "precision",
+                "recall",
+                "rate",
+                "ratio",
+                "比例",
+                "计算",
+                "减",
+                "加",
+                "乘",
+                "除",
+            ]
+        ):
+            return "calculate"
+        if any(k in text for k in ["extract", "fields", "json", "结构化", "提取"]):
+            return "extract"
         return "qa"
 
     def infer_plan_focus(self, user_query: str) -> str:
@@ -720,22 +550,13 @@ class ConstraintAwarePlanner(BasePlanner):
             shape = _extract_plan_shape(query)
             item_count = _extract_plan_item_count(query) or 3
             item_label = _infer_item_label(query, shape)
-            
-            # 根据计划复杂度动态调整 operators
-            operators = ["requirements_analysis", "schema_design"]
-            
-            # 根据计划类型添加相应的 operators
-            if shape in ["temporal_plan", "phase_plan", "stage_plan"]:
-                operators.extend(["generate_item", "verify_coverage"])
-            elif shape in ["module_plan", "task_plan"]:
-                operators.extend(["generate_item", "verify_coverage"])
-            elif shape in ["process_plan", "workflow_plan"]:
-                operators.extend(["generate_item", "verify_coverage"])
-            else:
-                operators.extend(["generate_item", "verify_coverage"])
-            
-            operators.append("finalize")
-            
+            operators = [
+                "requirements_analysis",
+                "schema_design",
+                "generate_item",
+                "verify_coverage",
+                "finalize",
+            ]
             structured_output = True
             decomposition_needed = True
             required_fields = ["goal", "deliverable", "metric"]
@@ -782,31 +603,6 @@ class ConstraintAwarePlanner(BasePlanner):
             required_fields = ["extracted"]
             structured_output = True
             quality_targets.update({"schema_compliance": True})
-        elif family == "analysis":
-            primary = "analysis"
-            shape = "analysis"
-            item_count = 1
-            item_label = "analysis"
-            operators = ["retrieve", "generate_item", "verify_coverage", "finalize"]
-            required_fields = ["analysis", "insights", "recommendations"]
-            quality_targets.update({"depth_required": True, "insights_required": True})
-        elif family == "design":
-            primary = "design"
-            shape = "design"
-            item_count = 1
-            item_label = "design"
-            operators = ["generate_item", "verify_coverage", "finalize"]
-            required_fields = ["design", "architecture", "components"]
-            structured_output = True
-            quality_targets.update({"structure_required": True, "feasibility_required": True})
-        elif family == "optimization":
-            primary = "optimization"
-            shape = "optimization"
-            item_count = 1
-            item_label = "optimization"
-            operators = ["retrieve", "generate_item", "verify_coverage", "finalize"]
-            required_fields = ["current_state", "optimization_plan", "expected_improvements"]
-            quality_targets.update({"measurable_improvement": True, "feasibility_required": True})
         else:
             primary = "qa"
             shape = "single_turn_qa"
